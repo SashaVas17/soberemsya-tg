@@ -8,9 +8,19 @@ type AppUser = { id: string; telegram_user_id: string; username: string | null; 
 type AuthContext = { user: AppUser; startParam: string | null };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-const serviceKey = Deno.env.get("TELEGRAM_DB_SECRET_KEY") ?? "";
+const serviceKey = (Deno.env.get("TELEGRAM_DB_SECRET_KEY") ?? "").trim();
 const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
-const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+// New-format secret keys must reach the REST API only in the apikey header.
+const adminFetch: typeof fetch = (input, init) => {
+  const headers = new Headers(init?.headers);
+  headers.set("apikey", serviceKey);
+  headers.delete("Authorization");
+  return fetch(input, { ...init, headers });
+};
+const db = createClient(supabaseUrl, serviceKey, {
+  auth: { persistSession: false, autoRefreshToken: false },
+  global: { fetch: adminFetch },
+});
 
 function id(prefix: string) { return `${prefix}_${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`; }
 
@@ -33,12 +43,14 @@ async function authenticate(request: Request, bodyInitData?: string): Promise<Au
 }
 
 async function health() {
+  const databaseSecretPresent = Boolean(serviceKey);
+  const databaseSecretLooksValid = serviceKey.startsWith("sb_secret_");
   if (!botToken || !serviceKey || !supabaseUrl)
-    return json({ status: "error", telegramConfigured: Boolean(botToken), databaseConfigured: Boolean(serviceKey && supabaseUrl) }, 503);
+    return json({ status: "error", telegramConfigured: Boolean(botToken), databaseConfigured: Boolean(serviceKey && supabaseUrl), databaseSecretPresent, databaseSecretLooksValid }, 503);
   const { error } = await db.from("users").select("id").limit(1);
   return error
-    ? json({ status: "error", telegramConfigured: true, databaseConfigured: false, databaseCode: error.code }, 503)
-    : json({ status: "ok", telegramConfigured: true, databaseConfigured: true });
+    ? json({ status: "error", telegramConfigured: true, databaseConfigured: false, databaseSecretPresent, databaseSecretLooksValid, databaseCode: error.code }, 503)
+    : json({ status: "ok", telegramConfigured: true, databaseConfigured: true, databaseSecretPresent, databaseSecretLooksValid });
 }
 
 async function eventPayload(eventId: string, userId: string) {
