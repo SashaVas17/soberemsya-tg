@@ -48,7 +48,7 @@ Server functions находятся в `supabase/functions/telegram-api` и `sup
 Задайте секреты только через защищённые поля Supabase Dashboard:
 
 1. Откройте `Project Settings` -> `Edge Functions` -> `Secrets`.
-2. Добавьте `TELEGRAM_BOT_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`,
+2. Добавьте `TELEGRAM_BOT_TOKEN`, `SUPABASE_SECRET_KEY`,
    `TELEGRAM_MINI_APP_URL` и `TELEGRAM_WEBHOOK_SECRET`.
 3. Вводите значения самостоятельно и не вставляйте их в команды, чат,
    issue, логи или файлы проекта.

@@ -3,8 +3,8 @@ type MainButton = { setText(text: string): void; show(): void; hide(): void; ena
 type TelegramWebApp = {
   initData: string;
   colorScheme: "light" | "dark";
-  ready(): void;
-  expand(): void;
+  ready?: () => void;
+  expand?: () => void;
   close(): void;
   openTelegramLink(url: string): void;
   BackButton: BackButton;
@@ -18,8 +18,12 @@ export function telegram() { return window.Telegram?.WebApp ?? null; }
 
 export function initializeTelegram() {
   const app = telegram();
-  app?.ready();
-  app?.expand();
+  try {
+    app?.ready?.();
+    app?.expand?.();
+  } catch (error) {
+    console.warn("Telegram WebApp initialization failed", error);
+  }
   document.documentElement.dataset.telegramTheme = app?.colorScheme ?? "light";
   return app;
 }

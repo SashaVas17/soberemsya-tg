@@ -8,7 +8,7 @@ type AppUser = { id: string; telegram_user_id: string; username: string | null; 
 type AuthContext = { user: AppUser; startParam: string | null };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SECRET_KEY") ?? "";
+const serviceKey = Deno.env.get("SUPABASE_SECRET_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
@@ -16,11 +16,29 @@ function id(prefix: string) { return `${prefix}_${crypto.randomUUID().replaceAll
 
 async function authenticate(request: Request, bodyInitData?: string): Promise<AuthContext> {
   const raw = bodyInitData ?? request.headers.get("x-telegram-init-data") ?? "";
-  const validated = await validateTelegramInitData(raw, botToken, { maxAgeSeconds: 3600 });
+  let validated;
+  try {
+    validated = await validateTelegramInitData(raw, botToken, { maxAgeSeconds: 3600 });
+  } catch (error) {
+    console.error("telegram_auth_validation_failed", error instanceof Error ? error.message : "unknown");
+    throw Object.assign(new Error("Не удалось подтвердить данные Telegram. Откройте Mini App заново."), { status: 401 });
+  }
   const profile = validated.user;
   const { data, error } = await db.from("users").upsert({ telegram_user_id: String(profile.id), username: profile.username ?? null, first_name: profile.first_name, last_name: profile.last_name ?? null, language_code: profile.language_code ?? null, photo_url: profile.photo_url ?? null, updated_at: new Date().toISOString() }, { onConflict: "telegram_user_id" }).select("id,telegram_user_id,username,first_name,last_name,photo_url").single<AppUser>();
-  if (error) throw error;
+  if (error) {
+    console.error("telegram_user_upsert_failed", error.code);
+    throw Object.assign(new Error("Не удалось сохранить пользователя Telegram."), { status: 503 });
+  }
   return { user: data, startParam: validated.startParam };
+}
+
+async function health() {
+  if (!botToken || !serviceKey || !supabaseUrl)
+    return json({ status: "error", telegramConfigured: Boolean(botToken), databaseConfigured: Boolean(serviceKey && supabaseUrl) }, 503);
+  const { error } = await db.from("users").select("id").limit(1);
+  return error
+    ? json({ status: "error", telegramConfigured: true, databaseConfigured: false, databaseCode: error.code }, 503)
+    : json({ status: "ok", telegramConfigured: true, databaseConfigured: true });
 }
 
 async function eventPayload(eventId: string, userId: string) {
@@ -108,6 +126,7 @@ Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
     const url = new URL(request.url); const segments = url.pathname.split("/").filter(Boolean); const functionIndex = segments.lastIndexOf("telegram-api"); const path = `/${segments.slice(functionIndex + 1).join("/")}`;
+    if (path === "/health" && request.method === "GET") return await health();
     if (path === "/telegram/auth" && request.method === "POST") { const body = await request.json(); const auth = await authenticate(request, String(body.initData ?? "")); parseEventStartParam(auth.startParam); return json({ user: { id: auth.user.id, telegramUserId: auth.user.telegram_user_id, username: auth.user.username, firstName: auth.user.first_name, lastName: auth.user.last_name, photoUrl: auth.user.photo_url }, startParam: auth.startParam }); }
     const auth = await authenticate(request);
     if (path === "/events" && request.method === "POST") return await createEvent(request, auth);
