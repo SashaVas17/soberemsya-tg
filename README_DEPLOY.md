@@ -24,7 +24,7 @@ npm run build
 4. Build output directory: `dist`.
 5. Node version: `22`.
 6. Добавьте публичные переменные `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_TELEGRAM_BOT_USERNAME`, `VITE_TELEGRAM_APP_SHORT_NAME`.
-7. Не добавляйте `TELEGRAM_BOT_TOKEN` и `SUPABASE_SERVICE_ROLE_KEY` в Cloudflare Pages frontend variables.
+7. Не добавляйте `TELEGRAM_BOT_TOKEN` и `TELEGRAM_DB_SECRET_KEY` в Cloudflare Pages frontend variables.
 
 `public/_redirects` обеспечивает SPA fallback для внутренних экранов.
 
@@ -48,7 +48,7 @@ Server functions находятся в `supabase/functions/telegram-api` и `sup
 Задайте секреты только через защищённые поля Supabase Dashboard:
 
 1. Откройте `Project Settings` -> `Edge Functions` -> `Secrets`.
-2. Добавьте `TELEGRAM_BOT_TOKEN`, `SUPABASE_SECRET_KEY`,
+2. Добавьте `TELEGRAM_BOT_TOKEN`, `TELEGRAM_DB_SECRET_KEY`,
    `TELEGRAM_MINI_APP_URL` и `TELEGRAM_WEBHOOK_SECRET`.
 3. Вводите значения самостоятельно и не вставляйте их в команды, чат,
    issue, логи или файлы проекта.
