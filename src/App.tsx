@@ -1,0 +1,1514 @@
+import { useCallback, useEffect, useState } from "react";
+import {
+  CalendarPlus,
+  Check,
+  ChevronRight,
+  Clock3,
+  MapPin,
+  Plus,
+  RefreshCw,
+  Send,
+  Trash2,
+  Users,
+} from "lucide-react";
+import { api } from "./api";
+import { areaLeaders, bestSlot, formatSlot, plural } from "./domain";
+import {
+  haptic,
+  initializeTelegram,
+  openTelegramUrl,
+  telegram,
+} from "./telegram";
+import type {
+  AuthResult,
+  EventData,
+  EventStatus,
+  MeetingListItem,
+} from "./types";
+
+type Navigate = (path: string, replace?: boolean) => void;
+type PlaceDraft = { title: string; area: string; estimatedBudget: number };
+
+const statusLabels: Record<EventStatus, string> = {
+  collecting: "Сбор ответов",
+  place_selection: "Выбор места",
+  decided: "Решение принято",
+  cancelled: "Встреча отменена",
+};
+
+function usePath() {
+  const [path, setPath] = useState(() => window.location.pathname);
+  useEffect(() => {
+    const onPop = () => setPath(window.location.pathname);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  const navigate = useCallback<Navigate>((next, replace = false) => {
+    window.history[replace ? "replaceState" : "pushState"]({}, "", next);
+    setPath(next);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+  return { path, navigate };
+}
+
+function useTelegramBack(path: string, navigate: Navigate) {
+  useEffect(() => {
+    const button = telegram()?.BackButton;
+    if (!button) return;
+    const back = () => navigate("/");
+    if (path === "/") button.hide();
+    else {
+      button.show();
+      button.onClick(back);
+    }
+    return () => button.offClick(back);
+  }, [path, navigate]);
+}
+
+function useMainButton(
+  label: string,
+  enabled: boolean,
+  action: () => void,
+  visible = true,
+) {
+  useEffect(() => {
+    const button = telegram()?.MainButton;
+    if (!button || !visible) return;
+    button.setText(label);
+    if (enabled) button.enable();
+    else button.disable();
+    button.show();
+    button.onClick(action);
+    return () => {
+      button.offClick(action);
+      button.hide();
+    };
+  }, [action, enabled, label, visible]);
+}
+
+function Header({
+  navigate,
+  title = "Соберёмся",
+}: {
+  navigate: Navigate;
+  title?: string;
+}) {
+  return (
+    <header className="topbar">
+      <button className="wordmark" onClick={() => navigate("/")} type="button">
+        {title}
+      </button>
+      <button
+        className="icon-action"
+        onClick={() => navigate("/create")}
+        title="Создать встречу"
+        type="button"
+      >
+        <Plus size={21} />
+      </button>
+    </header>
+  );
+}
+
+function Loading({ label = "Загружаем…" }: { label?: string }) {
+  return (
+    <div className="loading">
+      <span className="spinner" />
+      {label}
+    </div>
+  );
+}
+
+function ErrorNote({ message }: { message: string }) {
+  return message ? <p className="form-error">{message}</p> : null;
+}
+
+function StatusBadge({ status }: { status: EventStatus }) {
+  return (
+    <span className={`status-badge ${status}`}>{statusLabels[status]}</span>
+  );
+}
+
+function PageIntro({
+  eyebrow,
+  title,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <section className="page-intro">
+      <p className="eyebrow">{eyebrow}</p>
+      <h1>{title}</h1>
+      {children}
+    </section>
+  );
+}
+
+function OutsideTelegram() {
+  const bot = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || "";
+  return (
+    <main className="outside-screen">
+      <section className="home-preview">
+        <span>Telegram Mini App</span>
+        <h1>Соберёмся</h1>
+        <p>
+          Откройте приложение через Telegram, чтобы создавать встречи и
+          голосовать вместе.
+        </p>
+        <button
+          className="primary-action"
+          disabled={!bot}
+          onClick={() => openTelegramUrl(`https://t.me/${bot}`)}
+          type="button"
+        >
+          Открыть в Telegram
+        </button>
+      </section>
+    </main>
+  );
+}
+
+function Home({
+  navigate,
+  user,
+}: {
+  navigate: Navigate;
+  user: AuthResult["user"];
+}) {
+  const [data, setData] = useState<{
+    owned: MeetingListItem[];
+    participating: MeetingListItem[];
+  } | null>(null);
+  useEffect(() => {
+    api
+      .meetings()
+      .then(setData)
+      .catch(() => setData({ owned: [], participating: [] }));
+  }, []);
+  return (
+    <main>
+      <Header navigate={navigate} />
+      <section className="home-hero">
+        <div>
+          <p className="eyebrow">Привет, {user.firstName}</p>
+          <h1>Соберёмся</h1>
+          <p className="lead">
+            Создайте встречу, отправьте её в чат и быстро найдите время, удобное
+            для всех.
+          </p>
+          <div className="hero-actions">
+            <button
+              className="primary-action"
+              onClick={() => navigate("/create")}
+              type="button"
+            >
+              <Plus size={19} />
+              Создать встречу
+            </button>
+            <button
+              className="secondary-action"
+              onClick={() => navigate("/my-events")}
+              type="button"
+            >
+              <Users size={19} />
+              Мои встречи
+            </button>
+          </div>
+        </div>
+        <div className="home-preview">
+          <span>Внутри Telegram</span>
+          <strong>Без регистрации и паролей</strong>
+          <p>
+            Имя и доступ подтверждаются Telegram. Ответ каждого участника
+            хранится отдельно.
+          </p>
+        </div>
+      </section>
+      {data && (
+        <section className="dashboard-band">
+          <MeetingGroup
+            items={data.owned.slice(0, 3)}
+            navigate={navigate}
+            title="Ваши встречи"
+          />
+          <MeetingGroup
+            items={data.participating.slice(0, 3)}
+            navigate={navigate}
+            title="Вы участвуете"
+          />
+        </section>
+      )}
+    </main>
+  );
+}
+
+function MeetingGroup({
+  items,
+  navigate,
+  title,
+}: {
+  items: MeetingListItem[];
+  navigate: Navigate;
+  title: string;
+}) {
+  return (
+    <div className="meeting-group">
+      <h2>{title}</h2>
+      {items.length ? (
+        items.map((item) => (
+          <button
+            className="event-row"
+            key={item.id}
+            onClick={() =>
+              navigate(
+                item.role === "owner"
+                  ? `/manage/${item.id}`
+                  : `/event/${item.id}`,
+              )
+            }
+            type="button"
+          >
+            <div>
+              <StatusBadge status={item.status} />
+              <strong>{item.title}</strong>
+              <span>
+                {plural(
+                  item.participantCount,
+                  "участник",
+                  "участника",
+                  "участников",
+                )}
+              </span>
+            </div>
+            <ChevronRight size={20} />
+          </button>
+        ))
+      ) : (
+        <p className="empty-note">Пока пусто</p>
+      )}
+    </div>
+  );
+}
+
+function SlotBuilder({
+  slots,
+  onChange,
+}: {
+  slots: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const today = new Date();
+  const [date, setDate] = useState(today.toISOString().slice(0, 10));
+  const [time, setTime] = useState("18:30");
+  const add = () => {
+    const value = new Date(`${date}T${time}:00`).toISOString();
+    if (!slots.includes(value)) onChange([...slots, value].sort());
+  };
+  return (
+    <div className="slot-builder">
+      <div className="slot-controls">
+        <label className="field">
+          <span>Дата</span>
+          <input
+            min={today.toISOString().slice(0, 10)}
+            onChange={(event) => setDate(event.target.value)}
+            type="date"
+            value={date}
+          />
+        </label>
+        <label className="field">
+          <span>Время</span>
+          <input
+            onChange={(event) => setTime(event.target.value)}
+            type="time"
+            value={time}
+          />
+        </label>
+        <button className="secondary-action" onClick={add} type="button">
+          <Plus size={18} />
+          Добавить
+        </button>
+      </div>
+      <div className="slot-list">
+        {slots.map((slot) => (
+          <div className="slot-card" key={slot}>
+            <strong>{formatSlot(slot)}</strong>
+            <button
+              className="icon-action danger"
+              onClick={() => onChange(slots.filter((value) => value !== slot))}
+              title="Удалить вариант"
+              type="button"
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CreateEvent({ navigate }: { navigate: Navigate }) {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [budgetLimit, setBudgetLimit] = useState(30);
+  const [timeOptions, setTimeOptions] = useState<string[]>([]);
+  const [places, setPlaces] = useState<PlaceDraft[]>([
+    { title: "", area: "", estimatedBudget: 30 },
+  ]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const submit = useCallback(async () => {
+    if (!title.trim() || !timeOptions.length || saving) return;
+    setSaving(true);
+    setError("");
+    try {
+      const { event } = await api.createEvent({
+        title,
+        description,
+        budgetLimit,
+        timeOptions,
+        placeOptions: places.filter((place) => place.title.trim()),
+      });
+      haptic();
+      navigate(`/created/${event.id}`, true);
+    } catch (reason) {
+      haptic("error");
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Не удалось создать встречу.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }, [budgetLimit, description, navigate, places, saving, timeOptions, title]);
+  useMainButton(
+    saving ? "Создаём…" : "Создать встречу",
+    Boolean(title.trim() && timeOptions.length && !saving),
+    submit,
+  );
+  return (
+    <main>
+      <Header navigate={navigate} />
+      <PageIntro eyebrow="Новая встреча" title="Создайте встречу">
+        <p>
+          Добавьте несколько реальных вариантов, чтобы группе было проще
+          выбрать.
+        </p>
+      </PageIntro>
+      <form
+        className="form-page"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void submit();
+        }}
+      >
+        <section className="panel">
+          <h2>О встрече</h2>
+          <label className="field">
+            <span>Название</span>
+            <textarea
+              required
+              rows={2}
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span>Комментарий</span>
+            <textarea
+              rows={3}
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+            />
+          </label>
+          <label className="field narrow">
+            <span>Бюджет, BYN</span>
+            <input
+              min="0"
+              type="number"
+              value={budgetLimit}
+              onChange={(event) => setBudgetLimit(Number(event.target.value))}
+            />
+          </label>
+        </section>
+        <section className="panel">
+          <h2>Дата и время</h2>
+          <SlotBuilder slots={timeOptions} onChange={setTimeOptions} />
+        </section>
+        <section className="panel">
+          <div className="section-row">
+            <h2>Варианты мест</h2>
+            <button
+              className="icon-action"
+              onClick={() =>
+                setPlaces([
+                  ...places,
+                  { title: "", area: "", estimatedBudget: budgetLimit },
+                ])
+              }
+              title="Добавить место"
+              type="button"
+            >
+              <Plus size={20} />
+            </button>
+          </div>
+          {places.map((place, index) => (
+            <div className="place-draft" key={index}>
+              <label className="field">
+                <span>Место</span>
+                <input
+                  value={place.title}
+                  onChange={(event) =>
+                    setPlaces(
+                      places.map((item, i) =>
+                        i === index
+                          ? { ...item, title: event.target.value }
+                          : item,
+                      ),
+                    )
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>Район или метро</span>
+                <input
+                  value={place.area}
+                  onChange={(event) =>
+                    setPlaces(
+                      places.map((item, i) =>
+                        i === index
+                          ? { ...item, area: event.target.value }
+                          : item,
+                      ),
+                    )
+                  }
+                />
+              </label>
+              <label className="field">
+                <span>До, BYN</span>
+                <input
+                  min="0"
+                  type="number"
+                  value={place.estimatedBudget}
+                  onChange={(event) =>
+                    setPlaces(
+                      places.map((item, i) =>
+                        i === index
+                          ? {
+                              ...item,
+                              estimatedBudget: Number(event.target.value),
+                            }
+                          : item,
+                      ),
+                    )
+                  }
+                />
+              </label>
+              {places.length > 1 && (
+                <button
+                  className="icon-action danger"
+                  onClick={() =>
+                    setPlaces(places.filter((_, i) => i !== index))
+                  }
+                  title="Удалить место"
+                  type="button"
+                >
+                  <Trash2 size={18} />
+                </button>
+              )}
+            </div>
+          ))}
+        </section>
+        <ErrorNote message={error} />
+        <button
+          className="primary-action form-submit"
+          disabled={saving || !title.trim() || !timeOptions.length}
+          type="submit"
+        >
+          {saving ? "Создаём…" : "Создать встречу"}
+        </button>
+      </form>
+    </main>
+  );
+}
+
+function useEvent(eventId: string) {
+  const [event, setEvent] = useState<EventData | null>(null);
+  const [error, setError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const load = useCallback(
+    async (quiet = false) => {
+      if (!quiet) setRefreshing(true);
+      try {
+        const result = await api.event(eventId);
+        setEvent(result.event);
+        setError("");
+        setLastUpdated(new Date());
+      } catch (reason) {
+        setError(
+          reason instanceof Error
+            ? reason.message
+            : "Не удалось загрузить встречу.",
+        );
+      } finally {
+        setRefreshing(false);
+      }
+    },
+    [eventId],
+  );
+  useEffect(() => {
+    void load();
+  }, [load]);
+  return { event, setEvent, error, setError, refreshing, lastUpdated, load };
+}
+
+function Refresh({
+  refreshing,
+  lastUpdated,
+  onClick,
+}: {
+  refreshing: boolean;
+  lastUpdated: Date | null;
+  onClick: () => void;
+}) {
+  return (
+    <div className="refresh">
+      <button
+        className="secondary-action"
+        disabled={refreshing}
+        onClick={onClick}
+        type="button"
+      >
+        <RefreshCw className={refreshing ? "spin" : ""} size={18} />
+        {refreshing ? "Обновление…" : "Обновить данные"}
+      </button>
+      <span>
+        {lastUpdated
+          ? `Последнее обновление: ${lastUpdated.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}`
+          : ""}
+      </span>
+    </div>
+  );
+}
+
+function Created({
+  eventId,
+  navigate,
+}: {
+  eventId: string;
+  navigate: Navigate;
+}) {
+  const link = miniAppLink(eventId);
+  return (
+    <main>
+      <Header navigate={navigate} />
+      <PageIntro eyebrow="Встреча создана" title="Можно приглашать">
+        <p>Встреча сохранена в разделе «Мои встречи».</p>
+      </PageIntro>
+      <section className="confirmation-panel">
+        <button
+          className="primary-action"
+          onClick={() => shareEvent(eventId)}
+          type="button"
+        >
+          <Send size={19} />
+          Отправить в чат
+        </button>
+        <button
+          className="secondary-action"
+          onClick={() => navigate(`/manage/${eventId}`)}
+          type="button"
+        >
+          Открыть управление
+        </button>
+        <code>{link}</code>
+      </section>
+    </main>
+  );
+}
+
+function ParticipantEvent({
+  eventId,
+  navigate,
+}: {
+  eventId: string;
+  navigate: Navigate;
+}) {
+  const state = useEvent(eventId);
+  const [area, setArea] = useState("");
+  const [budget, setBudget] = useState(30);
+  const [preferences, setPreferences] = useState("");
+  const [restrictions, setRestrictions] = useState("");
+  const [available, setAvailable] = useState<string[]>([]);
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (!state.event) return;
+    const own = state.event.myResponse;
+    setArea(own?.area ?? "");
+    setBudget(own?.budget ?? state.event.budgetLimit);
+    setPreferences(own?.preferences ?? "");
+    setRestrictions(own?.restrictions ?? "");
+    setAvailable(
+      own?.availableTimeOptionIds ??
+        state.event.timeOptions.map((item) => item.id),
+    );
+  }, [state.event?.id]);
+  const submit = useCallback(async () => {
+    if (!state.event || saving) return;
+    setSaving(true);
+    try {
+      const result = await api.saveResponse(eventId, {
+        area,
+        budget,
+        preferences,
+        restrictions,
+        availableTimeOptionIds: available,
+      });
+      state.setEvent(result.event);
+      setSaved(true);
+      haptic();
+    } catch (reason) {
+      state.setError(
+        reason instanceof Error
+          ? reason.message
+          : "Не удалось сохранить ответ.",
+      );
+      haptic("error");
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    area,
+    available,
+    budget,
+    eventId,
+    preferences,
+    restrictions,
+    saving,
+    state,
+  ]);
+  useMainButton(
+    saving ? "Сохраняем…" : "Отправить ответ",
+    Boolean(state.event && !saving && state.event.status === "collecting"),
+    submit,
+    Boolean(state.event && !saved && state.event.status === "collecting"),
+  );
+  if (!state.event)
+    return (
+      <main>
+        <Header navigate={navigate} />
+        {state.error ? (
+          <div className="not-found">{state.error}</div>
+        ) : (
+          <Loading label="Загружаем встречу…" />
+        )}
+      </main>
+    );
+  const event = state.event;
+  if (event.status !== "collecting")
+    return <Result eventId={eventId} navigate={navigate} initial={event} />;
+  if (saved)
+    return (
+      <main>
+        <Header navigate={navigate} />
+        <PageIntro eyebrow="Ваш ответ сохранён" title="Спасибо">
+          <p>
+            {bestSlot(event)
+              ? `Сейчас лучше всего подходит ${formatSlot(bestSlot(event)!.startsAt)}.`
+              : "Результаты появятся после ответов."}
+          </p>
+        </PageIntro>
+        <section className="confirmation-panel">
+          <button
+            className="primary-action"
+            onClick={() => setSaved(false)}
+            type="button"
+          >
+            Изменить мой ответ
+          </button>
+          <button
+            className="secondary-action"
+            onClick={() => navigate(`/result/${eventId}`)}
+            type="button"
+          >
+            Посмотреть рекомендацию
+          </button>
+        </section>
+      </main>
+    );
+  return (
+    <main>
+      <Header navigate={navigate} />
+      <PageIntro eyebrow="Встреча" title={event.title}>
+        <p>{event.description}</p>
+        <div className="event-meta">
+          <StatusBadge status={event.status} />
+          <span>
+            {plural(event.participants.length, "ответ", "ответа", "ответов")}
+          </span>
+        </div>
+      </PageIntro>
+      <form
+        className="form-page participant-form"
+        onSubmit={(form) => {
+          form.preventDefault();
+          void submit();
+        }}
+      >
+        <section className="panel">
+          <h2>Когда вы можете?</h2>
+          <div className="availability-grid">
+            {event.timeOptions.map((slot) => {
+              const can = available.includes(slot.id);
+              return (
+                <button
+                  className={`availability-card ${can ? "available" : ""}`}
+                  key={slot.id}
+                  onClick={() =>
+                    setAvailable(
+                      can
+                        ? available.filter((id) => id !== slot.id)
+                        : [...available, slot.id],
+                    )
+                  }
+                  type="button"
+                >
+                  <strong>{formatSlot(slot.startsAt)}</strong>
+                  <span>
+                    {can ? (
+                      <>
+                        <Check size={17} /> Могу
+                      </>
+                    ) : (
+                      "Не могу"
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+        <section className="panel">
+          <h2>Ваши пожелания</h2>
+          <label className="field">
+            <span>Район или метро</span>
+            <input
+              value={area}
+              onChange={(input) => setArea(input.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span>Бюджет, BYN</span>
+            <input
+              min="0"
+              type="number"
+              value={budget}
+              onChange={(input) => setBudget(Number(input.target.value))}
+            />
+          </label>
+          <label className="field">
+            <span>Предпочтения</span>
+            <textarea
+              rows={2}
+              value={preferences}
+              onChange={(input) => setPreferences(input.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span>Ограничения</span>
+            <textarea
+              rows={2}
+              value={restrictions}
+              onChange={(input) => setRestrictions(input.target.value)}
+            />
+          </label>
+        </section>
+        <ErrorNote message={state.error} />
+        <button
+          className="primary-action form-submit"
+          disabled={saving}
+          type="submit"
+        >
+          {saving
+            ? "Сохраняем…"
+            : event.myResponse
+              ? "Обновить ответ"
+              : "Отправить ответ"}
+        </button>
+      </form>
+    </main>
+  );
+}
+
+function MyEvents({ navigate }: { navigate: Navigate }) {
+  const [data, setData] = useState<{
+    owned: MeetingListItem[];
+    participating: MeetingListItem[];
+  } | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    api
+      .meetings()
+      .then(setData)
+      .catch((reason) =>
+        setError(
+          reason instanceof Error
+            ? reason.message
+            : "Не удалось загрузить встречи.",
+        ),
+      );
+  }, []);
+  return (
+    <main>
+      <Header navigate={navigate} />
+      <PageIntro eyebrow="Telegram-профиль" title="Мои встречи" />
+      {!data && !error ? (
+        <Loading />
+      ) : (
+        <section className="my-events">
+          <ErrorNote message={error} />
+          <MeetingGroup
+            items={data?.owned ?? []}
+            navigate={navigate}
+            title="Организую"
+          />
+          <MeetingGroup
+            items={data?.participating ?? []}
+            navigate={navigate}
+            title="Участвую"
+          />
+        </section>
+      )}
+    </main>
+  );
+}
+
+function Manage({
+  eventId,
+  navigate,
+}: {
+  eventId: string;
+  navigate: Navigate;
+}) {
+  const state = useEvent(eventId);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [newTime, setNewTime] = useState("");
+  const [place, setPlace] = useState<PlaceDraft>({
+    title: "",
+    area: "",
+    estimatedBudget: 30,
+  });
+  const [finalTime, setFinalTime] = useState("");
+  const [finalPlace, setFinalPlace] = useState("");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (!state.event) return;
+    setTitle(state.event.title);
+    setDescription(state.event.description);
+    setFinalTime(state.event.finalTimeOptionId ?? "");
+    setFinalPlace(state.event.finalPlaceId ?? "");
+  }, [
+    state.event?.id,
+    state.event?.finalPlaceId,
+    state.event?.finalTimeOptionId,
+  ]);
+  const mutate = async (payload: unknown) => {
+    setSaving(true);
+    try {
+      const result = await api.manage(eventId, payload);
+      state.setEvent(result.event);
+      haptic();
+      return true;
+    } catch (reason) {
+      state.setError(
+        reason instanceof Error
+          ? reason.message
+          : "Не удалось изменить встречу.",
+      );
+      haptic("error");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+  if (!state.event)
+    return (
+      <main>
+        <Header navigate={navigate} />
+        {state.error ? (
+          <div className="not-found">{state.error}</div>
+        ) : (
+          <Loading />
+        )}
+      </main>
+    );
+  const event = state.event;
+  if (!event.canManage)
+    return (
+      <main>
+        <Header navigate={navigate} />
+        <div className="not-found">
+          У вас нет доступа к управлению этой встречей.
+        </div>
+      </main>
+    );
+  return (
+    <main>
+      <Header navigate={navigate} />
+      <PageIntro eyebrow="Управление" title={event.title}>
+        <div className="event-meta">
+          <StatusBadge status={event.status} />
+          <span>
+            {plural(
+              event.participants.length,
+              "участник",
+              "участника",
+              "участников",
+            )}
+          </span>
+        </div>
+      </PageIntro>
+      <section className="manage-page">
+        <Refresh
+          refreshing={state.refreshing}
+          lastUpdated={state.lastUpdated}
+          onClick={() => void state.load()}
+        />
+        <section className="panel">
+          <h2>Описание</h2>
+          <label className="field">
+            <span>Название</span>
+            <input
+              value={title}
+              onChange={(input) => setTitle(input.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span>Комментарий</span>
+            <textarea
+              rows={3}
+              value={description}
+              onChange={(input) => setDescription(input.target.value)}
+            />
+          </label>
+          <button
+            className="secondary-action"
+            disabled={saving}
+            onClick={() =>
+              void mutate({ action: "update_details", title, description })
+            }
+            type="button"
+          >
+            Сохранить описание
+          </button>
+        </section>
+        <section className="panel">
+          <h2>Время</h2>
+          {event.timeOptions.map((slot) => (
+            <div className="slot-card" key={slot.id}>
+              <div>
+                <strong>{formatSlot(slot.startsAt)}</strong>
+                <span>
+                  {plural(slot.availableCount, "голос", "голоса", "голосов")}
+                </span>
+              </div>
+              <button
+                className="icon-action danger"
+                onClick={async () => {
+                  if (
+                    slot.availableCount &&
+                    !confirm(
+                      `За вариант проголосовали ${slot.availableCount}. Удалить его и голоса?`,
+                    )
+                  )
+                    return;
+                  await mutate({
+                    action: "remove_time",
+                    timeOptionId: slot.id,
+                    force: slot.availableCount > 0,
+                  });
+                }}
+                title="Удалить время"
+                type="button"
+              >
+                <Trash2 size={18} />
+              </button>
+            </div>
+          ))}
+          <div className="inline-add">
+            <input
+              type="datetime-local"
+              value={newTime}
+              onChange={(input) => setNewTime(input.target.value)}
+            />
+            <button
+              className="secondary-action"
+              disabled={!newTime}
+              onClick={async () => {
+                if (
+                  await mutate({
+                    action: "add_time",
+                    startsAt: new Date(newTime).toISOString(),
+                  })
+                )
+                  setNewTime("");
+              }}
+              type="button"
+            >
+              <Plus size={18} />
+              Добавить
+            </button>
+          </div>
+        </section>
+        <section className="panel">
+          <h2>Места</h2>
+          {event.placeOptions.map((item) => (
+            <div className="slot-card" key={item.id}>
+              <div>
+                <strong>{item.title}</strong>
+                <span>
+                  {item.area} · до {item.estimatedBudget} BYN
+                </span>
+              </div>
+              <button
+                className="icon-action danger"
+                onClick={() =>
+                  void mutate({
+                    action: "remove_place",
+                    placeOptionId: item.id,
+                  })
+                }
+                title="Удалить место"
+                type="button"
+              >
+                <Trash2 size={18} />
+              </button>
+            </div>
+          ))}
+          <div className="add-place">
+            <input
+              placeholder="Место"
+              value={place.title}
+              onChange={(input) =>
+                setPlace({ ...place, title: input.target.value })
+              }
+            />
+            <input
+              placeholder="Район"
+              value={place.area}
+              onChange={(input) =>
+                setPlace({ ...place, area: input.target.value })
+              }
+            />
+            <input
+              min="0"
+              type="number"
+              value={place.estimatedBudget}
+              onChange={(input) =>
+                setPlace({
+                  ...place,
+                  estimatedBudget: Number(input.target.value),
+                })
+              }
+            />
+            <button
+              className="secondary-action"
+              disabled={!place.title.trim()}
+              onClick={async () => {
+                if (await mutate({ action: "add_place", place }))
+                  setPlace({
+                    title: "",
+                    area: "",
+                    estimatedBudget: event.budgetLimit,
+                  });
+              }}
+              type="button"
+            >
+              <Plus size={18} />
+              Добавить
+            </button>
+          </div>
+        </section>
+        <section className="panel">
+          <h2>Ответы участников</h2>
+          {event.participants.length ? (
+            event.participants.map((person) => (
+              <details className="participant-answer" key={person.id}>
+                <summary>
+                  <strong>{person.name}</strong>
+                  <span>{person.area || "Район не указан"}</span>
+                </summary>
+                <div>
+                  <p>
+                    <b>Могу:</b>{" "}
+                    {event.timeOptions
+                      .filter((slot) =>
+                        person.availableTimeOptionIds.includes(slot.id),
+                      )
+                      .map((slot) => formatSlot(slot.startsAt))
+                      .join(" · ") || "нет"}
+                  </p>
+                  <p>
+                    <b>Не могу:</b>{" "}
+                    {event.timeOptions
+                      .filter((slot) =>
+                        person.unavailableTimeOptionIds.includes(slot.id),
+                      )
+                      .map((slot) => formatSlot(slot.startsAt))
+                      .join(" · ") || "нет"}
+                  </p>
+                  <p>
+                    <b>Бюджет:</b> {person.budget} BYN
+                  </p>
+                  <p>
+                    <b>Предпочтения:</b> {person.preferences || "нет"}
+                  </p>
+                  <p>
+                    <b>Ограничения:</b> {person.restrictions || "нет"}
+                  </p>
+                </div>
+              </details>
+            ))
+          ) : (
+            <p className="empty-note">Ответов пока нет</p>
+          )}
+        </section>
+        <section className="panel decision-panel">
+          <h2>Окончательное решение</h2>
+          <label className="field">
+            <span>Время</span>
+            <select
+              value={finalTime}
+              onChange={(input) => setFinalTime(input.target.value)}
+            >
+              <option value="">Выберите время</option>
+              {event.timeOptions.map((slot) => (
+                <option key={slot.id} value={slot.id}>
+                  {formatSlot(slot.startsAt)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Место</span>
+            <select
+              value={finalPlace}
+              onChange={(input) => setFinalPlace(input.target.value)}
+            >
+              <option value="">Выберите место</option>
+              {event.placeOptions.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.title} · {item.area}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="primary-action"
+            disabled={!finalTime || !finalPlace || saving}
+            onClick={() =>
+              void mutate({
+                action: "decide",
+                finalTimeOptionId: finalTime,
+                finalPlaceId: finalPlace,
+              })
+            }
+            type="button"
+          >
+            Принять решение
+          </button>
+          {event.status === "collecting" && (
+            <button
+              className="secondary-action"
+              onClick={() => void mutate({ action: "close" })}
+              type="button"
+            >
+              Закрыть сбор ответов
+            </button>
+          )}
+          {event.status !== "collecting" && (
+            <button
+              className="secondary-action"
+              onClick={() => void mutate({ action: "reopen" })}
+              type="button"
+            >
+              Возобновить сбор ответов
+            </button>
+          )}
+        </section>
+        <div className="action-row">
+          <button
+            className="secondary-action"
+            onClick={() => shareEvent(event.id)}
+            type="button"
+          >
+            <Send size={18} />
+            Отправить в чат
+          </button>
+          <button
+            className="secondary-action"
+            onClick={() => navigate(`/result/${event.id}`)}
+            type="button"
+          >
+            Открыть результат
+          </button>
+          <button
+            className="danger-button"
+            onClick={async () => {
+              if (confirm("Удалить встречу?")) {
+                await api.remove(event.id);
+                navigate("/my-events", true);
+              }
+            }}
+            type="button"
+          >
+            <Trash2 size={18} />
+            Удалить встречу
+          </button>
+        </div>
+        <ErrorNote message={state.error} />
+      </section>
+    </main>
+  );
+}
+
+function Result({
+  eventId,
+  navigate,
+  initial = null,
+}: {
+  eventId: string;
+  navigate: Navigate;
+  initial?: EventData | null;
+}) {
+  const state = useEvent(eventId);
+  const event = initial ?? state.event;
+  if (!event)
+    return (
+      <main>
+        <Header navigate={navigate} />
+        {state.error ? (
+          <div className="not-found">{state.error}</div>
+        ) : (
+          <Loading />
+        )}
+      </main>
+    );
+  const recommendedTime =
+    event.timeOptions.find((item) => item.id === event.finalTimeOptionId) ??
+    bestSlot(event);
+  const finalPlace =
+    event.placeOptions.find((item) => item.id === event.finalPlaceId) ??
+    event.placeOptions[0] ??
+    null;
+  const areas = areaLeaders(event);
+  const tie = areas.length > 1;
+  const addCalendar = () => {
+    if (!recommendedTime) return;
+    const start = new Date(recommendedTime.startsAt);
+    const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
+    const date = (value: Date) =>
+      value
+        .toISOString()
+        .replace(/[-:]/g, "")
+        .replace(/\.\d{3}/, "");
+    const text = `BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nDTSTART:${date(start)}\nDTEND:${date(end)}\nSUMMARY:${event.title}\nLOCATION:${finalPlace?.title ?? ""}\nEND:VEVENT\nEND:VCALENDAR`;
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(
+      new Blob([text], { type: "text/calendar" }),
+    );
+    link.download = "soberemsya.ics";
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+  return (
+    <main>
+      <Header navigate={navigate} />
+      <PageIntro
+        eyebrow={
+          event.status === "decided"
+            ? "Решение принято"
+            : "Текущая рекомендация"
+        }
+        title={event.title}
+      >
+        <StatusBadge status={event.status} />
+      </PageIntro>
+      <section className="result-page">
+        {!initial && (
+          <Refresh
+            refreshing={state.refreshing}
+            lastUpdated={state.lastUpdated}
+            onClick={() => void state.load()}
+          />
+        )}
+        <section className="result-hero">
+          <span>
+            {event.status === "decided"
+              ? "Итог встречи"
+              : "Лучший вариант сейчас"}
+          </span>
+          <h2>
+            {recommendedTime
+              ? formatSlot(recommendedTime.startsAt)
+              : "Пока нет голосов"}
+          </h2>
+          <p>
+            {finalPlace
+              ? `${finalPlace.title} · ${finalPlace.area}`
+              : "Место ещё не выбрано"}
+          </p>
+        </section>
+        <div className="result-grid">
+          <section className="panel">
+            <Users size={22} />
+            <h3>Участники</h3>
+            <strong className="result-value">
+              {event.participants.length}
+            </strong>
+          </section>
+          <section className="panel">
+            <MapPin size={22} />
+            <h3>Район</h3>
+            <strong className="result-value">
+              {tie ? "Нет единого района" : (areas[0]?.[0] ?? "Нет данных")}
+            </strong>
+            {areas.map(([area, count]) => (
+              <span key={area}>
+                {area} — {plural(count, "голос", "голоса", "голосов")}
+              </span>
+            ))}
+          </section>
+          <section className="panel">
+            <Clock3 size={22} />
+            <h3>Могут прийти</h3>
+            <strong className="result-value">
+              {recommendedTime?.availableCount ?? 0}
+            </strong>
+          </section>
+        </div>
+        <section className="panel">
+          <h2>Кто участвует</h2>
+          <div className="name-list">
+            {event.participants.map((person) => (
+              <span key={person.id}>{person.name}</span>
+            ))}
+          </div>
+        </section>
+        <div className="result-actions">
+          <button
+            className="secondary-action"
+            onClick={addCalendar}
+            type="button"
+          >
+            <CalendarPlus size={18} />
+            Добавить в календарь
+          </button>
+          <button
+            className="primary-action"
+            onClick={() => shareResult(event.id)}
+            type="button"
+          >
+            <Send size={18} />
+            Поделиться результатом
+          </button>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function miniAppLink(eventId: string) {
+  const bot = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || "BOT_USERNAME";
+  const app = import.meta.env.VITE_TELEGRAM_APP_SHORT_NAME || "app";
+  return `https://t.me/${bot}/${app}?startapp=event_${eventId}`;
+}
+
+function shareEvent(eventId: string) {
+  const link = miniAppLink(eventId);
+  openTelegramUrl(
+    `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent("Соберёмся?\nПроголосуйте за удобное время и место:")}`,
+  );
+}
+function shareResult(eventId: string) {
+  const link = miniAppLink(eventId);
+  openTelegramUrl(
+    `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent("Итог встречи в «Соберёмся»:")}`,
+  );
+}
+
+export default function App() {
+  const { path, navigate } = usePath();
+  const [auth, setAuth] = useState<AuthResult | null>(null);
+  const [error, setError] = useState("");
+  const [outside, setOutside] = useState(false);
+  useTelegramBack(path, navigate);
+  useEffect(() => {
+    const app = initializeTelegram();
+    const mock = import.meta.env.VITE_USE_MOCK_TELEGRAM === "true";
+    const raw =
+      app?.initData ||
+      (mock ? import.meta.env.VITE_MOCK_INIT_DATA || "mock" : "");
+    if (!raw) {
+      setOutside(true);
+      return;
+    }
+    api
+      .auth(raw)
+      .then((result) => {
+        setAuth(result);
+        if (result.startParam?.startsWith("event_"))
+          navigate(`/event/${result.startParam.slice(6)}`, true);
+        else {
+          const requestedScreen = new URLSearchParams(
+            window.location.search,
+          ).get("screen");
+          if (requestedScreen === "create") navigate("/create", true);
+          if (requestedScreen === "my-events") navigate("/my-events", true);
+        }
+      })
+      .catch((reason) =>
+        setError(
+          reason instanceof Error
+            ? reason.message
+            : "Не удалось подтвердить данные Telegram.",
+        ),
+      );
+  }, [navigate]);
+  if (outside) return <OutsideTelegram />;
+  if (error)
+    return (
+      <main className="outside-screen">
+        <div className="not-found">
+          <strong>Не удалось открыть приложение</strong>
+          <p>{error}</p>
+        </div>
+      </main>
+    );
+  if (!auth)
+    return (
+      <main className="outside-screen">
+        <Loading label="Проверяем Telegram…" />
+      </main>
+    );
+  const match = (pattern: RegExp) => path.match(pattern)?.[1];
+  const created = match(/^\/created\/([^/]+)$/);
+  if (created) return <Created eventId={created} navigate={navigate} />;
+  const manage = match(/^\/manage\/([^/]+)$/);
+  if (manage) return <Manage eventId={manage} navigate={navigate} />;
+  const result = match(/^\/result\/([^/]+)$/);
+  if (result) return <Result eventId={result} navigate={navigate} />;
+  const event = match(/^\/event\/([^/]+)$/);
+  if (event) return <ParticipantEvent eventId={event} navigate={navigate} />;
+  if (path === "/create") return <CreateEvent navigate={navigate} />;
+  if (path === "/my-events") return <MyEvents navigate={navigate} />;
+  return <Home navigate={navigate} user={auth.user} />;
+}
