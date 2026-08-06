@@ -19,11 +19,16 @@ function Read-SecretText([string]$Prompt) {
 
 function Invoke-Telegram([string]$Method, [hashtable]$Body = @{}) {
   $json = $Body | ConvertTo-Json -Depth 8 -Compress
-  $response = Invoke-RestMethod `
-    -Uri "$script:ApiBase/$Method" `
-    -Method Post `
-    -ContentType "application/json" `
-    -Body $json
+  try {
+    $response = Invoke-RestMethod `
+      -Uri "$script:ApiBase/$Method" `
+      -Method Post `
+      -ContentType "application/json" `
+      -Body $json
+  }
+  catch {
+    throw "Telegram API method '$Method' failed. Check the entered secrets."
+  }
 
   if (-not $response.ok) {
     throw "Telegram API method '$Method' failed."
