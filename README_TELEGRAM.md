@@ -27,6 +27,17 @@ allowed_updates=["message"]
 
 Не вставляйте bot token в issue, чат, Git или frontend-переменные.
 
+Для безопасной настройки webhook, команд и Menu Button в Windows запустите:
+
+```powershell
+.\scripts\configure-telegram.ps1
+```
+
+Скрипт запросит `TELEGRAM_BOT_TOKEN` и `TELEGRAM_WEBHOOK_SECRET` через
+защищённый ввод. Значения не передаются аргументами, не сохраняются в файлы и
+не выводятся в консоль. В конце скрипт вызывает `getWebhookInfo` и показывает
+только безопасный статус.
+
 ## Deep links
 
 Встреча отправляется как:
