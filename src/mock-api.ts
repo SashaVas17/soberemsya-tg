@@ -29,14 +29,12 @@ let event: EventData = {
       title: "Кафе у Ратуши",
       area: "Немига",
       estimatedBudget: 35,
-      placeVoteCount: 1,
     },
     {
       id: "place_2",
       title: "Бистро в центре",
       area: "Октябрьская",
       estimatedBudget: 30,
-      placeVoteCount: 1,
     },
   ],
   participants: [
@@ -50,7 +48,6 @@ let event: EventData = {
       restrictions: "Без орехов",
       availableTimeOptionIds: ["time_1"],
       unavailableTimeOptionIds: ["time_2"],
-      selectedPlaceOptionIds: ["place_1"],
     },
     {
       id: "person_2",
@@ -62,7 +59,6 @@ let event: EventData = {
       restrictions: "",
       availableTimeOptionIds: ["time_1", "time_2"],
       unavailableTimeOptionIds: [],
-      selectedPlaceOptionIds: ["place_2"],
     },
   ],
   canManage: true,
@@ -87,10 +83,7 @@ const listItem = (role: "owner" | "participant"): MeetingListItem => ({
   status: event.status,
   role,
   participantCount: event.participants.length,
-  responseCount: event.participants.length,
   bestTime: event.timeOptions[0],
-  timeSummary: event.timeOptions[0]?.startsAt ?? null,
-  placeSummary: event.status === "decided" ? event.placeOptions.find((item) => item.id === event.finalPlaceId)?.title ?? null : null,
   createdAt: new Date().toISOString(),
 });
 
@@ -113,7 +106,6 @@ export const mockApi = {
       ),
       placeOptions: payload.placeOptions.map((place: any, index: number) => ({
         id: `place_${index}`,
-        placeVoteCount: 0,
         ...place,
       })),
       participants: [],
@@ -134,7 +126,6 @@ export const mockApi = {
       unavailableTimeOptionIds: event.timeOptions
         .filter((time) => !payload.availableTimeOptionIds.includes(time.id))
         .map((time) => time.id),
-      selectedPlaceOptionIds: payload.placeOptionIds ?? [],
     };
     event.participants = [
       ...event.participants.filter((person) => person.userId !== auth.user.id),
@@ -146,10 +137,6 @@ export const mockApi = {
       availableCount: event.participants.filter((person) =>
         person.availableTimeOptionIds.includes(time.id),
       ).length,
-    }));
-    event.placeOptions = event.placeOptions.map((place) => ({
-      ...place,
-      placeVoteCount: event.participants.filter((person) => person.selectedPlaceOptionIds.includes(place.id)).length,
     }));
     return { event: clone(event) };
   },
