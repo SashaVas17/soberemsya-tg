@@ -79,4 +79,11 @@ export const api = {
       : request<{ deleted: true }>(`/events/${encodeURIComponent(id)}/manage`, {
           method: "DELETE",
         }),
+  calendarLink: (id: string) =>
+    useMock
+      ? Promise.resolve({ icsUrl: "https://example.test/soberemsya.ics" })
+      : request<{ icsUrl: string }>(
+          `/events/${encodeURIComponent(id)}/calendar-link`,
+          { method: "POST" },
+        ),
 };

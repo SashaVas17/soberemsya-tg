@@ -10,7 +10,13 @@ export type TelegramUser = {
 };
 
 export type TimeOption = { id: string; startsAt: string; availableCount: number };
-export type PlaceOption = { id: string; title: string; area: string; estimatedBudget: number };
+export type PlaceOption = {
+  id: string;
+  title: string;
+  area: string;
+  estimatedBudget: number;
+  placeVoteCount: number;
+};
 export type Participant = {
   id: string;
   userId: string | null;
@@ -21,6 +27,7 @@ export type Participant = {
   restrictions: string;
   availableTimeOptionIds: string[];
   unavailableTimeOptionIds: string[];
+  selectedPlaceOptionIds: string[];
 };
 
 export type EventData = {
@@ -44,7 +51,10 @@ export type MeetingListItem = {
   status: EventStatus;
   role: "owner" | "participant";
   participantCount: number;
+  responseCount: number;
   bestTime: TimeOption | null;
+  timeSummary: string | null;
+  placeSummary: string | null;
   createdAt: string;
 };
 

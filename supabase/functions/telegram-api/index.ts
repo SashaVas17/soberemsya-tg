@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.111.0";
 import { assertEventAvailable, assertOwner, assertVotingOpen, parseEventStartParam } from "../_shared/domain.ts";
 import { corsHeaders, errorResponse, json } from "../_shared/http.ts";
 import { validateTelegramInitData } from "../_shared/telegram.ts";
+import { buildIcs, signCalendarTicket } from "../_shared/calendar.ts";
 
 type Db = ReturnType<typeof createClient>;
 type AppUser = { id: string; telegram_user_id: string; username: string | null; first_name: string; last_name: string | null; photo_url: string | null };
@@ -10,6 +11,7 @@ type AuthContext = { user: AppUser; startParam: string | null };
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = (Deno.env.get("TELEGRAM_DB_SECRET_KEY") ?? "").trim();
 const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
+const calendarSigningSecret = Deno.env.get("TELEGRAM_CALENDAR_SIGNING_SECRET") ?? "";
 // New-format secret keys must reach the REST API only in the apikey header.
 const adminFetch: typeof fetch = (input, init) => {
   const headers = new Headers(init?.headers);
@@ -64,13 +66,18 @@ async function eventPayload(eventId: string, userId: string) {
   ]);
   if (timeError || placeError || peopleError) throw timeError ?? placeError ?? peopleError;
   const participantIds = (people ?? []).map((person) => person.id);
-  const { data: votes, error: voteError } = participantIds.length ? await db.from("availability_votes").select("participant_id,time_option_id,is_available").in("participant_id", participantIds) : { data: [], error: null };
-  if (voteError) throw voteError;
+  const [{ data: votes, error: voteError }, { data: placeVotes, error: placeVoteError }] = participantIds.length ? await Promise.all([
+    db.from("availability_votes").select("participant_id,time_option_id,is_available").in("participant_id", participantIds),
+    db.from("place_votes").select("participant_id,place_option_id").in("participant_id", participantIds),
+  ]) : [{ data: [], error: null }, { data: [], error: null }];
+  if (voteError || placeVoteError) throw voteError ?? placeVoteError;
   const available = new Map<string, string[]>(); const unavailable = new Map<string, string[]>(); const counts = new Map<string, number>();
   for (const vote of votes ?? []) { const target = vote.is_available ? available : unavailable; target.set(vote.participant_id, [...(target.get(vote.participant_id) ?? []), vote.time_option_id]); if (vote.is_available) counts.set(vote.time_option_id, (counts.get(vote.time_option_id) ?? 0) + 1); }
+  const selectedPlaces = new Map<string, string[]>(); const placeCounts = new Map<string, number>();
+  for (const vote of placeVotes ?? []) { selectedPlaces.set(vote.participant_id, [...(selectedPlaces.get(vote.participant_id) ?? []), vote.place_option_id]); placeCounts.set(vote.place_option_id, (placeCounts.get(vote.place_option_id) ?? 0) + 1); }
   const canManage = event.owner_user_id === userId;
-  const participants = (people ?? []).map((person) => ({ id: person.id, userId: person.user_id, name: person.name, area: person.area, budget: person.budget, preferences: canManage || person.user_id === userId ? person.preferences : "", restrictions: canManage || person.user_id === userId ? person.restrictions : "", availableTimeOptionIds: available.get(person.id) ?? [], unavailableTimeOptionIds: unavailable.get(person.id) ?? [] }));
-  return { id: event.id, title: event.title, description: event.description, budgetLimit: event.budget_limit, status: event.status, finalPlaceId: event.final_place_id, finalTimeOptionId: event.final_time_option_id, timeOptions: (times ?? []).map((time) => ({ id: time.id, startsAt: time.starts_at, availableCount: counts.get(time.id) ?? 0 })), placeOptions: (places ?? []).map((place) => ({ id: place.id, title: place.title, area: place.area, estimatedBudget: place.estimated_budget })), participants, canManage, myResponse: participants.find((person) => person.userId === userId) ?? null, createdAt: event.created_at };
+  const participants = (people ?? []).map((person) => ({ id: person.id, userId: person.user_id, name: person.name, area: person.area, budget: person.budget, preferences: canManage || person.user_id === userId ? person.preferences : "", restrictions: canManage || person.user_id === userId ? person.restrictions : "", availableTimeOptionIds: available.get(person.id) ?? [], unavailableTimeOptionIds: unavailable.get(person.id) ?? [], selectedPlaceOptionIds: canManage || person.user_id === userId ? selectedPlaces.get(person.id) ?? [] : [] }));
+  return { id: event.id, title: event.title, description: event.description, budgetLimit: event.budget_limit, status: event.status, finalPlaceId: event.final_place_id, finalTimeOptionId: event.final_time_option_id, timeOptions: (times ?? []).map((time) => ({ id: time.id, startsAt: time.starts_at, availableCount: counts.get(time.id) ?? 0 })), placeOptions: (places ?? []).map((place) => ({ id: place.id, title: place.title, area: place.area, estimatedBudget: place.estimated_budget, placeVoteCount: placeCounts.get(place.id) ?? 0 })), participants, canManage, myResponse: participants.find((person) => person.userId === userId) ?? null, createdAt: event.created_at };
 }
 
 async function createEvent(request: Request, auth: AuthContext) {
@@ -96,6 +103,10 @@ async function saveResponse(request: Request, eventId: string, auth: AuthContext
   const { data: options, error: optionsError } = await db.from("time_options").select("id").eq("event_id", eventId); if (optionsError) throw optionsError;
   const validIds = new Set((options ?? []).map((option) => option.id)); const availableIds = [...new Set((payload.availableTimeOptionIds ?? []).map(String))] as string[];
   if (availableIds.some((optionId) => !validIds.has(optionId))) throw Object.assign(new Error("Один из вариантов времени больше недоступен."), { status: 400 });
+  const { data: placeOptions, error: placeOptionsError } = await db.from("place_options").select("id").eq("event_id", eventId); if (placeOptionsError) throw placeOptionsError;
+  const validPlaceIds = new Set((placeOptions ?? []).map((option) => option.id));
+  const selectedPlaceIds = Array.isArray(payload.placeOptionIds) ? [...new Set(payload.placeOptionIds.map(String))] : null;
+  if (selectedPlaceIds?.some((optionId) => !validPlaceIds.has(optionId))) throw Object.assign(new Error("Selected place is no longer available."), { status: 400 });
   const name = [auth.user.first_name, auth.user.last_name].filter(Boolean).join(" ");
   const values = { name, area: String(payload.area ?? "").trim(), budget: Math.max(0, Number(payload.budget) || 0), preferences: String(payload.preferences ?? "").trim(), restrictions: String(payload.restrictions ?? "").trim() };
   const { data: existing, error: existingError } = await db.from("participants").select("id").eq("event_id", eventId).eq("user_id", auth.user.id).maybeSingle(); if (existingError) throw existingError;
@@ -105,6 +116,10 @@ async function saveResponse(request: Request, eventId: string, auth: AuthContext
   const { error: deleteError } = await db.from("availability_votes").delete().eq("participant_id", participantId); if (deleteError) throw deleteError;
   const rows = (options ?? []).map((option) => ({ participant_id: participantId, time_option_id: option.id, is_available: availableIds.includes(option.id) }));
   if (rows.length) { const { error: voteError } = await db.from("availability_votes").insert(rows); if (voteError) throw voteError; }
+  if (selectedPlaceIds) {
+    const { error: deletePlaceVotesError } = await db.from("place_votes").delete().eq("participant_id", participantId); if (deletePlaceVotesError) throw deletePlaceVotesError;
+    if (selectedPlaceIds.length) { const { error: insertPlaceVotesError } = await db.from("place_votes").insert(selectedPlaceIds.map((placeOptionId) => ({ participant_id: participantId, place_option_id: placeOptionId }))); if (insertPlaceVotesError) throw insertPlaceVotesError; }
+  }
   return json({ event: await eventPayload(eventId, auth.user.id) });
 }
 
@@ -112,6 +127,8 @@ async function manageEvent(request: Request, eventId: string, auth: AuthContext)
   const { data: event, error } = await db.from("events").select("owner_user_id,status").eq("id", eventId).is("deleted_at", null).maybeSingle(); if (error) throw error; if (!event) throw Object.assign(new Error("Встреча не найдена."), { status: 404 }); assertOwner(event.owner_user_id, auth.user.id);
   if (request.method === "DELETE") { const { error: deleteError } = await db.from("events").update({ deleted_at: new Date().toISOString() }).eq("id", eventId).eq("owner_user_id", auth.user.id); if (deleteError) throw deleteError; return json({ deleted: true }); }
   const payload = await request.json();
+  if (payload.action === "decide" && event.status !== "place_selection")
+    throw Object.assign(new Error("Close response collection before making a decision."), { status: 409 });
   switch (payload.action) {
     case "update_details": { const title = String(payload.title ?? "").trim(); if (!title) throw Object.assign(new Error("Название не может быть пустым."), { status: 400 }); const { error: updateError } = await db.from("events").update({ title, description: String(payload.description ?? "").trim() }).eq("id", eventId); if (updateError) throw updateError; break; }
     case "add_time": { const startsAt = String(payload.startsAt ?? ""); if (Number.isNaN(Date.parse(startsAt))) throw Object.assign(new Error("Некорректная дата."), { status: 400 }); const { error: insertError } = await db.from("time_options").insert({ id: id("time"), event_id: eventId, starts_at: startsAt }); if (insertError) throw insertError; break; }
@@ -130,8 +147,30 @@ async function meetings(auth: AuthContext) {
   const [{ data: owned, error: ownedError }, { data: participations, error: participationError }] = await Promise.all([db.from("events").select("id").eq("owner_user_id", auth.user.id).is("deleted_at", null).order("created_at", { ascending: false }), db.from("participants").select("event_id").eq("user_id", auth.user.id)]);
   if (ownedError || participationError) throw ownedError ?? participationError;
   const ownedIds = (owned ?? []).map((item) => item.id); const participatingIds = [...new Set((participations ?? []).map((item) => item.event_id))].filter((eventId) => !ownedIds.includes(eventId));
-  const mapItem = async (eventId: string, role: "owner" | "participant") => { const event = await eventPayload(eventId, auth.user.id); const best = event.timeOptions.slice().sort((a, b) => b.availableCount - a.availableCount || a.startsAt.localeCompare(b.startsAt))[0] ?? null; return { id: event.id, title: event.title, status: event.status, role, participantCount: event.participants.length, bestTime: best, createdAt: event.createdAt }; };
+  const mapItem = async (eventId: string, role: "owner" | "participant") => { const event = await eventPayload(eventId, auth.user.id); const best = event.timeOptions.slice().sort((a, b) => b.availableCount - a.availableCount || a.startsAt.localeCompare(b.startsAt))[0] ?? null; const finalTime = event.timeOptions.find((item) => item.id === event.finalTimeOptionId) ?? best; const finalPlace = event.placeOptions.find((item) => item.id === event.finalPlaceId); const uniqueDays = [...new Set(event.timeOptions.map((item) => new Date(item.startsAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })))]; return { id: event.id, title: event.title, status: event.status, role, participantCount: event.participants.length, responseCount: event.participants.length, bestTime: best, timeSummary: event.status === "decided" ? finalTime?.startsAt ?? null : uniqueDays.length ? uniqueDays.length === 1 ? uniqueDays[0] : `${uniqueDays[0]} - ${uniqueDays.at(-1)}` : null, placeSummary: event.status === "decided" ? finalPlace?.title ?? null : null, createdAt: event.createdAt }; };
   return json({ owned: await Promise.all(ownedIds.map((eventId) => mapItem(eventId, "owner"))), participating: await Promise.all(participatingIds.map((eventId) => mapItem(eventId, "participant"))) });
+}
+
+async function calendarLink(request: Request, eventId: string, auth: AuthContext) {
+  if (!calendarSigningSecret) throw Object.assign(new Error("Calendar export is not configured."), { status: 503 });
+  await eventPayload(eventId, auth.user.id);
+  const expires = Math.floor(Date.now() / 1000) + 10 * 60;
+  const signature = await signCalendarTicket(eventId, expires, calendarSigningSecret);
+  const url = new URL(request.url);
+  return json({ icsUrl: `${url.origin}${url.pathname.replace(/\/events\/[^/]+\/calendar-link$/, `/calendar/${encodeURIComponent(eventId)}`)}?expires=${expires}&signature=${encodeURIComponent(signature)}` });
+}
+
+async function calendarDownload(eventId: string, search: URLSearchParams) {
+  const expires = Number(search.get("expires")); const signature = search.get("signature") ?? "";
+  if (!calendarSigningSecret || !Number.isFinite(expires) || expires < Math.floor(Date.now() / 1000)) throw Object.assign(new Error("Calendar link expired."), { status: 401 });
+  const expected = await signCalendarTicket(eventId, expires, calendarSigningSecret);
+  if (signature !== expected) throw Object.assign(new Error("Invalid calendar link."), { status: 401 });
+  const { data: event, error } = await db.from("events").select("id,title,description,final_place_id,final_time_option_id,deleted_at").eq("id", eventId).is("deleted_at", null).maybeSingle(); if (error) throw error; assertEventAvailable(event);
+  const [{ data: time }, { data: place }] = await Promise.all([db.from("time_options").select("starts_at").eq("id", event.final_time_option_id ?? "").eq("event_id", eventId).maybeSingle(), db.from("place_options").select("title,area").eq("id", event.final_place_id ?? "").eq("event_id", eventId).maybeSingle()]);
+  if (!time) throw Object.assign(new Error("Final time is not selected."), { status: 409 });
+  const eventUrl = `https://t.me/${Deno.env.get("TELEGRAM_BOT_USERNAME") ?? "soberemsyabelarusbot"}/${Deno.env.get("TELEGRAM_APP_SHORT_NAME") ?? "soberemsya"}?startapp=event_${event.id}`;
+  const text = buildIcs({ id: event.id, title: event.title, description: event.description || `Meeting in Soberemsya: ${eventUrl}`, location: [place?.title, place?.area].filter(Boolean).join(", "), url: eventUrl, startsAt: time.starts_at });
+  return new Response(text, { headers: { ...corsHeaders, "content-type": "text/calendar; charset=utf-8", "content-disposition": "attachment; filename=\"soberemsya.ics\"", "cache-control": "private, no-store" } });
 }
 
 Deno.serve(async (request) => {
@@ -139,11 +178,13 @@ Deno.serve(async (request) => {
   try {
     const url = new URL(request.url); const segments = url.pathname.split("/").filter(Boolean); const functionIndex = segments.lastIndexOf("telegram-api"); const path = `/${segments.slice(functionIndex + 1).join("/")}`;
     if (path === "/health" && request.method === "GET") return await health();
+    const calendarMatch = path.match(/^\/calendar\/([^/]+)$/); if (calendarMatch && request.method === "GET") return await calendarDownload(decodeURIComponent(calendarMatch[1]), url.searchParams);
     if (path === "/telegram/auth" && request.method === "POST") { const body = await request.json(); const auth = await authenticate(request, String(body.initData ?? "")); parseEventStartParam(auth.startParam); return json({ user: { id: auth.user.id, telegramUserId: auth.user.telegram_user_id, username: auth.user.username, firstName: auth.user.first_name, lastName: auth.user.last_name, photoUrl: auth.user.photo_url }, startParam: auth.startParam }); }
     const auth = await authenticate(request);
     if (path === "/events" && request.method === "POST") return await createEvent(request, auth);
     if (path === "/me/meetings" && request.method === "GET") return await meetings(auth);
     const responseMatch = path.match(/^\/events\/([^/]+)\/response$/); if (responseMatch && request.method === "POST") return await saveResponse(request, decodeURIComponent(responseMatch[1]), auth);
+    const calendarLinkMatch = path.match(/^\/events\/([^/]+)\/calendar-link$/); if (calendarLinkMatch && request.method === "POST") return await calendarLink(request, decodeURIComponent(calendarLinkMatch[1]), auth);
     const manageMatch = path.match(/^\/events\/([^/]+)\/manage$/); if (manageMatch && ["PATCH", "DELETE"].includes(request.method)) return await manageEvent(request, decodeURIComponent(manageMatch[1]), auth);
     const eventMatch = path.match(/^\/events\/([^/]+)$/); if (eventMatch && request.method === "GET") return json({ event: await eventPayload(decodeURIComponent(eventMatch[1]), auth.user.id) });
     return json({ error: "Маршрут не найден." }, 404);

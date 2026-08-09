@@ -49,7 +49,8 @@ Server functions находятся в `supabase/functions/telegram-api` и `sup
 
 1. Откройте `Project Settings` -> `Edge Functions` -> `Secrets`.
 2. Добавьте `TELEGRAM_BOT_TOKEN`, `TELEGRAM_DB_SECRET_KEY`,
-   `TELEGRAM_MINI_APP_URL` и `TELEGRAM_WEBHOOK_SECRET`.
+   `TELEGRAM_MINI_APP_URL`, `TELEGRAM_WEBHOOK_SECRET` и
+   `TELEGRAM_CALENDAR_SIGNING_SECRET`.
 3. Вводите значения самостоятельно и не вставляйте их в команды, чат,
    issue, логи или файлы проекта.
 

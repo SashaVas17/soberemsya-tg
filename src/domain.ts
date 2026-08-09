@@ -4,6 +4,32 @@ export function formatSlot(startsAt: string) {
   return new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(new Date(startsAt));
 }
 
+export function formatDateRange(timeOptions: { startsAt: string }[]) {
+  if (!timeOptions.length) return null;
+  const days = [...new Set(timeOptions.map((item) => new Date(item.startsAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long" })))];
+  return days.length === 1 ? days[0] : `${days[0]} - ${days.at(-1)}`;
+}
+
+export function buildGoogleCalendarUrl(input: {
+  title: string;
+  description: string;
+  location: string;
+  startsAt: string;
+  durationMs?: number;
+}) {
+  const toGoogleDate = (date: Date) => date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const start = new Date(input.startsAt);
+  const end = new Date(start.getTime() + (input.durationMs ?? 2 * 60 * 60 * 1000));
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: input.title,
+    details: input.description,
+    location: input.location,
+    dates: `${toGoogleDate(start)}/${toGoogleDate(end)}`,
+  });
+  return `https://calendar.google.com/calendar/render?${params}`;
+}
+
 export function plural(count: number, one: string, few: string, many: string) {
   const mod10 = count % 10;
   const mod100 = count % 100;

@@ -7,6 +7,8 @@ type TelegramWebApp = {
   expand?: () => void;
   close(): void;
   openTelegramLink(url: string): void;
+  openLink?(url: string): void;
+  platform?: string;
   BackButton: BackButton;
   MainButton: MainButton;
   HapticFeedback?: { notificationOccurred(type: "error" | "success" | "warning"): void; impactOccurred(style: "light" | "medium" | "heavy"): void };
@@ -36,4 +38,14 @@ export function openTelegramUrl(url: string) {
   const app = telegram();
   if (app) app.openTelegramLink(url);
   else window.open(url, "_blank", "noopener,noreferrer");
+}
+
+export function openExternalUrl(url: string) {
+  const app = telegram();
+  if (app?.openLink) app.openLink(url);
+  else window.open(url, "_blank", "noopener,noreferrer");
+}
+
+export function telegramPlatform() {
+  return telegram()?.platform ?? "unknown";
 }

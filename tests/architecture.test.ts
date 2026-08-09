@@ -15,6 +15,18 @@ describe("Telegram Mini App architecture", () => {
     expect(edgeApi).toContain("assertOwner(event.owner_user_id, auth.user.id)");
   });
 
+  it("keeps place votes tied to a participant and requires closed collection before a decision", () => {
+    expect(edgeApi).toContain('db.from("place_votes").delete().eq("participant_id", participantId)');
+    expect(edgeApi).toContain('payload.action === "decide" && event.status !== "place_selection"');
+  });
+
+  it("uses a signed HTTPS calendar link instead of a Blob download", () => {
+    expect(edgeApi).toContain("calendarLink");
+    expect(edgeApi).toContain("TELEGRAM_CALENDAR_SIGNING_SECRET");
+    expect(frontend).toContain("calendarLink(event.id)");
+    expect(frontend).not.toContain("URL.createObjectURL");
+  });
+
   it("does not trust initDataUnsafe or use Next API routes", () => {
     expect(frontend).not.toContain("initDataUnsafe");
     expect(frontend).not.toContain("/api/");
