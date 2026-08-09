@@ -37,14 +37,21 @@ const statusLabels: Record<EventStatus, string> = {
 };
 
 function usePath() {
-  const [path, setPath] = useState(() => window.location.pathname);
+  const readPath = () => {
+    const value = window.location.hash.slice(1);
+    return value.startsWith("/") ? value : "/";
+  };
+  const [path, setPath] = useState(readPath);
   useEffect(() => {
-    const onPop = () => setPath(window.location.pathname);
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
+    const onHashChange = () => setPath(readPath());
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
   const navigate = useCallback<Navigate>((next, replace = false) => {
-    window.history[replace ? "replaceState" : "pushState"]({}, "", next);
+    const target = `#${next}`;
+    if (replace)
+      window.history.replaceState({}, "", `${window.location.pathname}${window.location.search}${target}`);
+    else window.location.hash = next;
     setPath(next);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);

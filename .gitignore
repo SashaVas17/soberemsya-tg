@@ -30,6 +30,7 @@
 *.bak
 *.backup
 *.dump
+*.csv
 *.sql.gz
 backup*.sql
 *_backup.sql
