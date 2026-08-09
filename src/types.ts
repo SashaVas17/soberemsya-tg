@@ -40,7 +40,6 @@ export type EventData = {
   finalTimeOptionId: string | null;
   timeOptions: TimeOption[];
   placeOptions: PlaceOption[];
-  placeVotingEnabled: boolean;
   participants: Participant[];
   canManage: boolean;
   myResponse: Participant | null;
