@@ -26,6 +26,12 @@ const db = createClient(supabaseUrl, serviceKey, {
 
 function id(prefix: string) { return `${prefix}_${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`; }
 
+function isMissingPlaceVotesRelation(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: string; message?: string };
+  return ["42P01", "PGRST204", "PGRST205"].includes(candidate.code ?? "") || /place_votes/i.test(candidate.message ?? "") && /does not exist|schema cache/i.test(candidate.message ?? "");
+}
+
 async function authenticate(request: Request, bodyInitData?: string): Promise<AuthContext> {
   const raw = bodyInitData ?? request.headers.get("x-telegram-init-data") ?? "";
   let validated;
@@ -66,18 +72,19 @@ async function eventPayload(eventId: string, userId: string) {
   ]);
   if (timeError || placeError || peopleError) throw timeError ?? placeError ?? peopleError;
   const participantIds = (people ?? []).map((person) => person.id);
-  const [{ data: votes, error: voteError }, { data: placeVotes, error: placeVoteError }] = participantIds.length ? await Promise.all([
-    db.from("availability_votes").select("participant_id,time_option_id,is_available").in("participant_id", participantIds),
-    db.from("place_votes").select("participant_id,place_option_id").in("participant_id", participantIds),
-  ]) : [{ data: [], error: null }, { data: [], error: null }];
-  if (voteError || placeVoteError) throw voteError ?? placeVoteError;
+  const { data: votes, error: voteError } = participantIds.length ? await db.from("availability_votes").select("participant_id,time_option_id,is_available").in("participant_id", participantIds) : { data: [], error: null };
+  if (voteError) throw voteError;
+  const placeVoteResult = participantIds.length ? await db.from("place_votes").select("participant_id,place_option_id").in("participant_id", participantIds) : { data: [], error: null };
+  if (placeVoteResult.error && !isMissingPlaceVotesRelation(placeVoteResult.error)) throw placeVoteResult.error;
+  const placeVotingEnabled = !placeVoteResult.error;
+  const placeVotes = placeVoteResult.data ?? [];
   const available = new Map<string, string[]>(); const unavailable = new Map<string, string[]>(); const counts = new Map<string, number>();
   for (const vote of votes ?? []) { const target = vote.is_available ? available : unavailable; target.set(vote.participant_id, [...(target.get(vote.participant_id) ?? []), vote.time_option_id]); if (vote.is_available) counts.set(vote.time_option_id, (counts.get(vote.time_option_id) ?? 0) + 1); }
   const selectedPlaces = new Map<string, string[]>(); const placeCounts = new Map<string, number>();
   for (const vote of placeVotes ?? []) { selectedPlaces.set(vote.participant_id, [...(selectedPlaces.get(vote.participant_id) ?? []), vote.place_option_id]); placeCounts.set(vote.place_option_id, (placeCounts.get(vote.place_option_id) ?? 0) + 1); }
   const canManage = event.owner_user_id === userId;
   const participants = (people ?? []).map((person) => ({ id: person.id, userId: person.user_id, name: person.name, area: person.area, budget: person.budget, preferences: canManage || person.user_id === userId ? person.preferences : "", restrictions: canManage || person.user_id === userId ? person.restrictions : "", availableTimeOptionIds: available.get(person.id) ?? [], unavailableTimeOptionIds: unavailable.get(person.id) ?? [], selectedPlaceOptionIds: canManage || person.user_id === userId ? selectedPlaces.get(person.id) ?? [] : [] }));
-  return { id: event.id, title: event.title, description: event.description, budgetLimit: event.budget_limit, status: event.status, finalPlaceId: event.final_place_id, finalTimeOptionId: event.final_time_option_id, timeOptions: (times ?? []).map((time) => ({ id: time.id, startsAt: time.starts_at, availableCount: counts.get(time.id) ?? 0 })), placeOptions: (places ?? []).map((place) => ({ id: place.id, title: place.title, area: place.area, estimatedBudget: place.estimated_budget, placeVoteCount: placeCounts.get(place.id) ?? 0 })), participants, canManage, myResponse: participants.find((person) => person.userId === userId) ?? null, createdAt: event.created_at };
+  return { id: event.id, title: event.title, description: event.description, budgetLimit: event.budget_limit, status: event.status, finalPlaceId: event.final_place_id, finalTimeOptionId: event.final_time_option_id, timeOptions: (times ?? []).map((time) => ({ id: time.id, startsAt: time.starts_at, availableCount: counts.get(time.id) ?? 0 })), placeOptions: (places ?? []).map((place) => ({ id: place.id, title: place.title, area: place.area, estimatedBudget: place.estimated_budget, placeVoteCount: placeCounts.get(place.id) ?? 0 })), placeVotingEnabled, participants, canManage, myResponse: participants.find((person) => person.userId === userId) ?? null, createdAt: event.created_at };
 }
 
 async function createEvent(request: Request, auth: AuthContext) {
@@ -107,6 +114,9 @@ async function saveResponse(request: Request, eventId: string, auth: AuthContext
   const validPlaceIds = new Set((placeOptions ?? []).map((option) => option.id));
   const selectedPlaceIds = Array.isArray(payload.placeOptionIds) ? [...new Set(payload.placeOptionIds.map(String))] : null;
   if (selectedPlaceIds?.some((optionId) => !validPlaceIds.has(optionId))) throw Object.assign(new Error("Selected place is no longer available."), { status: 400 });
+  const placeVoteProbe = selectedPlaceIds ? await db.from("place_votes").select("participant_id").limit(1) : { error: null };
+  if (placeVoteProbe.error && !isMissingPlaceVotesRelation(placeVoteProbe.error)) throw placeVoteProbe.error;
+  const placeVotingEnabled = !placeVoteProbe.error;
   const name = [auth.user.first_name, auth.user.last_name].filter(Boolean).join(" ");
   const values = { name, area: String(payload.area ?? "").trim(), budget: Math.max(0, Number(payload.budget) || 0), preferences: String(payload.preferences ?? "").trim(), restrictions: String(payload.restrictions ?? "").trim() };
   const { data: existing, error: existingError } = await db.from("participants").select("id").eq("event_id", eventId).eq("user_id", auth.user.id).maybeSingle(); if (existingError) throw existingError;
@@ -116,7 +126,7 @@ async function saveResponse(request: Request, eventId: string, auth: AuthContext
   const { error: deleteError } = await db.from("availability_votes").delete().eq("participant_id", participantId); if (deleteError) throw deleteError;
   const rows = (options ?? []).map((option) => ({ participant_id: participantId, time_option_id: option.id, is_available: availableIds.includes(option.id) }));
   if (rows.length) { const { error: voteError } = await db.from("availability_votes").insert(rows); if (voteError) throw voteError; }
-  if (selectedPlaceIds) {
+  if (selectedPlaceIds && placeVotingEnabled) {
     const { error: deletePlaceVotesError } = await db.from("place_votes").delete().eq("participant_id", participantId); if (deletePlaceVotesError) throw deletePlaceVotesError;
     if (selectedPlaceIds.length) { const { error: insertPlaceVotesError } = await db.from("place_votes").insert(selectedPlaceIds.map((placeOptionId) => ({ participant_id: participantId, place_option_id: placeOptionId }))); if (insertPlaceVotesError) throw insertPlaceVotesError; }
   }

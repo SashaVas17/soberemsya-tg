@@ -27,6 +27,13 @@ describe("Telegram Mini App architecture", () => {
     expect(frontend).not.toContain("URL.createObjectURL");
   });
 
+  it("does not let an unavailable place-votes relation break event reads or responses", () => {
+    expect(edgeApi).toContain("isMissingPlaceVotesRelation");
+    expect(edgeApi).toContain("placeVotingEnabled = !placeVoteResult.error");
+    expect(edgeApi).toContain("placeVotingEnabled = !placeVoteProbe.error");
+    expect(frontend).toContain("event.placeVotingEnabled && event.placeOptions.length");
+  });
+
   it("does not trust initDataUnsafe or use Next API routes", () => {
     expect(frontend).not.toContain("initDataUnsafe");
     expect(frontend).not.toContain("/api/");

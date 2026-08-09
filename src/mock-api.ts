@@ -39,6 +39,7 @@ let event: EventData = {
       placeVoteCount: 1,
     },
   ],
+  placeVotingEnabled: true,
   participants: [
     {
       id: "person_1",
