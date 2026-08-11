@@ -8,8 +8,9 @@
   --teal-dark: #0d5a53;
   --yellow: #f0bd3d;
   --coral: #d95c48;
+  --shadow: 0 10px 30px rgb(23 32 28 / 7%);
   color-scheme: light;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 :root[data-telegram-theme="dark"] {
   --paper: #18211e;
@@ -35,6 +36,8 @@ body {
   min-width: 320px;
   overflow-x: hidden;
   padding-bottom: env(safe-area-inset-bottom);
+  font-size: 16px;
+  line-height: 1.45;
 }
 button,
 input,
@@ -57,9 +60,9 @@ p {
   background: var(--paper);
   border-bottom: 1px solid var(--line);
   display: flex;
-  height: calc(58px + env(safe-area-inset-top));
+  height: calc(54px + env(safe-area-inset-top));
   justify-content: space-between;
-  padding: env(safe-area-inset-top) 14px 0;
+  padding: env(safe-area-inset-top) clamp(14px, 4vw, 24px) 0;
   position: sticky;
   top: 0;
   z-index: 20;
@@ -69,7 +72,7 @@ p {
   border: 0;
   color: var(--ink);
   cursor: pointer;
-  font-size: 21px;
+  font-size: 20px;
   font-weight: 900;
   padding: 8px 0;
 }
@@ -92,10 +95,12 @@ p {
   align-items: center;
   background: var(--paper);
   display: grid;
-  gap: 34px;
-  grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.7fr);
-  min-height: 70vh;
-  padding: 48px clamp(18px, 8vw, 126px);
+  gap: clamp(22px, 5vw, 52px);
+  grid-template-columns: minmax(0, 1fr) minmax(210px, 0.42fr);
+  margin: 0 auto;
+  max-width: 1080px;
+  min-height: 390px;
+  padding: clamp(30px, 7vw, 72px) clamp(16px, 6vw, 64px);
 }
 .eyebrow {
   color: var(--teal-dark);
@@ -104,16 +109,17 @@ p {
   text-transform: uppercase;
 }
 h1 {
-  font-size: clamp(44px, 8vw, 88px);
-  line-height: 0.98;
+  font-size: clamp(42px, 7vw, 72px);
+  letter-spacing: -0.045em;
+  line-height: 1;
   margin-top: 10px;
 }
 .lead {
   color: var(--muted);
-  font-size: clamp(19px, 2.5vw, 27px);
+  font-size: clamp(18px, 2.2vw, 23px);
   line-height: 1.35;
   margin-top: 18px;
-  max-width: 680px;
+  max-width: 560px;
 }
 .hero-actions,
 .action-row,
@@ -123,17 +129,29 @@ h1 {
   gap: 10px;
   margin-top: 25px;
 }
+.text-action {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--teal-dark);
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 850;
+  gap: 4px;
+  min-height: 46px;
+  padding: 0 8px;
+}
 .primary-action,
 .secondary-action,
 .danger-button {
   align-items: center;
   border: 0;
-  border-radius: 8px;
+  border-radius: 12px;
   cursor: pointer;
   display: inline-flex;
   gap: 8px;
   justify-content: center;
-  min-height: 46px;
+  min-height: 48px;
   padding: 0 16px;
   font-weight: 800;
 }
@@ -157,11 +175,11 @@ button:disabled {
 .home-preview,
 .result-hero {
   background: #17342f;
-  border-radius: 8px;
+  border-radius: 18px;
   color: white;
   display: grid;
   gap: 14px;
-  padding: 26px;
+  padding: 24px;
 }
 .home-preview span,
 .result-hero > span {
@@ -171,7 +189,7 @@ button:disabled {
   text-transform: uppercase;
 }
 .home-preview strong {
-  font-size: 34px;
+  font-size: 48px;
   line-height: 1.05;
 }
 .home-preview p,
@@ -184,8 +202,8 @@ button:disabled {
   gap: 20px;
   grid-template-columns: 1fr 1fr;
   margin: auto;
-  max-width: 980px;
-  padding: 26px 16px 46px;
+  max-width: 940px;
+  padding: 24px 16px 52px;
 }
 .meeting-group,
 .my-events {
@@ -195,27 +213,53 @@ button:disabled {
 .meeting-group h2 {
   font-size: 22px;
 }
-.event-row {
+.meeting-card {
   align-items: center;
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 14px;
   color: var(--ink);
   cursor: pointer;
   display: flex;
   justify-content: space-between;
-  padding: 14px;
+  min-height: 116px;
+  padding: 15px;
   text-align: left;
+  transition: border-color 160ms ease, transform 160ms ease;
   width: 100%;
 }
-.event-row > div {
+.meeting-card:hover {
+  border-color: color-mix(in srgb, var(--teal) 45%, var(--line));
+  transform: translateY(-1px);
+}
+.meeting-card > div {
   display: grid;
   gap: 7px;
   min-width: 0;
 }
-.event-row span:last-child {
+.meeting-card-heading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.meeting-card-heading > span:last-child {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.meeting-card-title {
+  font-size: 18px;
+  line-height: 1.25;
+}
+.meeting-card-meta {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 12px;
+  gap: 5px;
 }
 .page-intro {
   background: var(--paper);
@@ -223,7 +267,7 @@ button:disabled {
   padding: 30px max(16px, calc((100vw - 860px) / 2)) 24px;
 }
 .page-intro h1 {
-  font-size: clamp(35px, 6vw, 62px);
+  font-size: clamp(34px, 6vw, 56px);
 }
 .page-intro > p:last-of-type {
   color: var(--muted);
@@ -280,10 +324,39 @@ button:disabled {
 .loading {
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 14px;
   display: grid;
   gap: 15px;
   padding: 18px;
+}
+.panel {
+  box-shadow: var(--shadow);
+}
+.state-card {
+  background: var(--paper);
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  display: grid;
+  gap: 8px;
+  margin: 22px auto;
+  max-width: 680px;
+  padding: 20px;
+}
+.state-card > strong {
+  font-size: 18px;
+}
+.state-card p,
+.panel-hint {
+  color: var(--muted);
+  line-height: 1.45;
+}
+.state-card .secondary-action {
+  justify-self: start;
+  margin-top: 6px;
+}
+.meeting-group .state-card {
+  margin: 0;
+  min-height: 116px;
 }
 .confirmation-panel,
 .not-found,
@@ -310,11 +383,47 @@ textarea,
 select {
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 11px;
   color: var(--ink);
-  min-height: 44px;
+  min-height: 48px;
   padding: 10px 12px;
   width: 100%;
+}
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 14%, transparent);
+  outline: 0;
+}
+.create-wizard {
+  max-width: 720px;
+}
+.wizard-panel {
+  min-height: 310px;
+}
+.step-progress {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 18px;
+  max-width: 220px;
+}
+.step-progress span {
+  background: var(--line);
+  border-radius: 999px;
+  height: 5px;
+}
+.step-progress span.active {
+  background: var(--teal);
+}
+.wizard-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.wizard-actions .primary-action {
+  min-width: 180px;
 }
 textarea {
   line-height: 1.4;
@@ -523,7 +632,20 @@ code {
   }
   .home-hero {
     min-height: auto;
-    padding: 32px 15px;
+    padding: 28px 16px 24px;
+  }
+  .home-preview {
+    grid-template-columns: auto 1fr;
+    padding: 18px;
+  }
+  .home-preview span {
+    grid-column: 1/-1;
+  }
+  .home-preview strong {
+    font-size: 38px;
+  }
+  .home-preview p {
+    align-self: center;
   }
   .slot-controls {
     grid-template-columns: 1fr 1fr;
@@ -554,10 +676,26 @@ code {
 }
 @media (max-width: 430px) {
   h1 {
-    font-size: clamp(34px, 13vw, 48px);
+    font-size: clamp(38px, 12vw, 50px);
   }
   .page-intro h1 {
-    font-size: clamp(30px, 11vw, 41px);
+    font-size: clamp(30px, 10vw, 40px);
+  }
+  .page-intro {
+    padding-bottom: 20px;
+    padding-top: 24px;
+  }
+  .lead {
+    font-size: 18px;
+    margin-top: 14px;
+  }
+  .hero-actions {
+    align-items: stretch;
+    display: grid;
+    margin-top: 20px;
+  }
+  .hero-actions .text-action {
+    justify-content: center;
   }
   .form-page,
   .manage-page,
@@ -566,13 +704,24 @@ code {
     padding-left: 11px;
     padding-right: 11px;
   }
-  .panel {
+  .panel,
+  .state-card {
     padding: 15px;
   }
   .primary-action,
   .secondary-action,
   .danger-button {
     width: 100%;
+  }
+  .wizard-panel {
+    min-height: 0;
+  }
+  .wizard-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .wizard-actions .primary-action {
+    min-width: 0;
   }
   .section-row {
     align-items: flex-start;
@@ -604,6 +753,27 @@ code {
   }
 }
 @media (max-width: 350px) {
+  body {
+    font-size: 15px;
+  }
+  .topbar {
+    height: calc(50px + env(safe-area-inset-top));
+  }
+  .wordmark {
+    font-size: 18px;
+  }
+  .home-hero {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .form-page,
+  .manage-page,
+  .result-page,
+  .my-events,
+  .dashboard-band {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
   .slot-controls {
     grid-template-columns: 1fr;
   }

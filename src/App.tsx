@@ -58,18 +58,29 @@ function usePath() {
   return { path, navigate };
 }
 
-function useTelegramBack(path: string, navigate: Navigate) {
+function useTelegramBack(
+  path: string,
+  navigate: Navigate,
+  override: (() => void) | null,
+) {
   useEffect(() => {
     const button = telegram()?.BackButton;
     if (!button) return;
-    const back = () => navigate("/");
+    const back = () => {
+      if (override) {
+        override();
+        return;
+      }
+      if (window.history.length > 1) window.history.back();
+      else navigate("/", true);
+    };
     if (path === "/") button.hide();
     else {
       button.show();
       button.onClick(back);
     }
     return () => button.offClick(back);
-  }, [path, navigate]);
+  }, [navigate, override, path]);
 }
 
 function useMainButton(
@@ -93,25 +104,11 @@ function useMainButton(
   }, [action, enabled, label, visible]);
 }
 
-function Header({
-  navigate,
-  title = "Соберёмся",
-}: {
-  navigate: Navigate;
-  title?: string;
-}) {
+function Header({ navigate }: { navigate: Navigate }) {
   return (
     <header className="topbar">
       <button className="wordmark" onClick={() => navigate("/")} type="button">
-        {title}
-      </button>
-      <button
-        className="icon-action"
-        onClick={() => navigate("/create")}
-        title="Создать встречу"
-        type="button"
-      >
-        <Plus size={21} />
+        Соберёмся
       </button>
     </header>
   );
@@ -128,6 +125,47 @@ function Loading({ label = "Загружаем…" }: { label?: string }) {
 
 function ErrorNote({ message }: { message: string }) {
   return message ? <p className="form-error">{message}</p> : null;
+}
+
+function RetryState({
+  title = "Что-то пошло не так",
+  message,
+  onRetry,
+}: {
+  title?: string;
+  message: string;
+  onRetry?: () => void;
+}) {
+  return (
+    <section className="state-card" role="alert">
+      <strong>{title}</strong>
+      <p>{message}</p>
+      {onRetry && (
+        <button className="secondary-action" onClick={onRetry} type="button">
+          <RefreshCw size={17} />
+          Попробовать снова
+        </button>
+      )}
+    </section>
+  );
+}
+
+function EmptyState({
+  title,
+  text,
+  action,
+}: {
+  title: string;
+  text: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <section className="state-card empty-state">
+      <strong>{title}</strong>
+      <p>{text}</p>
+      {action}
+    </section>
+  );
 }
 
 function StatusBadge({ status }: { status: EventStatus }) {
@@ -189,22 +227,32 @@ function Home({
     owned: MeetingListItem[];
     participating: MeetingListItem[];
   } | null>(null);
-  useEffect(() => {
-    api
+  const [error, setError] = useState("");
+  const load = useCallback(() => {
+    setError("");
+    return api
       .meetings()
       .then(setData)
-      .catch(() => setData({ owned: [], participating: [] }));
+      .catch((reason) =>
+        setError(
+          reason instanceof Error
+            ? reason.message
+            : "Не удалось загрузить встречи.",
+        ),
+      );
   }, []);
+  useEffect(() => {
+    void load();
+  }, [load]);
   return (
     <main>
       <Header navigate={navigate} />
       <section className="home-hero">
-        <div>
+        <div className="home-copy">
           <p className="eyebrow">Привет, {user.firstName}</p>
           <h1>Соберёмся</h1>
           <p className="lead">
-            Создайте встречу, отправьте её в чат и быстро найдите время, удобное
-            для всех.
+            Время и место для встречи — без долгой переписки.
           </p>
           <div className="hero-actions">
             <button
@@ -216,32 +264,38 @@ function Home({
               Создать встречу
             </button>
             <button
-              className="secondary-action"
+              className="text-action"
               onClick={() => navigate("/my-events")}
               type="button"
             >
-              <Users size={19} />
-              Мои встречи
+              Мои встречи <ChevronRight size={17} />
             </button>
           </div>
         </div>
         <div className="home-preview">
-          <span>Внутри Telegram</span>
-          <strong>Без регистрации и паролей</strong>
-          <p>
-            Имя и доступ подтверждаются Telegram. Ответ каждого участника
-            хранится отдельно.
-          </p>
+          <span>В Telegram</span>
+          <strong>{data ? data.owned.length + data.participating.length : "—"}</strong>
+          <p>встреч в вашем списке</p>
         </div>
       </section>
+      {!data && !error && <Loading label="Загружаем встречи…" />}
+      {error && (
+        <RetryState
+          message={error}
+          onRetry={() => void load()}
+          title="Встречи не загрузились"
+        />
+      )}
       {data && (
         <section className="dashboard-band">
           <MeetingGroup
+            emptyText="Создайте встречу и отправьте приглашение в чат."
             items={data.owned.slice(0, 3)}
             navigate={navigate}
             title="Ваши встречи"
           />
           <MeetingGroup
+            emptyText="Приглашённые встречи появятся здесь."
             items={data.participating.slice(0, 3)}
             navigate={navigate}
             title="Вы участвуете"
@@ -256,10 +310,12 @@ function MeetingGroup({
   items,
   navigate,
   title,
+  emptyText = "Здесь пока ничего нет.",
 }: {
   items: MeetingListItem[];
   navigate: Navigate;
   title: string;
+  emptyText?: string;
 }) {
   return (
     <div className="meeting-group">
@@ -267,7 +323,7 @@ function MeetingGroup({
       {items.length ? (
         items.map((item) => (
           <button
-            className="event-row"
+            className="meeting-card"
             key={item.id}
             onClick={() =>
               navigate(
@@ -279,9 +335,13 @@ function MeetingGroup({
             type="button"
           >
             <div>
-              <StatusBadge status={item.status} />
-              <strong>{item.title}</strong>
-              <span>
+              <div className="meeting-card-heading">
+                <StatusBadge status={item.status} />
+                <span>{item.role === "owner" ? "Организую" : "Участвую"}</span>
+              </div>
+              <strong className="meeting-card-title">{item.title}</strong>
+              <span className="meeting-card-meta">
+                {item.bestTime && <><Clock3 size={15} />{formatSlot(item.bestTime.startsAt)} · </>}
                 {plural(
                   item.participantCount,
                   "участник",
@@ -294,7 +354,7 @@ function MeetingGroup({
           </button>
         ))
       ) : (
-        <p className="empty-note">Пока пусто</p>
+        <EmptyState title="Пока пусто" text={emptyText} />
       )}
     </div>
   );
@@ -358,7 +418,14 @@ function SlotBuilder({
   );
 }
 
-function CreateEvent({ navigate }: { navigate: Navigate }) {
+function CreateEvent({
+  navigate,
+  setBackOverride,
+}: {
+  navigate: Navigate;
+  setBackOverride: (value: (() => void) | null) => void;
+}) {
+  const [step, setStep] = useState(1);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [budgetLimit, setBudgetLimit] = useState(30);
@@ -368,6 +435,26 @@ function CreateEvent({ navigate }: { navigate: Navigate }) {
   ]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  useEffect(() => {
+    setBackOverride(() => () => {
+      if (step > 1) setStep((current) => current - 1);
+      else navigate("/");
+    });
+    return () => setBackOverride(null);
+  }, [navigate, setBackOverride, step]);
+
+  const next = () => {
+    if (step === 1 && !title.trim()) {
+      setError("Введите название встречи.");
+      return;
+    }
+    if (step === 2 && !timeOptions.length) {
+      setError("Добавьте хотя бы один вариант даты и времени.");
+      return;
+    }
+    setError("");
+    setStep((current) => Math.min(3, current + 1));
+  };
   const submit = useCallback(async () => {
     if (!title.trim() || !timeOptions.length || saving) return;
     setSaving(true);
@@ -393,28 +480,23 @@ function CreateEvent({ navigate }: { navigate: Navigate }) {
       setSaving(false);
     }
   }, [budgetLimit, description, navigate, places, saving, timeOptions, title]);
-  useMainButton(
-    saving ? "Создаём…" : "Создать встречу",
-    Boolean(title.trim() && timeOptions.length && !saving),
-    submit,
-  );
   return (
     <main>
       <Header navigate={navigate} />
-      <PageIntro eyebrow="Новая встреча" title="Создайте встречу">
-        <p>
-          Добавьте несколько реальных вариантов, чтобы группе было проще
-          выбрать.
-        </p>
+      <PageIntro eyebrow={`Новая встреча · ${step}/3`} title={step === 1 ? "О встрече" : step === 2 ? "Когда встречаемся?" : "Где встречаемся?"}>
+        <div className="step-progress" aria-label={`Шаг ${step} из 3`}>
+          {[1, 2, 3].map((item) => <span className={item <= step ? "active" : ""} key={item} />)}
+        </div>
       </PageIntro>
       <form
-        className="form-page"
+        className="form-page create-wizard"
         onSubmit={(event) => {
           event.preventDefault();
-          void submit();
+          if (step < 3) next();
+          else void submit();
         }}
       >
-        <section className="panel">
+        {step === 1 && <section className="panel wizard-panel">
           <h2>О встрече</h2>
           <label className="field">
             <span>Название</span>
@@ -442,12 +524,13 @@ function CreateEvent({ navigate }: { navigate: Navigate }) {
               onChange={(event) => setBudgetLimit(Number(event.target.value))}
             />
           </label>
-        </section>
-        <section className="panel">
+        </section>}
+        {step === 2 && <section className="panel wizard-panel">
           <h2>Дата и время</h2>
+          <p className="panel-hint">Добавьте несколько реальных вариантов — группе будет проще выбрать.</p>
           <SlotBuilder slots={timeOptions} onChange={setTimeOptions} />
-        </section>
-        <section className="panel">
+        </section>}
+        {step === 3 && <section className="panel wizard-panel">
           <div className="section-row">
             <h2>Варианты мест</h2>
             <button
@@ -530,15 +613,18 @@ function CreateEvent({ navigate }: { navigate: Navigate }) {
               )}
             </div>
           ))}
-        </section>
+        </section>}
         <ErrorNote message={error} />
-        <button
-          className="primary-action form-submit"
-          disabled={saving || !title.trim() || !timeOptions.length}
-          type="submit"
-        >
-          {saving ? "Создаём…" : "Создать встречу"}
-        </button>
+        <div className="wizard-actions">
+          {step > 1 && (
+            <button className="secondary-action" disabled={saving} onClick={() => { setError(""); setStep((current) => current - 1); }} type="button">
+              Назад
+            </button>
+          )}
+          <button className="primary-action" disabled={saving} type="submit">
+            {step < 3 ? `Дальше · ${step + 1}/3` : saving ? "Создаём…" : "Создать встречу"}
+          </button>
+        </div>
       </form>
     </main>
   );
@@ -712,7 +798,11 @@ function ParticipantEvent({
       <main>
         <Header navigate={navigate} />
         {state.error ? (
-          <div className="not-found">{state.error}</div>
+          <RetryState
+            message={state.error}
+            onRetry={() => void state.load()}
+            title="Встреча не загрузилась"
+          />
         ) : (
           <Loading label="Загружаем встречу…" />
         )}
@@ -860,8 +950,9 @@ function MyEvents({ navigate }: { navigate: Navigate }) {
     participating: MeetingListItem[];
   } | null>(null);
   const [error, setError] = useState("");
-  useEffect(() => {
-    api
+  const load = useCallback(() => {
+    setError("");
+    return api
       .meetings()
       .then(setData)
       .catch((reason) =>
@@ -872,21 +963,31 @@ function MyEvents({ navigate }: { navigate: Navigate }) {
         ),
       );
   }, []);
+  useEffect(() => {
+    void load();
+  }, [load]);
   return (
     <main>
       <Header navigate={navigate} />
       <PageIntro eyebrow="Telegram-профиль" title="Мои встречи" />
-      {!data && !error ? (
-        <Loading />
-      ) : (
+      {!data && !error && <Loading />}
+      {error && (
+        <RetryState
+          message={error}
+          onRetry={() => void load()}
+          title="Не удалось загрузить список"
+        />
+      )}
+      {data && (
         <section className="my-events">
-          <ErrorNote message={error} />
           <MeetingGroup
+            emptyText="Создайте встречу и пригласите участников."
             items={data?.owned ?? []}
             navigate={navigate}
             title="Организую"
           />
           <MeetingGroup
+            emptyText="Здесь появятся встречи, в которых вы участвуете."
             items={data?.participating ?? []}
             navigate={navigate}
             title="Участвую"
@@ -951,7 +1052,11 @@ function Manage({
       <main>
         <Header navigate={navigate} />
         {state.error ? (
-          <div className="not-found">{state.error}</div>
+          <RetryState
+            message={state.error}
+            onRetry={() => void state.load()}
+            title="Управление не загрузилось"
+          />
         ) : (
           <Loading />
         )}
@@ -962,9 +1067,10 @@ function Manage({
     return (
       <main>
         <Header navigate={navigate} />
-        <div className="not-found">
-          У вас нет доступа к управлению этой встречей.
-        </div>
+        <RetryState
+          message="Управлять встречей может только её организатор."
+          title="Нет доступа"
+        />
       </main>
     );
   return (
@@ -1185,7 +1291,10 @@ function Manage({
               </details>
             ))
           ) : (
-            <p className="empty-note">Ответов пока нет</p>
+            <EmptyState
+              text="Отправьте приглашение в чат — ответы появятся здесь."
+              title="Ответов пока нет"
+            />
           )}
         </section>
         <section className="panel decision-panel">
@@ -1303,7 +1412,11 @@ function Result({
       <main>
         <Header navigate={navigate} />
         {state.error ? (
-          <div className="not-found">{state.error}</div>
+          <RetryState
+            message={state.error}
+            onRetry={() => void state.load()}
+            title="Результат не загрузился"
+          />
         ) : (
           <Loading />
         )}
@@ -1457,7 +1570,8 @@ export default function App() {
   const [auth, setAuth] = useState<AuthResult | null>(null);
   const [error, setError] = useState("");
   const [outside, setOutside] = useState(false);
-  useTelegramBack(path, navigate);
+  const [backOverride, setBackOverride] = useState<(() => void) | null>(null);
+  useTelegramBack(path, navigate, backOverride);
   useEffect(() => {
     const app = initializeTelegram();
     const mock = import.meta.env.VITE_USE_MOCK_TELEGRAM === "true";
@@ -1494,10 +1608,11 @@ export default function App() {
   if (error)
     return (
       <main className="outside-screen">
-        <div className="not-found">
-          <strong>Не удалось открыть приложение</strong>
-          <p>{error}</p>
-        </div>
+        <RetryState
+          message={error}
+          onRetry={() => window.location.reload()}
+          title="Не удалось открыть приложение"
+        />
       </main>
     );
   if (!auth)
@@ -1515,7 +1630,13 @@ export default function App() {
   if (result) return <Result eventId={result} navigate={navigate} />;
   const event = match(/^\/event\/([^/]+)$/);
   if (event) return <ParticipantEvent eventId={event} navigate={navigate} />;
-  if (path === "/create") return <CreateEvent navigate={navigate} />;
+  if (path === "/create")
+    return (
+      <CreateEvent
+        navigate={navigate}
+        setBackOverride={setBackOverride}
+      />
+    );
   if (path === "/my-events") return <MyEvents navigate={navigate} />;
   return <Home navigate={navigate} user={auth.user} />;
 }
