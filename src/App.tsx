@@ -1,24 +1,64 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CalendarPlus,
+  CalendarDays,
   Check,
-  ChevronRight,
+  CircleAlert,
   Clock3,
   MapPin,
+  Moon,
   Plus,
   RefreshCw,
   Send,
+  Sun,
   Trash2,
   Users,
 } from "lucide-react";
 import { api } from "./api";
+import { BottomNavigation } from "./BottomNavigation";
+import {
+  advanceCreateStep,
+  addTimeOption,
+  createdEventPath,
+  previousCreateStep,
+  removeTimeOption,
+  submitCreateEventOnce,
+  validateCreateStep,
+  type CreateWizardDraft,
+  type PlaceDraft,
+} from "./create-wizard";
 import { areaLeaders, bestSlot, formatSlot, plural } from "./domain";
+import {
+  eventShareUrl as buildEventShareUrl,
+  managementPath,
+  miniAppLink as buildMiniAppLink,
+  resultShareUrl as buildResultShareUrl,
+} from "./meeting-links";
+import { managePayloads, runActionOnce } from "./manage-actions";
+import { meetingCardData, meetingDestination } from "./navigation";
+import {
+  saveResponseOnce,
+  toggleTimeOption,
+  votingDraftFromEvent,
+  type VotingDraft,
+} from "./participant-voting";
+import { resultPlace, resultTime } from "./result-model";
 import {
   haptic,
   initializeTelegram,
   openTelegramUrl,
   telegram,
 } from "./telegram";
+import {
+  applyTheme,
+  initialResolvedTheme,
+  readThemePreference,
+  resolveTheme,
+  saveThemePreference,
+  subscribeToTelegramTheme,
+  type ResolvedTheme,
+  type ThemePreference,
+} from "./theme";
 import type {
   AuthResult,
   EventData,
@@ -27,7 +67,6 @@ import type {
 } from "./types";
 
 type Navigate = (path: string, replace?: boolean) => void;
-type PlaceDraft = { title: string; area: string; estimatedBudget: number };
 
 const statusLabels: Record<EventStatus, string> = {
   collecting: "Сбор ответов",
@@ -103,21 +142,78 @@ function useMainButton(
   }, [action, enabled, label, visible]);
 }
 
-function Header({ navigate }: { navigate: Navigate }) {
+function useAppTheme() {
+  const preference = useRef<ThemePreference>(readThemePreference());
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
+    initialResolvedTheme(telegram()),
+  );
+  useEffect(() => {
+    applyTheme(resolvedTheme);
+  }, [resolvedTheme]);
+  useEffect(
+    () =>
+      subscribeToTelegramTheme(
+        telegram(),
+        () => preference.current,
+        setResolvedTheme,
+      ),
+    [],
+  );
+  const toggleTheme = useCallback(() => {
+    const current = resolveTheme(
+      preference.current,
+      telegram()?.colorScheme ?? null,
+    );
+    const next: ThemePreference = current === "dark" ? "light" : "dark";
+    preference.current = next;
+    saveThemePreference(next);
+    setResolvedTheme(next);
+  }, []);
+  return { resolvedTheme, toggleTheme };
+}
+
+function Header({
+  navigate,
+  resolvedTheme,
+  toggleTheme,
+}: {
+  navigate: Navigate;
+  resolvedTheme?: ResolvedTheme;
+  toggleTheme?: () => void;
+}) {
   return (
     <header className="topbar">
       <button className="wordmark" onClick={() => navigate("/")} type="button">
         Соберёмся
       </button>
+      {resolvedTheme && toggleTheme && (
+        <button
+          aria-label={
+            resolvedTheme === "dark"
+              ? "Включить светлую тему"
+              : "Включить тёмную тему"
+          }
+          className="theme-toggle"
+          onClick={toggleTheme}
+          title={
+            resolvedTheme === "dark"
+              ? "Светлая тема"
+              : "Тёмная тема"
+          }
+          type="button"
+        >
+          {resolvedTheme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+        </button>
+      )}
     </header>
   );
 }
 
 function Loading({ label = "Загружаем…" }: { label?: string }) {
   return (
-    <div className="loading">
+    <div aria-live="polite" className="loading state-surface">
       <span className="spinner" />
-      {label}
+      <span>{label}</span>
     </div>
   );
 }
@@ -136,15 +232,18 @@ function RetryState({
   onRetry?: () => void;
 }) {
   return (
-    <section className="state-card" role="alert">
-      <strong>{title}</strong>
-      <p>{message}</p>
-      {onRetry && (
-        <button className="secondary-action" onClick={onRetry} type="button">
-          <RefreshCw size={17} />
-          Попробовать снова
-        </button>
-      )}
+    <section className="state-card error-state" role="alert">
+      <span className="state-icon error-state-icon"><CircleAlert size={30} /></span>
+      <div className="state-copy">
+        <strong>{title}</strong>
+        <p>{message}</p>
+        {onRetry && (
+          <button className="secondary-action" onClick={onRetry} type="button">
+            <RefreshCw size={17} />
+            Попробовать снова
+          </button>
+        )}
+      </div>
     </section>
   );
 }
@@ -160,9 +259,12 @@ function EmptyState({
 }) {
   return (
     <section className="state-card empty-state">
-      <strong>{title}</strong>
-      <p>{text}</p>
-      {action}
+      <span className="state-icon empty-state-icon"><CalendarDays size={32} /></span>
+      <div className="state-copy">
+        <strong>{title}</strong>
+        <p>{text}</p>
+        {action}
+      </div>
     </section>
   );
 }
@@ -170,24 +272,6 @@ function EmptyState({
 function StatusBadge({ status }: { status: EventStatus }) {
   return (
     <span className={`status-badge ${status}`}>{statusLabels[status]}</span>
-  );
-}
-
-function PageIntro({
-  eyebrow,
-  title,
-  children,
-}: {
-  eyebrow: string;
-  title: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <section className="page-intro">
-      <p className="eyebrow">{eyebrow}</p>
-      <h1>{title}</h1>
-      {children}
-    </section>
   );
 }
 
@@ -217,9 +301,13 @@ function OutsideTelegram() {
 
 function Home({
   navigate,
+  resolvedTheme,
+  toggleTheme,
   user,
 }: {
   navigate: Navigate;
+  resolvedTheme: ResolvedTheme;
+  toggleTheme: () => void;
   user: AuthResult["user"];
 }) {
   const [data, setData] = useState<{
@@ -243,64 +331,66 @@ function Home({
   useEffect(() => {
     void load();
   }, [load]);
+  const meetings = data
+    ? [...data.owned, ...data.participating]
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+        .slice(0, 4)
+    : [];
+  const meetingCount = data
+    ? data.owned.length + data.participating.length
+    : null;
   return (
-    <main>
-      <Header navigate={navigate} />
-      <section className="home-hero">
-        <div className="home-copy">
-          <p className="eyebrow">Привет, {user.firstName}</p>
-          <h1>Соберёмся</h1>
-          <p className="lead">
-            Время и место для встречи — без долгой переписки.
-          </p>
-          <div className="hero-actions">
-            <button
-              className="primary-action"
-              onClick={() => navigate("/create")}
-              type="button"
-            >
-              <Plus size={19} />
-              Создать встречу
-            </button>
-            <button
-              className="text-action"
-              onClick={() => navigate("/my-events")}
-              type="button"
-            >
-              Мои встречи <ChevronRight size={17} />
-            </button>
-          </div>
+    <main className="screen-with-bottom-navigation">
+      <Header
+        navigate={navigate}
+        resolvedTheme={resolvedTheme}
+        toggleTheme={toggleTheme}
+      />
+      <section className="home-page">
+        <h1 className="home-greeting">Привет, {user.firstName} 👋</h1>
+        <div className="home-action-grid">
+          <button
+            className="home-create-card"
+            onClick={() => navigate("/create")}
+            type="button"
+          >
+            <span className="home-action-icon"><Plus size={28} /></span>
+            <span>
+              <strong>Создать встречу</strong>
+              <small>Организуйте новое событие с друзьями</small>
+            </span>
+          </button>
+          <button
+            className="home-meetings-shortcut"
+            onClick={() => navigate("/my-events")}
+            type="button"
+          >
+            <CalendarDays size={25} />
+            <span>Мои встречи</span>
+            <strong>{meetingCount ?? "—"}</strong>
+          </button>
         </div>
-        <div className="home-preview">
-          <span>В Telegram</span>
-          <strong>{data ? data.owned.length + data.participating.length : "—"}</strong>
-          <p>встреч в вашем списке</p>
+        <div className="home-section-heading">
+          <h2>Ваши встречи</h2>
+          <button onClick={() => navigate("/my-events")} type="button">Все</button>
         </div>
+        {!data && !error && <Loading label="Загружаем встречи…" />}
+        {error && (
+          <RetryState
+            message={error}
+            onRetry={() => void load()}
+            title="Встречи не загрузились"
+          />
+        )}
+        {data && (
+          <MeetingGroup
+            emptyText="Создайте встречу или откройте приглашение из Telegram."
+            items={meetings}
+            navigate={navigate}
+          />
+        )}
       </section>
-      {!data && !error && <Loading label="Загружаем встречи…" />}
-      {error && (
-        <RetryState
-          message={error}
-          onRetry={() => void load()}
-          title="Встречи не загрузились"
-        />
-      )}
-      {data && (
-        <section className="dashboard-band">
-          <MeetingGroup
-            emptyText="Создайте встречу и отправьте приглашение в чат."
-            items={data.owned.slice(0, 3)}
-            navigate={navigate}
-            title="Ваши встречи"
-          />
-          <MeetingGroup
-            emptyText="Приглашённые встречи появятся здесь."
-            items={data.participating.slice(0, 3)}
-            navigate={navigate}
-            title="Вы участвуете"
-          />
-        </section>
-      )}
+      <BottomNavigation currentPath="/" navigate={navigate} />
     </main>
   );
 }
@@ -313,54 +403,47 @@ function MeetingGroup({
 }: {
   items: MeetingListItem[];
   navigate: Navigate;
-  title: string;
+  title?: string;
   emptyText?: string;
 }) {
   return (
     <div className="meeting-group">
-      <h2>{title}</h2>
+      {title && <h2>{title}</h2>}
       {items.length ? (
-        items.map((item) => (
-          <button
-            className="meeting-card"
-            key={item.id}
-            onClick={() =>
-              navigate(
-                item.role === "owner"
-                  ? `/manage/${item.id}`
-                  : `/event/${item.id}`,
-              )
-            }
-            type="button"
-          >
-            <div>
+        items.map((item) => {
+          const card = meetingCardData(item);
+          return (
+            <button
+              className="meeting-card"
+              key={item.id}
+              onClick={() => navigate(meetingDestination(item))}
+              type="button"
+            >
               <div className="meeting-card-heading">
-                <StatusBadge status={item.status} />
-                <span>{item.role === "owner" ? "Организую" : "Участвую"}</span>
+                <strong className="meeting-card-title">{card.title}</strong>
+                <StatusBadge status={card.status} />
               </div>
-              <strong className="meeting-card-title">{item.title}</strong>
               <div className="meeting-card-meta">
-                {(item.timeSummary || item.bestTime) && (
+                {(card.timeSummary || item.bestTime) && (
                   <span>
                     <Clock3 size={15} />
-                    {item.timeSummary ?? formatSlot(item.bestTime!.startsAt)}
+                    {card.timeSummary ?? formatSlot(item.bestTime!.startsAt)}
                   </span>
                 )}
-                {item.placeSummary && (
+                {card.placeSummary && (
                   <span>
                     <MapPin size={15} />
-                    {item.placeSummary}
+                    {card.placeSummary}
                   </span>
                 )}
                 <span>
                   <Users size={15} />
-                  {plural(item.responseCount, "ответил", "ответили", "ответили")}
+                  {plural(card.responseCount, "ответил", "ответили", "ответили")}
                 </span>
               </div>
-            </div>
-            <ChevronRight size={20} />
-          </button>
-        ))
+            </button>
+          );
+        })
       ) : (
         <EmptyState title="Пока пусто" text={emptyText} />
       )}
@@ -380,10 +463,26 @@ function SlotBuilder({
   const [time, setTime] = useState("18:30");
   const add = () => {
     const value = new Date(`${date}T${time}:00`).toISOString();
-    if (!slots.includes(value)) onChange([...slots, value].sort());
+    onChange(addTimeOption(slots, value));
   };
   return (
     <div className="slot-builder">
+      <div className="slot-list" aria-live="polite">
+        {slots.map((slot) => (
+          <div className="slot-card" key={slot}>
+            <span className="slot-card-icon"><CalendarDays size={24} /></span>
+            <strong>{formatSlot(slot)}</strong>
+            <button
+              className="icon-action danger"
+              onClick={() => onChange(removeTimeOption(slots, slot))}
+              title="Удалить вариант"
+              type="button"
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
+        ))}
+      </div>
       <div className="slot-controls">
         <label className="field">
           <span>Дата</span>
@@ -404,23 +503,8 @@ function SlotBuilder({
         </label>
         <button className="secondary-action" onClick={add} type="button">
           <Plus size={18} />
-          Добавить
+          Добавить вариант
         </button>
-      </div>
-      <div className="slot-list">
-        {slots.map((slot) => (
-          <div className="slot-card" key={slot}>
-            <strong>{formatSlot(slot)}</strong>
-            <button
-              className="icon-action danger"
-              onClick={() => onChange(slots.filter((value) => value !== slot))}
-              title="Удалить вариант"
-              type="button"
-            >
-              <Trash2 size={18} />
-            </button>
-          </div>
-        ))}
       </div>
     </div>
   );
@@ -443,40 +527,45 @@ function CreateEvent({
   ]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const submitLock = useRef(false);
+  const draft: CreateWizardDraft = {
+    title,
+    description,
+    budgetLimit,
+    timeOptions,
+    places,
+  };
   useEffect(() => {
     setBackOverride(() => () => {
-      if (step > 1) setStep((current) => current - 1);
+      if (step > 1) setStep((current) => previousCreateStep(current));
       else navigate("/");
     });
     return () => setBackOverride(null);
   }, [navigate, setBackOverride, step]);
 
   const next = () => {
-    if (step === 1 && !title.trim()) {
-      setError("Введите название встречи.");
-      return;
-    }
-    if (step === 2 && !timeOptions.length) {
-      setError("Добавьте хотя бы один вариант даты и времени.");
+    const transition = advanceCreateStep(step, draft);
+    if (transition.error) {
+      setError(transition.error);
       return;
     }
     setError("");
-    setStep((current) => Math.min(3, current + 1));
+    setStep(transition.step);
   };
   const submit = useCallback(async () => {
-    if (!title.trim() || !timeOptions.length || saving) return;
+    if (
+      validateCreateStep(1, draft) ||
+      validateCreateStep(2, draft) ||
+      saving ||
+      submitLock.current
+    ) return;
     setSaving(true);
     setError("");
     try {
-      const { event } = await api.createEvent({
-        title,
-        description,
-        budgetLimit,
-        timeOptions,
-        placeOptions: places.filter((place) => place.title.trim()),
-      });
+      const result = await submitCreateEventOnce(draft, submitLock, api.createEvent);
+      if (!result) return;
       haptic();
-      navigate(`/created/${event.id}`, true);
+      navigate(createdEventPath(result.event.id), true);
     } catch (reason) {
       haptic("error");
       setError(
@@ -489,13 +578,20 @@ function CreateEvent({
     }
   }, [budgetLimit, description, navigate, places, saving, timeOptions, title]);
   return (
-    <main>
+    <main className="create-screen">
       <Header navigate={navigate} />
-      <PageIntro eyebrow={`Новая встреча · ${step}/3`} title={step === 1 ? "О встрече" : step === 2 ? "Когда встречаемся?" : "Где встречаемся?"}>
+      <section className="create-intro">
+        <p className="create-step-label">Шаг {step} из 3</p>
+        <h1>{step === 1 ? "Что планируем?" : step === 2 ? "Когда встречаемся?" : "Где и сколько?"}</h1>
+        {step === 2 && (
+          <p className="create-step-description">
+            Добавьте несколько вариантов дат, чтобы участники могли выбрать удобное время.
+          </p>
+        )}
         <div className="step-progress" aria-label={`Шаг ${step} из 3`}>
-          {[1, 2, 3].map((item) => <span className={item <= step ? "active" : ""} key={item} />)}
+          <span style={{ width: `${(step / 3) * 100}%` }} />
         </div>
-      </PageIntro>
+      </section>
       <form
         className="form-page create-wizard"
         onSubmit={(event) => {
@@ -505,61 +601,45 @@ function CreateEvent({
         }}
       >
         {step === 1 && <section className="panel wizard-panel">
-          <h2>О встрече</h2>
           <label className="field">
-            <span>Название</span>
-            <textarea
+            <span>Название встречи</span>
+            <input
+              autoFocus
+              placeholder="Например, шашлыки с друзьями"
               required
-              rows={2}
               value={title}
               onChange={(event) => setTitle(event.target.value)}
             />
           </label>
           <label className="field">
-            <span>Комментарий</span>
+            <span>Описание (необязательно)</span>
             <textarea
+              placeholder="Добавьте детали, чтобы все были в курсе…"
               rows={3}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
             />
           </label>
-          <label className="field narrow">
-            <span>Бюджет, BYN</span>
-            <input
-              min="0"
-              type="number"
-              value={budgetLimit}
-              onChange={(event) => setBudgetLimit(Number(event.target.value))}
-            />
-          </label>
         </section>}
         {step === 2 && <section className="panel wizard-panel">
-          <h2>Дата и время</h2>
-          <p className="panel-hint">Добавьте несколько реальных вариантов — группе будет проще выбрать.</p>
-          <SlotBuilder slots={timeOptions} onChange={setTimeOptions} />
+          <SlotBuilder
+            slots={timeOptions}
+            onChange={(nextOptions) => {
+              setTimeOptions(nextOptions);
+              if (nextOptions.length) setError("");
+            }}
+          />
         </section>}
         {step === 3 && <section className="panel wizard-panel">
           <div className="section-row">
-            <h2>Варианты мест</h2>
-            <button
-              className="icon-action"
-              onClick={() =>
-                setPlaces([
-                  ...places,
-                  { title: "", area: "", estimatedBudget: budgetLimit },
-                ])
-              }
-              title="Добавить место"
-              type="button"
-            >
-              <Plus size={20} />
-            </button>
+            <h2>Места</h2>
           </div>
           {places.map((place, index) => (
             <div className="place-draft" key={index}>
               <label className="field">
                 <span>Место</span>
                 <input
+                  placeholder="Название места"
                   value={place.title}
                   onChange={(event) =>
                     setPlaces(
@@ -575,6 +655,7 @@ function CreateEvent({
               <label className="field">
                 <span>Район или метро</span>
                 <input
+                  placeholder="Район, метро или ориентир"
                   value={place.area}
                   onChange={(event) =>
                     setPlaces(
@@ -621,16 +702,38 @@ function CreateEvent({
               )}
             </div>
           ))}
+          <button
+            className="add-place-action"
+            onClick={() =>
+              setPlaces([
+                ...places,
+                { title: "", area: "", estimatedBudget: budgetLimit },
+              ])
+            }
+            type="button"
+          >
+            <Plus size={22} />
+            Добавить место
+          </button>
+          <label className="field budget-field">
+            <span>Общий бюджет, BYN</span>
+            <input
+              min="0"
+              type="number"
+              value={budgetLimit}
+              onChange={(event) => setBudgetLimit(Number(event.target.value))}
+            />
+          </label>
         </section>}
         <ErrorNote message={error} />
         <div className="wizard-actions">
           {step > 1 && (
-            <button className="secondary-action" disabled={saving} onClick={() => { setError(""); setStep((current) => current - 1); }} type="button">
+            <button className="secondary-action" disabled={saving} onClick={() => { setError(""); setStep((current) => previousCreateStep(current)); }} type="button">
               Назад
             </button>
           )}
           <button className="primary-action" disabled={saving} type="submit">
-            {step < 3 ? `Дальше · ${step + 1}/3` : saving ? "Создаём…" : "Создать встречу"}
+            {step < 3 ? "Продолжить" : saving ? "Создаём…" : "Создать встречу"}
           </button>
         </div>
       </form>
@@ -707,28 +810,35 @@ function Created({
 }) {
   const link = miniAppLink(eventId);
   return (
-    <main>
+    <main className="created-screen">
       <Header navigate={navigate} />
-      <PageIntro eyebrow="Встреча создана" title="Можно приглашать">
-        <p>Встреча сохранена в разделе «Мои встречи».</p>
-      </PageIntro>
-      <section className="confirmation-panel">
-        <button
-          className="primary-action"
-          onClick={() => shareEvent(eventId)}
-          type="button"
-        >
-          <Send size={19} />
-          Отправить в чат
-        </button>
-        <button
-          className="secondary-action"
-          onClick={() => navigate(`/manage/${eventId}`)}
-          type="button"
-        >
-          Открыть управление
-        </button>
-        <code>{link}</code>
+      <section className="created-page">
+        <span className="created-success-icon"><Check size={52} strokeWidth={2.4} /></span>
+        <div className="created-copy">
+          <h1>Встреча создана 🎉</h1>
+          <p>Всё готово! Теперь можно приглашать друзей.</p>
+        </div>
+        <div className="created-link-card">
+          <span>Ссылка-приглашение</span>
+          <code>{link}</code>
+        </div>
+        <div className="created-actions">
+          <button
+            className="primary-action"
+            onClick={() => shareEvent(eventId)}
+            type="button"
+          >
+            <Send size={20} />
+            Поделиться в Telegram
+          </button>
+          <button
+            className="secondary-action"
+            onClick={() => navigate(managementPath(eventId))}
+            type="button"
+          >
+            Перейти к встрече
+          </button>
+        </div>
       </section>
     </main>
   );
@@ -749,29 +859,34 @@ function ParticipantEvent({
   const [available, setAvailable] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const saveLock = useRef(false);
   useEffect(() => {
     if (!state.event) return;
-    const own = state.event.myResponse;
-    setArea(own?.area ?? "");
-    setBudget(own?.budget ?? state.event.budgetLimit);
-    setPreferences(own?.preferences ?? "");
-    setRestrictions(own?.restrictions ?? "");
-    setAvailable(
-      own?.availableTimeOptionIds ??
-        state.event.timeOptions.map((item) => item.id),
-    );
+    const draft = votingDraftFromEvent(state.event);
+    setArea(draft.area);
+    setBudget(draft.budget);
+    setPreferences(draft.preferences);
+    setRestrictions(draft.restrictions);
+    setAvailable(draft.availableTimeOptionIds);
   }, [state.event?.id]);
   const submit = useCallback(async () => {
-    if (!state.event || saving) return;
+    if (!state.event || saving || saveLock.current) return;
+    const draft: VotingDraft = {
+      area,
+      budget,
+      preferences,
+      restrictions,
+      availableTimeOptionIds: available,
+    };
     setSaving(true);
     try {
-      const result = await api.saveResponse(eventId, {
-        area,
-        budget,
-        preferences,
-        restrictions,
-        availableTimeOptionIds: available,
-      });
+      const result = await saveResponseOnce(
+        eventId,
+        draft,
+        saveLock,
+        api.saveResponse,
+      );
+      if (!result) return;
       state.setEvent(result.event);
       setSaved(true);
       haptic();
@@ -803,7 +918,7 @@ function ParticipantEvent({
   );
   if (!state.event)
     return (
-      <main>
+      <main className="voting-screen">
         <Header navigate={navigate} />
         {state.error ? (
           <RetryState
@@ -821,91 +936,89 @@ function ParticipantEvent({
     return <Result eventId={eventId} navigate={navigate} initial={event} />;
   if (saved)
     return (
-      <main>
+      <main className="voting-screen voting-saved-screen">
         <Header navigate={navigate} />
-        <PageIntro eyebrow="Ваш ответ сохранён" title="Спасибо">
-          <p>
+        <section className="voting-saved-page">
+          <span className="voting-saved-icon"><Check size={44} /></span>
+          <p className="create-step-label">Ваш ответ сохранён</p>
+          <h1>Спасибо!</h1>
+          <p className="voting-saved-summary">
             {bestSlot(event)
               ? `Сейчас лучше всего подходит ${formatSlot(bestSlot(event)!.startsAt)}.`
               : "Результаты появятся после ответов."}
           </p>
-        </PageIntro>
-        <section className="confirmation-panel">
-          <button
-            className="primary-action"
-            onClick={() => setSaved(false)}
-            type="button"
-          >
-            Изменить мой ответ
-          </button>
-          <button
-            className="secondary-action"
-            onClick={() => navigate(`/result/${eventId}`)}
-            type="button"
-          >
-            Посмотреть рекомендацию
-          </button>
+          <div className="voting-saved-actions">
+            <button
+              className="primary-action"
+              onClick={() => setSaved(false)}
+              type="button"
+            >
+              Изменить мой ответ
+            </button>
+            <button
+              className="secondary-action"
+              onClick={() => navigate(`/result/${eventId}`)}
+              type="button"
+            >
+              Посмотреть рекомендацию
+            </button>
+          </div>
         </section>
       </main>
     );
   return (
-    <main>
+    <main className="voting-screen">
       <Header navigate={navigate} />
-      <PageIntro eyebrow="Встреча" title={event.title}>
-        <p>{event.description}</p>
+      <section className="voting-intro">
+        <p className="create-step-label">Вас приглашают</p>
+        <h1>{event.title}</h1>
+        {event.description && <p>{event.description}</p>}
         <div className="event-meta">
           <StatusBadge status={event.status} />
-          <span>
-            {plural(event.participants.length, "ответ", "ответа", "ответов")}
-          </span>
+          <span>{plural(event.participants.length, "ответ", "ответа", "ответов")}</span>
         </div>
-      </PageIntro>
+      </section>
       <form
-        className="form-page participant-form"
+        className="form-page participant-form voting-form"
         onSubmit={(form) => {
           form.preventDefault();
           void submit();
         }}
       >
-        <section className="panel">
-          <h2>Когда вы можете?</h2>
+        <section className="panel voting-time-panel">
+          <h2>Выберите подходящие даты</h2>
+          <p className="panel-hint">Можно выбрать несколько вариантов.</p>
           <div className="availability-grid">
             {event.timeOptions.map((slot) => {
               const can = available.includes(slot.id);
               return (
                 <button
                   className={`availability-card ${can ? "available" : ""}`}
+                  aria-pressed={can}
                   key={slot.id}
                   onClick={() =>
-                    setAvailable(
-                      can
-                        ? available.filter((id) => id !== slot.id)
-                        : [...available, slot.id],
-                    )
+                    setAvailable(toggleTimeOption(available, slot.id))
                   }
                   type="button"
                 >
-                  <strong>{formatSlot(slot.startsAt)}</strong>
-                  <span>
-                    {can ? (
-                      <>
-                        <Check size={17} /> Могу
-                      </>
-                    ) : (
-                      "Не могу"
-                    )}
+                  <span className="availability-check">
+                    {can && <Check size={18} strokeWidth={3} />}
                   </span>
+                  <strong>{formatSlot(slot.startsAt)}</strong>
+                  <span className="availability-state">{can ? "Подходит" : "Не подходит"}</span>
                 </button>
               );
             })}
           </div>
         </section>
-        <section className="panel">
+        <section className="panel voting-details-panel">
           <h2>Ваши пожелания</h2>
+          <p className="panel-hint">Все поля ниже необязательны.</p>
           <label className="field">
             <span>Район или метро</span>
             <input
               value={area}
+              placeholder="Район, метро или ориентир"
               onChange={(input) => setArea(input.target.value)}
             />
           </label>
@@ -923,6 +1036,7 @@ function ParticipantEvent({
             <textarea
               rows={2}
               value={preferences}
+              placeholder="Например, тихий стол или веранда"
               onChange={(input) => setPreferences(input.target.value)}
             />
           </label>
@@ -931,6 +1045,7 @@ function ParticipantEvent({
             <textarea
               rows={2}
               value={restrictions}
+              placeholder="Например, без орехов"
               onChange={(input) => setRestrictions(input.target.value)}
             />
           </label>
@@ -958,6 +1073,9 @@ function MyEvents({ navigate }: { navigate: Navigate }) {
     participating: MeetingListItem[];
   } | null>(null);
   const [error, setError] = useState("");
+  const [selectedRole, setSelectedRole] = useState<MeetingListItem["role"]>(
+    "owner",
+  );
   const load = useCallback(() => {
     setError("");
     return api
@@ -974,34 +1092,54 @@ function MyEvents({ navigate }: { navigate: Navigate }) {
   useEffect(() => {
     void load();
   }, [load]);
+  const selectedItems =
+    selectedRole === "owner" ? (data?.owned ?? []) : (data?.participating ?? []);
   return (
-    <main>
+    <main className="screen-with-bottom-navigation">
       <Header navigate={navigate} />
-      <PageIntro eyebrow="Telegram-профиль" title="Мои встречи" />
-      {!data && !error && <Loading />}
-      {error && (
-        <RetryState
-          message={error}
-          onRetry={() => void load()}
-          title="Не удалось загрузить список"
-        />
-      )}
-      {data && (
-        <section className="my-events">
-          <MeetingGroup
-            emptyText="Создайте встречу и пригласите участников."
-            items={data?.owned ?? []}
-            navigate={navigate}
-            title="Организую"
+      <section className="my-meetings-page">
+        <h1>Мои встречи</h1>
+        <div aria-label="Тип встреч" className="meeting-segments" role="tablist">
+          <button
+            aria-selected={selectedRole === "owner"}
+            className={selectedRole === "owner" ? "selected" : ""}
+            onClick={() => setSelectedRole("owner")}
+            role="tab"
+            type="button"
+          >
+            Организую
+          </button>
+          <button
+            aria-selected={selectedRole === "participant"}
+            className={selectedRole === "participant" ? "selected" : ""}
+            onClick={() => setSelectedRole("participant")}
+            role="tab"
+            type="button"
+          >
+            Участвую
+          </button>
+        </div>
+        {!data && !error && <Loading />}
+        {error && (
+          <RetryState
+            message={error}
+            onRetry={() => void load()}
+            title="Не удалось загрузить список"
           />
+        )}
+        {data && (
           <MeetingGroup
-            emptyText="Здесь появятся встречи, в которых вы участвуете."
-            items={data?.participating ?? []}
+            emptyText={
+              selectedRole === "owner"
+                ? "Создайте встречу и пригласите участников."
+                : "Здесь появятся встречи, в которых вы участвуете."
+            }
+            items={selectedItems}
             navigate={navigate}
-            title="Участвую"
           />
-        </section>
-      )}
+        )}
+      </section>
+      <BottomNavigation currentPath="/my-events" navigate={navigate} />
     </main>
   );
 }
@@ -1025,6 +1163,7 @@ function Manage({
   const [finalTime, setFinalTime] = useState("");
   const [finalPlace, setFinalPlace] = useState("");
   const [saving, setSaving] = useState(false);
+  const actionLock = useRef(false);
   useEffect(() => {
     if (!state.event) return;
     setTitle(state.event.title);
@@ -1037,9 +1176,13 @@ function Manage({
     state.event?.finalTimeOptionId,
   ]);
   const mutate = async (payload: unknown) => {
+    if (actionLock.current) return false;
     setSaving(true);
     try {
-      const result = await api.manage(eventId, payload);
+      const result = await runActionOnce(actionLock, () =>
+        api.manage(eventId, payload),
+      );
+      if (!result) return false;
       state.setEvent(result.event);
       haptic();
       return true;
@@ -1057,7 +1200,7 @@ function Manage({
   };
   if (!state.event)
     return (
-      <main>
+      <main className="manage-screen">
         <Header navigate={navigate} />
         {state.error ? (
           <RetryState
@@ -1073,7 +1216,7 @@ function Manage({
   const event = state.event;
   if (!event.canManage)
     return (
-      <main>
+      <main className="manage-screen">
         <Header navigate={navigate} />
         <RetryState
           message="Управлять встречей может только её организатор."
@@ -1082,9 +1225,12 @@ function Manage({
       </main>
     );
   return (
-    <main>
+    <main className="manage-screen">
       <Header navigate={navigate} />
-      <PageIntro eyebrow="Управление" title={event.title}>
+      <section className="manage-intro">
+        <p className="create-step-label">Управление встречей</p>
+        <h1>{event.title}</h1>
+        {event.description && <p className="manage-description">{event.description}</p>}
         <div className="event-meta">
           <StatusBadge status={event.status} />
           <span>
@@ -1096,14 +1242,14 @@ function Manage({
             )}
           </span>
         </div>
-      </PageIntro>
+      </section>
       <section className="manage-page">
         <Refresh
           refreshing={state.refreshing}
           lastUpdated={state.lastUpdated}
           onClick={() => void state.load()}
         />
-        <section className="panel">
+        <section className="panel manage-card manage-details-card">
           <h2>Описание</h2>
           <label className="field">
             <span>Название</span>
@@ -1124,15 +1270,15 @@ function Manage({
             className="secondary-action"
             disabled={saving}
             onClick={() =>
-              void mutate({ action: "update_details", title, description })
+              void mutate(managePayloads.updateDetails(title, description))
             }
             type="button"
           >
             Сохранить описание
           </button>
         </section>
-        <section className="panel">
-          <h2>Время</h2>
+        <section className="panel manage-card manage-time-card">
+          <h2><CalendarDays size={24} /> Время</h2>
           {event.timeOptions.map((slot) => (
             <div className="slot-card" key={slot.id}>
               <div>
@@ -1151,11 +1297,12 @@ function Manage({
                     )
                   )
                     return;
-                  await mutate({
-                    action: "remove_time",
-                    timeOptionId: slot.id,
-                    force: slot.availableCount > 0,
-                  });
+                  await mutate(
+                    managePayloads.removeTime(
+                      slot.id,
+                      slot.availableCount > 0,
+                    ),
+                  );
                 }}
                 title="Удалить время"
                 type="button"
@@ -1175,10 +1322,9 @@ function Manage({
               disabled={!newTime}
               onClick={async () => {
                 if (
-                  await mutate({
-                    action: "add_time",
-                    startsAt: new Date(newTime).toISOString(),
-                  })
+                  await mutate(
+                    managePayloads.addTime(new Date(newTime).toISOString()),
+                  )
                 )
                   setNewTime("");
               }}
@@ -1189,8 +1335,8 @@ function Manage({
             </button>
           </div>
         </section>
-        <section className="panel">
-          <h2>Места</h2>
+        <section className="panel manage-card manage-places-card">
+          <h2><MapPin size={24} /> Места</h2>
           {event.placeOptions.map((item) => (
             <div className="slot-card" key={item.id}>
               <div>
@@ -1202,10 +1348,7 @@ function Manage({
               <button
                 className="icon-action danger"
                 onClick={() =>
-                  void mutate({
-                    action: "remove_place",
-                    placeOptionId: item.id,
-                  })
+                  void mutate(managePayloads.removePlace(item.id))
                 }
                 title="Удалить место"
                 type="button"
@@ -1244,7 +1387,7 @@ function Manage({
               className="secondary-action"
               disabled={!place.title.trim()}
               onClick={async () => {
-                if (await mutate({ action: "add_place", place }))
+                if (await mutate(managePayloads.addPlace(place)))
                   setPlace({
                     title: "",
                     area: "",
@@ -1258,8 +1401,8 @@ function Manage({
             </button>
           </div>
         </section>
-        <section className="panel">
-          <h2>Ответы участников</h2>
+        <section className="panel manage-card manage-participants-card">
+          <h2><Users size={24} /> Ответы участников</h2>
           {event.participants.length ? (
             event.participants.map((person) => (
               <details className="participant-answer" key={person.id}>
@@ -1305,7 +1448,7 @@ function Manage({
             />
           )}
         </section>
-        <section className="panel decision-panel">
+        <section className="panel manage-card decision-panel">
           <h2>Окончательное решение</h2>
           <label className="field">
             <span>Время</span>
@@ -1339,11 +1482,7 @@ function Manage({
             className="primary-action"
             disabled={!finalTime || !finalPlace || saving}
             onClick={() =>
-              void mutate({
-                action: "decide",
-                finalTimeOptionId: finalTime,
-                finalPlaceId: finalPlace,
-              })
+              void mutate(managePayloads.decide(finalTime, finalPlace))
             }
             type="button"
           >
@@ -1352,7 +1491,7 @@ function Manage({
           {event.status === "collecting" && (
             <button
               className="secondary-action"
-              onClick={() => void mutate({ action: "close" })}
+              onClick={() => void mutate(managePayloads.close())}
               type="button"
             >
               Закрыть сбор ответов
@@ -1361,14 +1500,14 @@ function Manage({
           {event.status !== "collecting" && (
             <button
               className="secondary-action"
-              onClick={() => void mutate({ action: "reopen" })}
+              onClick={() => void mutate(managePayloads.reopen())}
               type="button"
             >
               Возобновить сбор ответов
             </button>
           )}
         </section>
-        <div className="action-row">
+        <div className="action-row manage-actions">
           <button
             className="secondary-action"
             onClick={() => shareEvent(event.id)}
@@ -1388,8 +1527,10 @@ function Manage({
             className="danger-button"
             onClick={async () => {
               if (confirm("Удалить встречу?")) {
-                await api.remove(event.id);
-                navigate("/my-events", true);
+                const removed = await runActionOnce(actionLock, () =>
+                  api.remove(event.id),
+                );
+                if (removed) navigate("/my-events", true);
               }
             }}
             type="button"
@@ -1430,13 +1571,8 @@ function Result({
         )}
       </main>
     );
-  const recommendedTime =
-    event.timeOptions.find((item) => item.id === event.finalTimeOptionId) ??
-    bestSlot(event);
-  const finalPlace =
-    event.placeOptions.find((item) => item.id === event.finalPlaceId) ??
-    event.placeOptions[0] ??
-    null;
+  const recommendedTime = resultTime(event);
+  const finalPlace = resultPlace(event);
   const areas = areaLeaders(event);
   const tie = areas.length > 1;
   const addCalendar = () => {
@@ -1458,18 +1594,8 @@ function Result({
     URL.revokeObjectURL(link.href);
   };
   return (
-    <main>
+    <main className="result-screen">
       <Header navigate={navigate} />
-      <PageIntro
-        eyebrow={
-          event.status === "decided"
-            ? "Решение принято"
-            : "Текущая рекомендация"
-        }
-        title={event.title}
-      >
-        <StatusBadge status={event.status} />
-      </PageIntro>
       <section className="result-page">
         {!initial && (
           <Refresh
@@ -1478,31 +1604,39 @@ function Result({
             onClick={() => void state.load()}
           />
         )}
-        <section className="result-hero">
-          <span>
-            {event.status === "decided"
-              ? "Итог встречи"
-              : "Лучший вариант сейчас"}
-          </span>
-          <h2>
-            {recommendedTime
-              ? formatSlot(recommendedTime.startsAt)
-              : "Пока нет голосов"}
-          </h2>
-          <p>
-            {finalPlace
-              ? `${finalPlace.title} · ${finalPlace.area}`
-              : "Место ещё не выбрано"}
+        <section className="result-success-intro">
+          <span className="result-success-icon"><Check size={44} strokeWidth={2.5} /></span>
+          <p className="create-step-label">
+            {event.status === "decided" ? "Итог встречи" : "Текущая рекомендация"}
           </p>
+          <h1>{event.status === "decided" ? "Решение принято" : event.title}</h1>
+          {event.status === "decided" && <p className="result-event-title">{event.title}</p>}
+        </section>
+        <section className="result-summary-card">
+          <div className="result-summary-row">
+            <span className="result-summary-icon"><CalendarDays size={25} /></span>
+            <div>
+              <span>Дата и время</span>
+              <strong>{recommendedTime ? formatSlot(recommendedTime.startsAt) : "Пока нет голосов"}</strong>
+            </div>
+          </div>
+          <div className="result-summary-row">
+            <span className="result-summary-icon"><MapPin size={25} /></span>
+            <div>
+              <span>Место</span>
+              <strong>{finalPlace ? finalPlace.title : "Место ещё не выбрано"}</strong>
+              {finalPlace?.area && <small>{finalPlace.area}</small>}
+            </div>
+          </div>
+          <div className="result-summary-row">
+            <span className="result-summary-icon"><Users size={25} /></span>
+            <div>
+              <span>Участники</span>
+              <strong>{event.participants.length}</strong>
+            </div>
+          </div>
         </section>
         <div className="result-grid">
-          <section className="panel">
-            <Users size={22} />
-            <h3>Участники</h3>
-            <strong className="result-value">
-              {event.participants.length}
-            </strong>
-          </section>
           <section className="panel">
             <MapPin size={22} />
             <h3>Район</h3>
@@ -1533,6 +1667,14 @@ function Result({
         </section>
         <div className="result-actions">
           <button
+            className="primary-action"
+            onClick={() => shareResult(event.id)}
+            type="button"
+          >
+            <Send size={18} />
+            Поделиться результатом
+          </button>
+          <button
             className="secondary-action"
             onClick={addCalendar}
             type="button"
@@ -1541,12 +1683,11 @@ function Result({
             Добавить в календарь
           </button>
           <button
-            className="primary-action"
-            onClick={() => shareResult(event.id)}
+            className="text-action result-home-action"
+            onClick={() => navigate("/")}
             type="button"
           >
-            <Send size={18} />
-            Поделиться результатом
+            Вернуться на главную
           </button>
         </div>
       </section>
@@ -1554,27 +1695,29 @@ function Result({
   );
 }
 
-function miniAppLink(eventId: string) {
+function telegramAppConfig() {
   const bot = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || "BOT_USERNAME";
   const app = import.meta.env.VITE_TELEGRAM_APP_SHORT_NAME || "app";
-  return `https://t.me/${bot}/${app}?startapp=event_${eventId}`;
+  return { bot, app };
+}
+
+function miniAppLink(eventId: string) {
+  const { bot, app } = telegramAppConfig();
+  return buildMiniAppLink(eventId, bot, app);
 }
 
 function shareEvent(eventId: string) {
-  const link = miniAppLink(eventId);
-  openTelegramUrl(
-    `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent("Соберёмся?\nПроголосуйте за удобное время и место:")}`,
-  );
+  const { bot, app } = telegramAppConfig();
+  openTelegramUrl(buildEventShareUrl(eventId, bot, app));
 }
 function shareResult(eventId: string) {
-  const link = miniAppLink(eventId);
-  openTelegramUrl(
-    `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent("Итог встречи в «Соберёмся»:")}`,
-  );
+  const { bot, app } = telegramAppConfig();
+  openTelegramUrl(buildResultShareUrl(eventId, bot, app));
 }
 
 export default function App() {
   const { path, navigate } = usePath();
+  const { resolvedTheme, toggleTheme } = useAppTheme();
   const [auth, setAuth] = useState<AuthResult | null>(null);
   const [error, setError] = useState("");
   const [outside, setOutside] = useState(false);
@@ -1646,5 +1789,12 @@ export default function App() {
       />
     );
   if (path === "/my-events") return <MyEvents navigate={navigate} />;
-  return <Home navigate={navigate} user={auth.user} />;
+  return (
+    <Home
+      navigate={navigate}
+      resolvedTheme={resolvedTheme}
+      toggleTheme={toggleTheme}
+      user={auth.user}
+    />
+  );
 }
