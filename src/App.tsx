@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CalendarPlus,
+  CalendarDays,
   Check,
-  ChevronRight,
   Clock3,
   MapPin,
   Moon,
@@ -14,7 +14,9 @@ import {
   Users,
 } from "lucide-react";
 import { api } from "./api";
+import { BottomNavigation } from "./BottomNavigation";
 import { areaLeaders, bestSlot, formatSlot, plural } from "./domain";
+import { meetingCardData, meetingDestination } from "./navigation";
 import {
   haptic,
   initializeTelegram,
@@ -316,68 +318,66 @@ function Home({
   useEffect(() => {
     void load();
   }, [load]);
+  const meetings = data
+    ? [...data.owned, ...data.participating]
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+        .slice(0, 4)
+    : [];
+  const meetingCount = data
+    ? data.owned.length + data.participating.length
+    : null;
   return (
-    <main>
+    <main className="screen-with-bottom-navigation">
       <Header
         navigate={navigate}
         resolvedTheme={resolvedTheme}
         toggleTheme={toggleTheme}
       />
-      <section className="home-hero">
-        <div className="home-copy">
-          <p className="eyebrow">Привет, {user.firstName}</p>
-          <h1>Соберёмся</h1>
-          <p className="lead">
-            Время и место для встречи — без долгой переписки.
-          </p>
-          <div className="hero-actions">
-            <button
-              className="primary-action"
-              onClick={() => navigate("/create")}
-              type="button"
-            >
-              <Plus size={19} />
-              Создать встречу
-            </button>
-            <button
-              className="text-action"
-              onClick={() => navigate("/my-events")}
-              type="button"
-            >
-              Мои встречи <ChevronRight size={17} />
-            </button>
-          </div>
+      <section className="home-page">
+        <h1 className="home-greeting">Привет, {user.firstName} 👋</h1>
+        <div className="home-action-grid">
+          <button
+            className="home-create-card"
+            onClick={() => navigate("/create")}
+            type="button"
+          >
+            <span className="home-action-icon"><Plus size={28} /></span>
+            <span>
+              <strong>Создать встречу</strong>
+              <small>Организуйте новое событие с друзьями</small>
+            </span>
+          </button>
+          <button
+            className="home-meetings-shortcut"
+            onClick={() => navigate("/my-events")}
+            type="button"
+          >
+            <CalendarDays size={25} />
+            <span>Мои встречи</span>
+            <strong>{meetingCount ?? "—"}</strong>
+          </button>
         </div>
-        <div className="home-preview">
-          <span>В Telegram</span>
-          <strong>{data ? data.owned.length + data.participating.length : "—"}</strong>
-          <p>встреч в вашем списке</p>
+        <div className="home-section-heading">
+          <h2>Ваши встречи</h2>
+          <button onClick={() => navigate("/my-events")} type="button">Все</button>
         </div>
+        {!data && !error && <Loading label="Загружаем встречи…" />}
+        {error && (
+          <RetryState
+            message={error}
+            onRetry={() => void load()}
+            title="Встречи не загрузились"
+          />
+        )}
+        {data && (
+          <MeetingGroup
+            emptyText="Создайте встречу или откройте приглашение из Telegram."
+            items={meetings}
+            navigate={navigate}
+          />
+        )}
       </section>
-      {!data && !error && <Loading label="Загружаем встречи…" />}
-      {error && (
-        <RetryState
-          message={error}
-          onRetry={() => void load()}
-          title="Встречи не загрузились"
-        />
-      )}
-      {data && (
-        <section className="dashboard-band">
-          <MeetingGroup
-            emptyText="Создайте встречу и отправьте приглашение в чат."
-            items={data.owned.slice(0, 3)}
-            navigate={navigate}
-            title="Ваши встречи"
-          />
-          <MeetingGroup
-            emptyText="Приглашённые встречи появятся здесь."
-            items={data.participating.slice(0, 3)}
-            navigate={navigate}
-            title="Вы участвуете"
-          />
-        </section>
-      )}
+      <BottomNavigation currentPath="/" navigate={navigate} />
     </main>
   );
 }
@@ -390,54 +390,47 @@ function MeetingGroup({
 }: {
   items: MeetingListItem[];
   navigate: Navigate;
-  title: string;
+  title?: string;
   emptyText?: string;
 }) {
   return (
     <div className="meeting-group">
-      <h2>{title}</h2>
+      {title && <h2>{title}</h2>}
       {items.length ? (
-        items.map((item) => (
-          <button
-            className="meeting-card"
-            key={item.id}
-            onClick={() =>
-              navigate(
-                item.role === "owner"
-                  ? `/manage/${item.id}`
-                  : `/event/${item.id}`,
-              )
-            }
-            type="button"
-          >
-            <div>
+        items.map((item) => {
+          const card = meetingCardData(item);
+          return (
+            <button
+              className="meeting-card"
+              key={item.id}
+              onClick={() => navigate(meetingDestination(item))}
+              type="button"
+            >
               <div className="meeting-card-heading">
-                <StatusBadge status={item.status} />
-                <span>{item.role === "owner" ? "Организую" : "Участвую"}</span>
+                <strong className="meeting-card-title">{card.title}</strong>
+                <StatusBadge status={card.status} />
               </div>
-              <strong className="meeting-card-title">{item.title}</strong>
               <div className="meeting-card-meta">
-                {(item.timeSummary || item.bestTime) && (
+                {(card.timeSummary || item.bestTime) && (
                   <span>
                     <Clock3 size={15} />
-                    {item.timeSummary ?? formatSlot(item.bestTime!.startsAt)}
+                    {card.timeSummary ?? formatSlot(item.bestTime!.startsAt)}
                   </span>
                 )}
-                {item.placeSummary && (
+                {card.placeSummary && (
                   <span>
                     <MapPin size={15} />
-                    {item.placeSummary}
+                    {card.placeSummary}
                   </span>
                 )}
                 <span>
                   <Users size={15} />
-                  {plural(item.responseCount, "ответил", "ответили", "ответили")}
+                  {plural(card.responseCount, "ответил", "ответили", "ответили")}
                 </span>
               </div>
-            </div>
-            <ChevronRight size={20} />
-          </button>
-        ))
+            </button>
+          );
+        })
       ) : (
         <EmptyState title="Пока пусто" text={emptyText} />
       )}
@@ -1035,6 +1028,9 @@ function MyEvents({ navigate }: { navigate: Navigate }) {
     participating: MeetingListItem[];
   } | null>(null);
   const [error, setError] = useState("");
+  const [selectedRole, setSelectedRole] = useState<MeetingListItem["role"]>(
+    "owner",
+  );
   const load = useCallback(() => {
     setError("");
     return api
@@ -1051,34 +1047,54 @@ function MyEvents({ navigate }: { navigate: Navigate }) {
   useEffect(() => {
     void load();
   }, [load]);
+  const selectedItems =
+    selectedRole === "owner" ? (data?.owned ?? []) : (data?.participating ?? []);
   return (
-    <main>
+    <main className="screen-with-bottom-navigation">
       <Header navigate={navigate} />
-      <PageIntro eyebrow="Telegram-профиль" title="Мои встречи" />
-      {!data && !error && <Loading />}
-      {error && (
-        <RetryState
-          message={error}
-          onRetry={() => void load()}
-          title="Не удалось загрузить список"
-        />
-      )}
-      {data && (
-        <section className="my-events">
-          <MeetingGroup
-            emptyText="Создайте встречу и пригласите участников."
-            items={data?.owned ?? []}
-            navigate={navigate}
-            title="Организую"
+      <section className="my-meetings-page">
+        <h1>Мои встречи</h1>
+        <div aria-label="Тип встреч" className="meeting-segments" role="tablist">
+          <button
+            aria-selected={selectedRole === "owner"}
+            className={selectedRole === "owner" ? "selected" : ""}
+            onClick={() => setSelectedRole("owner")}
+            role="tab"
+            type="button"
+          >
+            Организую
+          </button>
+          <button
+            aria-selected={selectedRole === "participant"}
+            className={selectedRole === "participant" ? "selected" : ""}
+            onClick={() => setSelectedRole("participant")}
+            role="tab"
+            type="button"
+          >
+            Участвую
+          </button>
+        </div>
+        {!data && !error && <Loading />}
+        {error && (
+          <RetryState
+            message={error}
+            onRetry={() => void load()}
+            title="Не удалось загрузить список"
           />
+        )}
+        {data && (
           <MeetingGroup
-            emptyText="Здесь появятся встречи, в которых вы участвуете."
-            items={data?.participating ?? []}
+            emptyText={
+              selectedRole === "owner"
+                ? "Создайте встречу и пригласите участников."
+                : "Здесь появятся встречи, в которых вы участвуете."
+            }
+            items={selectedItems}
             navigate={navigate}
-            title="Участвую"
           />
-        </section>
-      )}
+        )}
+      </section>
+      <BottomNavigation currentPath="/my-events" navigate={navigate} />
     </main>
   );
 }

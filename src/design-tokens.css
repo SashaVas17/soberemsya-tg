@@ -9,8 +9,10 @@
   --color-primary: #137c72;
   --color-primary-hover: #0d5a53;
   --color-primary-soft: #dff1ee;
+  --color-on-primary-soft: #0d5a53;
   --color-on-primary: #ffffff;
   --color-brand: #0d5a53;
+  --color-on-brand: #ffffff;
   --color-warning: #f0bd3d;
   --color-error: #d95c48;
   --color-error-container: #fbe8e3;
@@ -54,8 +56,10 @@
   --color-primary: #7477ff;
   --color-primary-hover: #8083ff;
   --color-primary-soft: #3f3f91;
+  --color-on-primary-soft: #b1b1ff;
   --color-on-primary: #ffffff;
   --color-brand: #c0c1ff;
+  --color-on-brand: #1203a7;
   --color-warning: #c1c1ff;
   --color-error: #ffb4ab;
   --color-error-container: #93000a;
