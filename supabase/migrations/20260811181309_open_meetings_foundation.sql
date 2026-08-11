@@ -46,7 +46,6 @@ create table if not exists public.join_requests (
       or (
         status in ('approved', 'rejected')
         and decided_at is not null
-        and decided_by_user_id is not null
       )
     )
 );
@@ -60,8 +59,14 @@ create index if not exists join_requests_requester_created_idx
 
 alter table public.join_requests enable row level security;
 
-revoke all on table public.join_requests from anon, authenticated;
+revoke all privileges on table public.join_requests from public;
+revoke all privileges on table public.join_requests from anon;
+revoke all privileges on table public.join_requests from authenticated;
 grant select, insert, update on table public.join_requests to service_role;
+
+-- OPEN 2 must reject saveResponse for a public event unless the caller is an
+-- approved participant. The existing private response flow intentionally stays
+-- unchanged until that public API guard is introduced.
 
 create or replace function public.approve_join_request(
   p_event_id text,
@@ -117,16 +122,6 @@ begin
     raise exception using errcode = 'P0001', message = 'Event owner cannot join their own event';
   end if;
 
-  select count(*)::integer
-  into v_participant_count
-  from public.participants
-  where event_id = p_event_id;
-
-  if v_event.max_participants is not null
-    and 1 + v_participant_count >= v_event.max_participants then
-    raise exception using errcode = 'P0001', message = 'Event capacity has been reached';
-  end if;
-
   if exists (
     select 1
     from public.participants
@@ -143,6 +138,20 @@ begin
 
   if v_name is null then
     raise exception using errcode = 'P0001', message = 'Requester user not found';
+  end if;
+
+  select count(*)::integer
+  into v_participant_count
+  from public.participants
+  where event_id = p_event_id
+    and (
+      user_id is null
+      or user_id <> v_event.owner_user_id
+    );
+
+  if v_event.max_participants is not null
+    and 1 + v_participant_count >= v_event.max_participants then
+    raise exception using errcode = 'P0001', message = 'Event capacity has been reached';
   end if;
 
   v_participant_id := gen_random_uuid();
@@ -224,10 +233,12 @@ begin
 end;
 $$;
 
-revoke all on function public.approve_join_request(text, uuid, uuid)
-  from public, anon, authenticated;
-revoke all on function public.reject_join_request(text, uuid, uuid)
-  from public, anon, authenticated;
+revoke all on function public.approve_join_request(text, uuid, uuid) from public;
+revoke all on function public.approve_join_request(text, uuid, uuid) from anon;
+revoke all on function public.approve_join_request(text, uuid, uuid) from authenticated;
+revoke all on function public.reject_join_request(text, uuid, uuid) from public;
+revoke all on function public.reject_join_request(text, uuid, uuid) from anon;
+revoke all on function public.reject_join_request(text, uuid, uuid) from authenticated;
 grant execute on function public.approve_join_request(text, uuid, uuid)
   to service_role;
 grant execute on function public.reject_join_request(text, uuid, uuid)

@@ -25,6 +25,8 @@ describe("Open Meetings database foundation", () => {
     expect(migration).toContain("status in ('pending', 'approved', 'rejected')");
     expect(migration).toContain("status = 'pending' and decided_at is null and decided_by_user_id is null");
     expect(migration).toContain("status in ('approved', 'rejected')");
+    expect(migration).toContain("and decided_at is not null");
+    expect(migration).not.toContain("and decided_by_user_id is not null");
   });
 
   it("creates only the request-operation indexes", () => {
@@ -34,7 +36,7 @@ describe("Open Meetings database foundation", () => {
     expect(migration).not.toContain("events_public_feed_idx");
   });
 
-  it("approves atomically after owner, public, status, capacity and duplicate checks", () => {
+  it("approves atomically after owner, public, status, duplicate and final capacity checks", () => {
     const approve = migration.slice(
       migration.indexOf("create or replace function public.approve_join_request"),
       migration.indexOf("create or replace function public.reject_join_request"),
@@ -46,12 +48,30 @@ describe("Open Meetings database foundation", () => {
     expect(approve).toContain("v_event.visibility <> 'public'");
     expect(approve).toContain("v_event.status <> 'collecting'");
     expect(approve).toContain("v_request.requester_user_id = v_event.owner_user_id");
+    expect(approve).toContain("user_id is null");
+    expect(approve).toContain("or user_id <> v_event.owner_user_id");
     expect(approve).toContain("1 + v_participant_count >= v_event.max_participants");
     expect(approve).toContain("insert into public.participants");
     expect(approve).toContain("set status = 'approved'");
+    expect(approve.indexOf("Participant already exists")).toBeLessThan(
+      approve.indexOf("select count(*)::integer"),
+    );
+    expect(approve.indexOf("select count(*)::integer")).toBeLessThan(
+      approve.indexOf("insert into public.participants"),
+    );
     expect(approve.indexOf("insert into public.participants")).toBeLessThan(
       approve.indexOf("set status = 'approved'"),
     );
+  });
+
+  it("counts the owner once while including ordinary and legacy participant rows", () => {
+    const approve = migration.slice(
+      migration.indexOf("create or replace function public.approve_join_request"),
+      migration.indexOf("create or replace function public.reject_join_request"),
+    );
+    expect(approve).toContain("1 + v_participant_count");
+    expect(approve).toContain("user_id is null");
+    expect(approve).toContain("user_id <> v_event.owner_user_id");
   });
 
   it("uses the event lock to serialize approval of the last total-capacity seat", () => {
@@ -76,9 +96,33 @@ describe("Open Meetings database foundation", () => {
 
   it("keeps direct table and function access off the frontend roles", () => {
     expect(migration).toContain("alter table public.join_requests enable row level security");
-    expect(migration).toContain("revoke all on table public.join_requests from anon, authenticated");
+    expect(migration).toContain("revoke all privileges on table public.join_requests from public");
+    expect(migration).toContain("revoke all privileges on table public.join_requests from anon");
+    expect(migration).toContain("revoke all privileges on table public.join_requests from authenticated");
     expect(migration).toContain("grant select, insert, update on table public.join_requests to service_role");
-    expect(migration).toContain("revoke all on function public.approve_join_request(text, uuid, uuid)");
+    expect(migration).toContain("revoke all on function public.approve_join_request(text, uuid, uuid) from public");
+    expect(migration).toContain("revoke all on function public.approve_join_request(text, uuid, uuid) from anon");
+    expect(migration).toContain("revoke all on function public.approve_join_request(text, uuid, uuid) from authenticated");
     expect(migration).toContain("to service_role");
+  });
+
+  it("records the real actor while allowing a deleted decider to become null", () => {
+    const approve = migration.slice(
+      migration.indexOf("create or replace function public.approve_join_request"),
+      migration.indexOf("create or replace function public.reject_join_request"),
+    );
+    const reject = migration.slice(
+      migration.indexOf("create or replace function public.reject_join_request"),
+      migration.indexOf("revoke all on function public.approve_join_request"),
+    );
+    expect(migration).toContain("decided_by_user_id uuid references public.users(id) on delete set null");
+    expect(approve).toContain("decided_by_user_id = p_actor_user_id");
+    expect(reject).toContain("decided_by_user_id = p_actor_user_id");
+  });
+
+  it("documents the required public saveResponse guard without changing the private flow", () => {
+    expect(migration).toContain("OPEN 2 must reject saveResponse for a public event unless the caller is an");
+    expect(migration).toContain("approved participant");
+    expect(migration).toContain("existing private response flow intentionally stays");
   });
 });
