@@ -132,6 +132,10 @@ describe("create screen boundaries", () => {
     appSource.indexOf("function CreateEvent("),
     appSource.indexOf("function useEvent("),
   );
+  const slotBuilderSource = appSource.slice(
+    appSource.indexOf("function SlotBuilder("),
+    appSource.indexOf("function CreateEvent("),
+  );
 
   it("does not render BottomNavigation on any create step", () => {
     expect(createSource).not.toContain("<BottomNavigation");
@@ -147,5 +151,24 @@ describe("create screen boundaries", () => {
     expect(createSource).toContain("setBackOverride");
     expect(createSource).toContain("api.createEvent");
     expect(createSource).toContain("createdEventPath(result.event.id)");
+  });
+
+  it("renders compact time option cards with real inputs and a separate add action", () => {
+    expect(slotBuilderSource).toContain('className="slot-option-card"');
+    expect(slotBuilderSource).toContain('type="date"');
+    expect(slotBuilderSource).toContain('type="time"');
+    expect(slotBuilderSource).toContain('className="secondary-action slot-add-action"');
+    expect(slotBuilderSource).not.toContain('className="slot-controls"');
+  });
+
+  it("keeps the Step 2 back route in Telegram and removes its screen back button", () => {
+    expect(createSource).toContain("previousCreateStep(current)");
+    expect(createSource).toContain("{step === 3 && (");
+    expect(createSource).toContain('className={`wizard-actions${step === 2 ? " step-2-actions" : ""}`}');
+  });
+
+  it("keeps the unchanged Step 2 Continue action and timeOptions payload", () => {
+    expect(createSource).toContain('step < 3 ? "Продолжить"');
+    expect(createEventPayload(draft()).timeOptions).toEqual([firstTime]);
   });
 });

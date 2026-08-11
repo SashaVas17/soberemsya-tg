@@ -172,10 +172,13 @@ describe("Phase E screen and state boundaries", () => {
     expect(manageSource).not.toContain("api.event");
   });
 
-  it("keeps the existing local calendar implementation only", () => {
-    expect(resultSource).toContain("BEGIN:VCALENDAR");
-    expect(resultSource).toContain('new Blob([text], { type: "text/calendar" })');
-    expect(resultSource).toContain('link.download = "soberemsya.ics"');
+  it("uses the frontend Google Calendar action and keeps an ICS helper", () => {
+    const calendarSource = readFileSync("src/calendar.ts", "utf8");
+    expect(resultSource).toContain("googleCalendarUrl");
+    expect(resultSource).toContain("openExternalUrl");
+    expect(calendarSource).toContain("BEGIN:VCALENDAR");
+    expect(calendarSource).toContain('type: "text/calendar;charset=utf-8"');
+    expect(calendarSource).toContain('join("\\r\\n")');
     expect(resultSource).not.toContain("api.calendar");
     expect(resultSource).not.toContain('request("/calendar');
     expect(resultSource).not.toContain("fetch(");
