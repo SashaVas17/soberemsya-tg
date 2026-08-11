@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CalendarPlus,
   Check,
   ChevronRight,
   Clock3,
   MapPin,
+  Moon,
   Plus,
   RefreshCw,
   Send,
+  Sun,
   Trash2,
   Users,
 } from "lucide-react";
@@ -19,6 +21,16 @@ import {
   openTelegramUrl,
   telegram,
 } from "./telegram";
+import {
+  applyTheme,
+  initialResolvedTheme,
+  readThemePreference,
+  resolveTheme,
+  saveThemePreference,
+  subscribeToTelegramTheme,
+  type ResolvedTheme,
+  type ThemePreference,
+} from "./theme";
 import type {
   AuthResult,
   EventData,
@@ -103,12 +115,69 @@ function useMainButton(
   }, [action, enabled, label, visible]);
 }
 
-function Header({ navigate }: { navigate: Navigate }) {
+function useAppTheme() {
+  const preference = useRef<ThemePreference>(readThemePreference());
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
+    initialResolvedTheme(telegram()),
+  );
+  useEffect(() => {
+    applyTheme(resolvedTheme);
+  }, [resolvedTheme]);
+  useEffect(
+    () =>
+      subscribeToTelegramTheme(
+        telegram(),
+        () => preference.current,
+        setResolvedTheme,
+      ),
+    [],
+  );
+  const toggleTheme = useCallback(() => {
+    const current = resolveTheme(
+      preference.current,
+      telegram()?.colorScheme ?? null,
+    );
+    const next: ThemePreference = current === "dark" ? "light" : "dark";
+    preference.current = next;
+    saveThemePreference(next);
+    setResolvedTheme(next);
+  }, []);
+  return { resolvedTheme, toggleTheme };
+}
+
+function Header({
+  navigate,
+  resolvedTheme,
+  toggleTheme,
+}: {
+  navigate: Navigate;
+  resolvedTheme?: ResolvedTheme;
+  toggleTheme?: () => void;
+}) {
   return (
     <header className="topbar">
       <button className="wordmark" onClick={() => navigate("/")} type="button">
         Соберёмся
       </button>
+      {resolvedTheme && toggleTheme && (
+        <button
+          aria-label={
+            resolvedTheme === "dark"
+              ? "Включить светлую тему"
+              : "Включить тёмную тему"
+          }
+          className="theme-toggle"
+          onClick={toggleTheme}
+          title={
+            resolvedTheme === "dark"
+              ? "Светлая тема"
+              : "Тёмная тема"
+          }
+          type="button"
+        >
+          {resolvedTheme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+        </button>
+      )}
     </header>
   );
 }
@@ -217,9 +286,13 @@ function OutsideTelegram() {
 
 function Home({
   navigate,
+  resolvedTheme,
+  toggleTheme,
   user,
 }: {
   navigate: Navigate;
+  resolvedTheme: ResolvedTheme;
+  toggleTheme: () => void;
   user: AuthResult["user"];
 }) {
   const [data, setData] = useState<{
@@ -245,7 +318,11 @@ function Home({
   }, [load]);
   return (
     <main>
-      <Header navigate={navigate} />
+      <Header
+        navigate={navigate}
+        resolvedTheme={resolvedTheme}
+        toggleTheme={toggleTheme}
+      />
       <section className="home-hero">
         <div className="home-copy">
           <p className="eyebrow">Привет, {user.firstName}</p>
@@ -1575,6 +1652,7 @@ function shareResult(eventId: string) {
 
 export default function App() {
   const { path, navigate } = usePath();
+  const { resolvedTheme, toggleTheme } = useAppTheme();
   const [auth, setAuth] = useState<AuthResult | null>(null);
   const [error, setError] = useState("");
   const [outside, setOutside] = useState(false);
@@ -1646,5 +1724,12 @@ export default function App() {
       />
     );
   if (path === "/my-events") return <MyEvents navigate={navigate} />;
-  return <Home navigate={navigate} user={auth.user} />;
+  return (
+    <Home
+      navigate={navigate}
+      resolvedTheme={resolvedTheme}
+      toggleTheme={toggleTheme}
+      user={auth.user}
+    />
+  );
 }

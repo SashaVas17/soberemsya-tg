@@ -1,27 +1,5 @@
 :root {
-  --paper: #fffdf8;
-  --canvas: #f5f4ef;
-  --ink: #17201c;
-  --muted: #66736f;
-  --line: #dcd8ce;
-  --teal: #137c72;
-  --teal-dark: #0d5a53;
-  --yellow: #f0bd3d;
-  --coral: #d95c48;
-  --shadow: 0 10px 30px rgb(23 32 28 / 7%);
-  color-scheme: light;
   font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-:root[data-telegram-theme="dark"] {
-  --paper: #18211e;
-  --canvas: #101714;
-  --ink: #f4f6f4;
-  --muted: #a9b7b2;
-  --line: #34413c;
-  --teal: #25a99b;
-  --teal-dark: #72d6cc;
-  --yellow: #f0bd3d;
-  color-scheme: dark;
 }
 * {
   box-sizing: border-box;
@@ -35,7 +13,7 @@ body {
   margin: 0;
   min-width: 320px;
   overflow-x: hidden;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: 0;
   font-size: 16px;
   line-height: 1.45;
 }
@@ -260,6 +238,11 @@ button:disabled {
   flex-wrap: wrap;
   font-size: 12px;
   gap: 5px;
+}
+.app-shell {
+  background: var(--color-bg);
+  min-height: 100dvh;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 .meeting-card-meta > span {
   align-items: center;
@@ -764,7 +747,7 @@ code {
   .topbar {
     height: calc(50px + env(safe-area-inset-top));
   }
-  .wordmark {
+.wordmark {
     font-size: 18px;
   }
   .home-hero {
@@ -785,4 +768,21 @@ code {
   .slot-controls button {
     grid-column: auto;
   }
+}
+.theme-toggle {
+  align-items: center;
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  color: var(--color-brand);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 40px;
+  height: 40px;
+  justify-content: center;
+  padding: 0;
+}
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }

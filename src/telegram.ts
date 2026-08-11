@@ -9,6 +9,8 @@ type TelegramWebApp = {
   openTelegramLink(url: string): void;
   BackButton: BackButton;
   MainButton: MainButton;
+  onEvent?: (event: "themeChanged", callback: () => void) => void;
+  offEvent?: (event: "themeChanged", callback: () => void) => void;
   HapticFeedback?: { notificationOccurred(type: "error" | "success" | "warning"): void; impactOccurred(style: "light" | "medium" | "heavy"): void };
 };
 
@@ -24,7 +26,6 @@ export function initializeTelegram() {
   } catch (error) {
     console.warn("Telegram WebApp initialization failed", error);
   }
-  document.documentElement.dataset.telegramTheme = app?.colorScheme ?? "light";
   return app;
 }
 
