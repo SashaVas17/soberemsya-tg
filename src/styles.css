@@ -1208,29 +1208,46 @@ code {
 .slot-builder,
 .slot-list {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 .slot-list {
   margin: 0;
 }
-.slot-controls {
-  align-items: end;
-  background: var(--color-surface-secondary);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-lg);
+.create-wizard .wizard-time-panel {
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  padding: 18px;
 }
-.slot-controls .secondary-action {
-  border-style: dashed;
-  grid-column: 1 / -1;
-  min-height: 54px;
+.slot-option-card {
+  align-items: end;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 42px;
+  padding: 12px;
+}
+.slot-option-card .field {
+  gap: 6px;
+}
+.slot-option-card .field > span {
+  font-size: 13px;
+}
+.slot-option-card input {
+  min-height: 50px;
+  padding: 10px 12px;
   width: 100%;
 }
-.slot-controls input[type="date"],
-.slot-controls input[type="time"] {
+.slot-option-card .icon-action {
+  min-height: 50px;
+}
+.slot-add-action {
+  justify-self: start;
+  min-height: 48px;
+  padding-inline: 16px;
+}
+.slot-option-card input[type="date"],
+.slot-option-card input[type="time"] {
   max-width: 100%;
   min-width: 0;
   width: 100%;
@@ -1308,6 +1325,9 @@ code {
   margin-left: auto;
   width: min(100%, 520px);
 }
+.create-wizard .wizard-actions.step-2-actions {
+  grid-template-columns: minmax(0, 1fr);
+}
 .create-wizard .wizard-actions .primary-action,
 .create-wizard .wizard-actions .secondary-action {
   min-height: 58px;
@@ -1333,11 +1353,8 @@ code {
   .create-wizard .wizard-panel {
     padding: 20px;
   }
-  .slot-controls {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .slot-controls .secondary-action {
-    grid-column: auto;
+  .slot-option-card {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 42px;
   }
   .create-wizard .place-draft {
     grid-template-columns: minmax(0, 1fr) 42px;
@@ -1377,10 +1394,13 @@ code {
     gap: 20px;
     padding: 16px;
   }
-  .slot-controls,
   .create-wizard .place-draft,
   .budget-field {
     padding: 14px;
+  }
+  .slot-option-card {
+    gap: 8px;
+    padding: 10px;
   }
   .slot-card {
     gap: 10px;
@@ -1396,6 +1416,22 @@ code {
   }
   .budget-field input {
     max-width: none;
+  }
+}
+
+@media (max-width: 359px) {
+  .slot-option-card {
+    grid-template-columns: minmax(0, 1fr) 42px;
+  }
+  .slot-option-card .field {
+    grid-column: 1 / -1;
+  }
+  .slot-option-card .icon-action {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .slot-option-card .field:first-child {
+    padding-right: 46px;
   }
 }
 

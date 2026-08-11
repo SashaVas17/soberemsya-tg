@@ -6,6 +6,7 @@ type TelegramWebApp = {
   ready?: () => void;
   expand?: () => void;
   close(): void;
+  openLink?: (url: string) => void;
   openTelegramLink(url: string): void;
   BackButton: BackButton;
   MainButton: MainButton;
@@ -36,5 +37,11 @@ export function haptic(type: "error" | "success" | "warning" = "success") {
 export function openTelegramUrl(url: string) {
   const app = telegram();
   if (app) app.openTelegramLink(url);
+  else window.open(url, "_blank", "noopener,noreferrer");
+}
+
+export function openExternalUrl(url: string) {
+  const app = telegram();
+  if (app?.openLink) app.openLink(url);
   else window.open(url, "_blank", "noopener,noreferrer");
 }

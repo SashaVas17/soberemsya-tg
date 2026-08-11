@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { api } from "./api";
 import { BottomNavigation } from "./BottomNavigation";
+import { googleCalendarUrl } from "./calendar";
 import {
   advanceCreateStep,
   addTimeOption,
@@ -46,6 +47,7 @@ import { resultPlace, resultTime } from "./result-model";
 import {
   haptic,
   initializeTelegram,
+  openExternalUrl,
   openTelegramUrl,
   telegram,
 } from "./telegram";
@@ -459,53 +461,74 @@ function SlotBuilder({
   onChange: (next: string[]) => void;
 }) {
   const today = new Date();
-  const [date, setDate] = useState(today.toISOString().slice(0, 10));
-  const [time, setTime] = useState("18:30");
-  const add = () => {
-    const value = new Date(`${date}T${time}:00`).toISOString();
-    onChange(addTimeOption(slots, value));
+  const defaultDate = today.toISOString().slice(0, 10);
+  const defaultTime = "18:30";
+  const slotValues = (slot: string) => {
+    const value = new Date(slot);
+    const pad = (part: number) => String(part).padStart(2, "0");
+    return {
+      date: `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`,
+      time: `${pad(value.getHours())}:${pad(value.getMinutes())}`,
+    };
+  };
+  const change = (slot: string, nextDate: string, nextTime: string) => {
+    const value = new Date(`${nextDate}T${nextTime}:00`).toISOString();
+    onChange(addTimeOption(removeTimeOption(slots, slot), value));
   };
   return (
     <div className="slot-builder">
       <div className="slot-list" aria-live="polite">
-        {slots.map((slot) => (
-          <div className="slot-card" key={slot}>
-            <span className="slot-card-icon"><CalendarDays size={24} /></span>
-            <strong>{formatSlot(slot)}</strong>
-            <button
-              className="icon-action danger"
-              onClick={() => onChange(removeTimeOption(slots, slot))}
-              title="Удалить вариант"
-              type="button"
-            >
-              <Trash2 size={18} />
-            </button>
-          </div>
-        ))}
+        {slots.map((slot) => {
+          const values = slotValues(slot);
+          return (
+            <section className="slot-option-card" key={slot}>
+              <label className="field">
+                <span>Дата</span>
+                <input
+                  min={defaultDate}
+                  onChange={(event) => change(slot, event.target.value, values.time)}
+                  type="date"
+                  value={values.date}
+                />
+              </label>
+              <label className="field">
+                <span>Время</span>
+                <input
+                  onChange={(event) => change(slot, values.date, event.target.value)}
+                  type="time"
+                  value={values.time}
+                />
+              </label>
+              {slots.length > 1 && (
+                <button
+                  aria-label="Удалить вариант"
+                  className="icon-action danger"
+                  onClick={() => onChange(removeTimeOption(slots, slot))}
+                  title="Удалить вариант"
+                  type="button"
+                >
+                  <Trash2 size={18} />
+                </button>
+              )}
+            </section>
+          );
+        })}
       </div>
-      <div className="slot-controls">
-        <label className="field">
-          <span>Дата</span>
-          <input
-            min={today.toISOString().slice(0, 10)}
-            onChange={(event) => setDate(event.target.value)}
-            type="date"
-            value={date}
-          />
-        </label>
-        <label className="field">
-          <span>Время</span>
-          <input
-            onChange={(event) => setTime(event.target.value)}
-            type="time"
-            value={time}
-          />
-        </label>
-        <button className="secondary-action" onClick={add} type="button">
-          <Plus size={18} />
-          Добавить вариант
-        </button>
-      </div>
+      <button
+        className="secondary-action slot-add-action"
+        onClick={() =>
+          onChange(
+            addTimeOption(
+              slots,
+              new Date(`${defaultDate}T${defaultTime}:00`).toISOString(),
+            ),
+          )
+        }
+        type="button"
+      >
+        <Plus size={18} />
+        Добавить вариант
+      </button>
     </div>
   );
 }
@@ -621,7 +644,7 @@ function CreateEvent({
             />
           </label>
         </section>}
-        {step === 2 && <section className="panel wizard-panel">
+        {step === 2 && <section className="wizard-time-panel">
           <SlotBuilder
             slots={timeOptions}
             onChange={(nextOptions) => {
@@ -726,8 +749,8 @@ function CreateEvent({
           </label>
         </section>}
         <ErrorNote message={error} />
-        <div className="wizard-actions">
-          {step > 1 && (
+        <div className={`wizard-actions${step === 2 ? " step-2-actions" : ""}`}>
+          {step === 3 && (
             <button className="secondary-action" disabled={saving} onClick={() => { setError(""); setStep((current) => previousCreateStep(current)); }} type="button">
               Назад
             </button>
@@ -1579,19 +1602,15 @@ function Result({
     if (!recommendedTime) return;
     const start = new Date(recommendedTime.startsAt);
     const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
-    const date = (value: Date) =>
-      value
-        .toISOString()
-        .replace(/[-:]/g, "")
-        .replace(/\.\d{3}/, "");
-    const text = `BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nDTSTART:${date(start)}\nDTEND:${date(end)}\nSUMMARY:${event.title}\nLOCATION:${finalPlace?.title ?? ""}\nEND:VEVENT\nEND:VCALENDAR`;
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(
-      new Blob([text], { type: "text/calendar" }),
+    openExternalUrl(
+      googleCalendarUrl({
+        title: event.title,
+        startsAt: start.toISOString(),
+        endsAt: end.toISOString(),
+        location: [finalPlace?.title, finalPlace?.area].filter(Boolean).join(", "),
+        description: event.description || undefined,
+      }),
     );
-    link.download = "soberemsya.ics";
-    link.click();
-    URL.revokeObjectURL(link.href);
   };
   return (
     <main className="result-screen">
@@ -1675,7 +1694,7 @@ function Result({
             Поделиться результатом
           </button>
           <button
-            className="secondary-action"
+            className="primary-action calendar-action"
             onClick={addCalendar}
             type="button"
           >
