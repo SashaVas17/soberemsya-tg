@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.111.0";
 import { assertEventAvailable, assertOwner, assertVotingOpen, parseEventStartParam } from "../_shared/domain.ts";
 import { corsHeaders, errorResponse, json } from "../_shared/http.ts";
+import { collectVisibleMeetings } from "../_shared/meetings.ts";
 import { validateTelegramInitData } from "../_shared/telegram.ts";
 
 type Db = ReturnType<typeof createClient>;
@@ -131,7 +132,7 @@ async function meetings(auth: AuthContext) {
   if (ownedError || participationError) throw ownedError ?? participationError;
   const ownedIds = (owned ?? []).map((item) => item.id); const participatingIds = [...new Set((participations ?? []).map((item) => item.event_id))].filter((eventId) => !ownedIds.includes(eventId));
   const mapItem = async (eventId: string, role: "owner" | "participant") => { const event = await eventPayload(eventId, auth.user.id); const best = event.timeOptions.slice().sort((a, b) => b.availableCount - a.availableCount || a.startsAt.localeCompare(b.startsAt))[0] ?? null; return { id: event.id, title: event.title, status: event.status, role, participantCount: event.participants.length, bestTime: best, createdAt: event.createdAt }; };
-  return json({ owned: await Promise.all(ownedIds.map((eventId) => mapItem(eventId, "owner"))), participating: await Promise.all(participatingIds.map((eventId) => mapItem(eventId, "participant"))) });
+  return json(await collectVisibleMeetings(ownedIds, participatingIds, mapItem));
 }
 
 Deno.serve(async (request) => {

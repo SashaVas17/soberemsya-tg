@@ -14,7 +14,11 @@ export function participantIdentityKey(eventId: string, userId: string) {
 }
 
 export function assertEventAvailable<T extends { deleted_at?: string | null }>(event: T | null): asserts event is T {
-  if (!event || event.deleted_at) throw Object.assign(new Error("Встреча не найдена или удалена."), { status: 404 });
+  if (!event || event.deleted_at)
+    throw Object.assign(new Error("Встреча не найдена или удалена."), {
+      code: "EVENT_UNAVAILABLE",
+      status: 404,
+    });
 }
 
 export function parseEventStartParam(startParam: string | null) {

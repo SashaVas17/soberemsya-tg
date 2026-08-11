@@ -71,8 +71,7 @@ function useTelegramBack(
         override();
         return;
       }
-      if (window.history.length > 1) window.history.back();
-      else navigate("/", true);
+      navigate("/");
     };
     if (path === "/") button.hide();
     else {
