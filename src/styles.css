@@ -261,6 +261,11 @@ button:disabled {
   font-size: 12px;
   gap: 5px;
 }
+.meeting-card-meta > span {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
+}
 .page-intro {
   background: var(--paper);
   border-bottom: 1px solid var(--line);

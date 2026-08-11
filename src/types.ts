@@ -44,7 +44,10 @@ export type MeetingListItem = {
   status: EventStatus;
   role: "owner" | "participant";
   participantCount: number;
+  responseCount: number;
   bestTime: TimeOption | null;
+  timeSummary: string | null;
+  placeSummary: string | null;
   createdAt: string;
 };
 

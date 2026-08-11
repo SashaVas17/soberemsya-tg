@@ -77,13 +77,42 @@ const auth: AuthResult = {
   startParam: null,
 };
 const clone = <T>(value: T): T => structuredClone(value);
+const mockDate = (startsAt: string) =>
+  new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "long",
+  }).format(new Date(startsAt));
+const mockTime = (startsAt: string) =>
+  new Intl.DateTimeFormat("ru-RU", {
+    hour: "2-digit",
+    hourCycle: "h23",
+    minute: "2-digit",
+  }).format(new Date(startsAt));
 const listItem = (role: "owner" | "participant"): MeetingListItem => ({
   id: event.id,
   title: event.title,
   status: event.status,
   role,
   participantCount: event.participants.length,
+  responseCount: event.participants.length,
   bestTime: event.timeOptions[0],
+  timeSummary:
+    event.status === "decided" && event.finalTimeOptionId
+      ? (() => {
+          const time = event.timeOptions.find(
+            (option) => option.id === event.finalTimeOptionId,
+          );
+          return time ? `${mockDate(time.startsAt)} · ${mockTime(time.startsAt)}` : null;
+        })()
+      : event.timeOptions[0]
+        ? mockDate(event.timeOptions[0].startsAt)
+        : null,
+  placeSummary:
+    event.status === "decided"
+      ? (event.placeOptions.find(
+          (option) => option.id === event.finalPlaceId,
+        )?.title ?? null)
+      : null,
   createdAt: new Date().toISOString(),
 });
 

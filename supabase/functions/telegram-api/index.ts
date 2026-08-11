@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.111.0";
 import { assertEventAvailable, assertOwner, assertVotingOpen, parseEventStartParam } from "../_shared/domain.ts";
 import { corsHeaders, errorResponse, json } from "../_shared/http.ts";
+import { meetingListItem } from "../_shared/meeting-list.ts";
 import { collectVisibleMeetings } from "../_shared/meetings.ts";
 import { validateTelegramInitData } from "../_shared/telegram.ts";
 
@@ -131,7 +132,8 @@ async function meetings(auth: AuthContext) {
   const [{ data: owned, error: ownedError }, { data: participations, error: participationError }] = await Promise.all([db.from("events").select("id").eq("owner_user_id", auth.user.id).is("deleted_at", null).order("created_at", { ascending: false }), db.from("participants").select("event_id").eq("user_id", auth.user.id)]);
   if (ownedError || participationError) throw ownedError ?? participationError;
   const ownedIds = (owned ?? []).map((item) => item.id); const participatingIds = [...new Set((participations ?? []).map((item) => item.event_id))].filter((eventId) => !ownedIds.includes(eventId));
-  const mapItem = async (eventId: string, role: "owner" | "participant") => { const event = await eventPayload(eventId, auth.user.id); const best = event.timeOptions.slice().sort((a, b) => b.availableCount - a.availableCount || a.startsAt.localeCompare(b.startsAt))[0] ?? null; return { id: event.id, title: event.title, status: event.status, role, participantCount: event.participants.length, bestTime: best, createdAt: event.createdAt }; };
+  const mapItem = async (eventId: string, role: "owner" | "participant") =>
+    meetingListItem(await eventPayload(eventId, auth.user.id), role);
   return json(await collectVisibleMeetings(ownedIds, participatingIds, mapItem));
 }
 

@@ -339,15 +339,24 @@ function MeetingGroup({
                 <span>{item.role === "owner" ? "Организую" : "Участвую"}</span>
               </div>
               <strong className="meeting-card-title">{item.title}</strong>
-              <span className="meeting-card-meta">
-                {item.bestTime && <><Clock3 size={15} />{formatSlot(item.bestTime.startsAt)} · </>}
-                {plural(
-                  item.participantCount,
-                  "участник",
-                  "участника",
-                  "участников",
+              <div className="meeting-card-meta">
+                {(item.timeSummary || item.bestTime) && (
+                  <span>
+                    <Clock3 size={15} />
+                    {item.timeSummary ?? formatSlot(item.bestTime!.startsAt)}
+                  </span>
                 )}
-              </span>
+                {item.placeSummary && (
+                  <span>
+                    <MapPin size={15} />
+                    {item.placeSummary}
+                  </span>
+                )}
+                <span>
+                  <Users size={15} />
+                  {plural(item.responseCount, "ответил", "ответили", "ответили")}
+                </span>
+              </div>
             </div>
             <ChevronRight size={20} />
           </button>
