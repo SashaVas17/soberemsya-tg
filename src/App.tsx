@@ -27,7 +27,19 @@ import {
   type PlaceDraft,
 } from "./create-wizard";
 import { areaLeaders, bestSlot, formatSlot, plural } from "./domain";
+import {
+  eventShareUrl as buildEventShareUrl,
+  managementPath,
+  miniAppLink as buildMiniAppLink,
+  resultShareUrl as buildResultShareUrl,
+} from "./meeting-links";
 import { meetingCardData, meetingDestination } from "./navigation";
+import {
+  saveResponseOnce,
+  toggleTimeOption,
+  votingDraftFromEvent,
+  type VotingDraft,
+} from "./participant-voting";
 import {
   haptic,
   initializeTelegram,
@@ -807,28 +819,35 @@ function Created({
 }) {
   const link = miniAppLink(eventId);
   return (
-    <main>
+    <main className="created-screen">
       <Header navigate={navigate} />
-      <PageIntro eyebrow="Встреча создана" title="Можно приглашать">
-        <p>Встреча сохранена в разделе «Мои встречи».</p>
-      </PageIntro>
-      <section className="confirmation-panel">
-        <button
-          className="primary-action"
-          onClick={() => shareEvent(eventId)}
-          type="button"
-        >
-          <Send size={19} />
-          Отправить в чат
-        </button>
-        <button
-          className="secondary-action"
-          onClick={() => navigate(`/manage/${eventId}`)}
-          type="button"
-        >
-          Открыть управление
-        </button>
-        <code>{link}</code>
+      <section className="created-page">
+        <span className="created-success-icon"><Check size={52} strokeWidth={2.4} /></span>
+        <div className="created-copy">
+          <h1>Встреча создана 🎉</h1>
+          <p>Всё готово! Теперь можно приглашать друзей.</p>
+        </div>
+        <div className="created-link-card">
+          <span>Ссылка-приглашение</span>
+          <code>{link}</code>
+        </div>
+        <div className="created-actions">
+          <button
+            className="primary-action"
+            onClick={() => shareEvent(eventId)}
+            type="button"
+          >
+            <Send size={20} />
+            Поделиться в Telegram
+          </button>
+          <button
+            className="secondary-action"
+            onClick={() => navigate(managementPath(eventId))}
+            type="button"
+          >
+            Перейти к встрече
+          </button>
+        </div>
       </section>
     </main>
   );
@@ -849,29 +868,34 @@ function ParticipantEvent({
   const [available, setAvailable] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const saveLock = useRef(false);
   useEffect(() => {
     if (!state.event) return;
-    const own = state.event.myResponse;
-    setArea(own?.area ?? "");
-    setBudget(own?.budget ?? state.event.budgetLimit);
-    setPreferences(own?.preferences ?? "");
-    setRestrictions(own?.restrictions ?? "");
-    setAvailable(
-      own?.availableTimeOptionIds ??
-        state.event.timeOptions.map((item) => item.id),
-    );
+    const draft = votingDraftFromEvent(state.event);
+    setArea(draft.area);
+    setBudget(draft.budget);
+    setPreferences(draft.preferences);
+    setRestrictions(draft.restrictions);
+    setAvailable(draft.availableTimeOptionIds);
   }, [state.event?.id]);
   const submit = useCallback(async () => {
-    if (!state.event || saving) return;
+    if (!state.event || saving || saveLock.current) return;
+    const draft: VotingDraft = {
+      area,
+      budget,
+      preferences,
+      restrictions,
+      availableTimeOptionIds: available,
+    };
     setSaving(true);
     try {
-      const result = await api.saveResponse(eventId, {
-        area,
-        budget,
-        preferences,
-        restrictions,
-        availableTimeOptionIds: available,
-      });
+      const result = await saveResponseOnce(
+        eventId,
+        draft,
+        saveLock,
+        api.saveResponse,
+      );
+      if (!result) return;
       state.setEvent(result.event);
       setSaved(true);
       haptic();
@@ -903,7 +927,7 @@ function ParticipantEvent({
   );
   if (!state.event)
     return (
-      <main>
+      <main className="voting-screen">
         <Header navigate={navigate} />
         {state.error ? (
           <RetryState
@@ -921,91 +945,89 @@ function ParticipantEvent({
     return <Result eventId={eventId} navigate={navigate} initial={event} />;
   if (saved)
     return (
-      <main>
+      <main className="voting-screen voting-saved-screen">
         <Header navigate={navigate} />
-        <PageIntro eyebrow="Ваш ответ сохранён" title="Спасибо">
-          <p>
+        <section className="voting-saved-page">
+          <span className="voting-saved-icon"><Check size={44} /></span>
+          <p className="create-step-label">Ваш ответ сохранён</p>
+          <h1>Спасибо!</h1>
+          <p className="voting-saved-summary">
             {bestSlot(event)
               ? `Сейчас лучше всего подходит ${formatSlot(bestSlot(event)!.startsAt)}.`
               : "Результаты появятся после ответов."}
           </p>
-        </PageIntro>
-        <section className="confirmation-panel">
-          <button
-            className="primary-action"
-            onClick={() => setSaved(false)}
-            type="button"
-          >
-            Изменить мой ответ
-          </button>
-          <button
-            className="secondary-action"
-            onClick={() => navigate(`/result/${eventId}`)}
-            type="button"
-          >
-            Посмотреть рекомендацию
-          </button>
+          <div className="voting-saved-actions">
+            <button
+              className="primary-action"
+              onClick={() => setSaved(false)}
+              type="button"
+            >
+              Изменить мой ответ
+            </button>
+            <button
+              className="secondary-action"
+              onClick={() => navigate(`/result/${eventId}`)}
+              type="button"
+            >
+              Посмотреть рекомендацию
+            </button>
+          </div>
         </section>
       </main>
     );
   return (
-    <main>
+    <main className="voting-screen">
       <Header navigate={navigate} />
-      <PageIntro eyebrow="Встреча" title={event.title}>
-        <p>{event.description}</p>
+      <section className="voting-intro">
+        <p className="create-step-label">Вас приглашают</p>
+        <h1>{event.title}</h1>
+        {event.description && <p>{event.description}</p>}
         <div className="event-meta">
           <StatusBadge status={event.status} />
-          <span>
-            {plural(event.participants.length, "ответ", "ответа", "ответов")}
-          </span>
+          <span>{plural(event.participants.length, "ответ", "ответа", "ответов")}</span>
         </div>
-      </PageIntro>
+      </section>
       <form
-        className="form-page participant-form"
+        className="form-page participant-form voting-form"
         onSubmit={(form) => {
           form.preventDefault();
           void submit();
         }}
       >
-        <section className="panel">
-          <h2>Когда вы можете?</h2>
+        <section className="panel voting-time-panel">
+          <h2>Выберите подходящие даты</h2>
+          <p className="panel-hint">Можно выбрать несколько вариантов.</p>
           <div className="availability-grid">
             {event.timeOptions.map((slot) => {
               const can = available.includes(slot.id);
               return (
                 <button
                   className={`availability-card ${can ? "available" : ""}`}
+                  aria-pressed={can}
                   key={slot.id}
                   onClick={() =>
-                    setAvailable(
-                      can
-                        ? available.filter((id) => id !== slot.id)
-                        : [...available, slot.id],
-                    )
+                    setAvailable(toggleTimeOption(available, slot.id))
                   }
                   type="button"
                 >
-                  <strong>{formatSlot(slot.startsAt)}</strong>
-                  <span>
-                    {can ? (
-                      <>
-                        <Check size={17} /> Могу
-                      </>
-                    ) : (
-                      "Не могу"
-                    )}
+                  <span className="availability-check">
+                    {can && <Check size={18} strokeWidth={3} />}
                   </span>
+                  <strong>{formatSlot(slot.startsAt)}</strong>
+                  <span className="availability-state">{can ? "Подходит" : "Не подходит"}</span>
                 </button>
               );
             })}
           </div>
         </section>
-        <section className="panel">
+        <section className="panel voting-details-panel">
           <h2>Ваши пожелания</h2>
+          <p className="panel-hint">Все поля ниже необязательны.</p>
           <label className="field">
             <span>Район или метро</span>
             <input
               value={area}
+              placeholder="Район, метро или ориентир"
               onChange={(input) => setArea(input.target.value)}
             />
           </label>
@@ -1023,6 +1045,7 @@ function ParticipantEvent({
             <textarea
               rows={2}
               value={preferences}
+              placeholder="Например, тихий стол или веранда"
               onChange={(input) => setPreferences(input.target.value)}
             />
           </label>
@@ -1031,6 +1054,7 @@ function ParticipantEvent({
             <textarea
               rows={2}
               value={restrictions}
+              placeholder="Например, без орехов"
               onChange={(input) => setRestrictions(input.target.value)}
             />
           </label>
@@ -1677,23 +1701,24 @@ function Result({
   );
 }
 
-function miniAppLink(eventId: string) {
+function telegramAppConfig() {
   const bot = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || "BOT_USERNAME";
   const app = import.meta.env.VITE_TELEGRAM_APP_SHORT_NAME || "app";
-  return `https://t.me/${bot}/${app}?startapp=event_${eventId}`;
+  return { bot, app };
+}
+
+function miniAppLink(eventId: string) {
+  const { bot, app } = telegramAppConfig();
+  return buildMiniAppLink(eventId, bot, app);
 }
 
 function shareEvent(eventId: string) {
-  const link = miniAppLink(eventId);
-  openTelegramUrl(
-    `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent("Соберёмся?\nПроголосуйте за удобное время и место:")}`,
-  );
+  const { bot, app } = telegramAppConfig();
+  openTelegramUrl(buildEventShareUrl(eventId, bot, app));
 }
 function shareResult(eventId: string) {
-  const link = miniAppLink(eventId);
-  openTelegramUrl(
-    `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent("Итог встречи в «Соберёмся»:")}`,
-  );
+  const { bot, app } = telegramAppConfig();
+  openTelegramUrl(buildResultShareUrl(eventId, bot, app));
 }
 
 export default function App() {

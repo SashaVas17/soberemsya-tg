@@ -1398,3 +1398,276 @@ code {
     max-width: none;
   }
 }
+
+/* Phase D: Meeting Created and Participant Voting. */
+.created-screen,
+.voting-screen {
+  background: var(--color-bg);
+  min-height: 100dvh;
+}
+.created-page {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  margin: 0 auto;
+  max-width: 680px;
+  padding: 54px var(--page-gutter) 56px;
+  text-align: center;
+}
+.created-success-icon,
+.voting-saved-icon {
+  align-items: center;
+  background: var(--color-primary);
+  border-radius: var(--radius-full);
+  box-shadow: 0 16px 42px color-mix(in srgb, var(--color-primary) 28%, transparent);
+  color: var(--color-on-primary);
+  display: inline-flex;
+  height: 132px;
+  justify-content: center;
+  width: 132px;
+}
+.created-copy {
+  margin-top: 34px;
+}
+.created-copy h1,
+.voting-saved-page h1 {
+  color: var(--color-text);
+  font-size: clamp(34px, 7vw, 48px);
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+}
+.created-copy p,
+.voting-saved-summary {
+  color: var(--color-text-secondary);
+  font-size: 18px;
+  line-height: 1.55;
+  margin-top: 16px;
+}
+.created-link-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  display: grid;
+  gap: 10px;
+  margin-top: 38px;
+  padding: 22px;
+  text-align: left;
+  width: 100%;
+}
+.created-link-card > span {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+}
+.created-link-card code {
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.created-actions,
+.voting-saved-actions {
+  display: grid;
+  gap: 14px;
+  margin-top: 24px;
+  width: 100%;
+}
+.created-actions .primary-action,
+.created-actions .secondary-action,
+.voting-saved-actions .primary-action,
+.voting-saved-actions .secondary-action {
+  min-height: 62px;
+  width: 100%;
+}
+.created-actions .primary-action {
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--color-primary) 25%, transparent);
+}
+.voting-intro {
+  margin: 0 auto;
+  max-width: 680px;
+  padding: 42px var(--page-gutter) 18px;
+}
+.voting-intro h1 {
+  color: var(--color-text);
+  font-size: clamp(34px, 7vw, 48px);
+  letter-spacing: -0.035em;
+  line-height: 1.12;
+  margin-top: 12px;
+}
+.voting-intro > p:not(.create-step-label) {
+  color: var(--color-text-secondary);
+  font-size: 16px;
+  line-height: 1.5;
+  margin-top: 14px;
+}
+.voting-intro .event-meta {
+  color: var(--color-text-secondary);
+  margin-top: 18px;
+}
+.voting-form {
+  gap: 20px;
+  max-width: 680px;
+  padding: 18px var(--page-gutter) 52px;
+}
+.voting-form .panel {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: none;
+  gap: 20px;
+  padding: 26px;
+}
+.voting-form .panel h2 {
+  color: var(--color-text);
+  font-size: 25px;
+  letter-spacing: -0.02em;
+}
+.voting-form .panel-hint {
+  margin-top: -12px;
+}
+.voting-form .availability-grid {
+  gap: 0;
+}
+.voting-form .availability-card {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+  color: var(--color-text);
+  display: grid;
+  gap: 14px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: 78px;
+  padding: 16px 4px;
+  text-align: left;
+  width: 100%;
+}
+.voting-form .availability-card:last-child {
+  border-bottom: 0;
+}
+.voting-form .availability-card.available {
+  background: transparent;
+  color: var(--color-text);
+}
+.availability-check {
+  align-items: center;
+  background: var(--color-surface-secondary);
+  border: 2px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-on-primary);
+  display: inline-flex;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+.availability-card.available .availability-check {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+.voting-form .availability-card strong {
+  font-size: 17px;
+  line-height: 1.35;
+}
+.voting-form .availability-state {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.voting-details-panel .field {
+  gap: 9px;
+}
+.voting-details-panel .field > span {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+.voting-details-panel input,
+.voting-details-panel textarea {
+  background: var(--color-surface-secondary);
+  border-color: var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text);
+  font-size: 16px;
+  padding: 14px 16px;
+}
+.voting-details-panel textarea {
+  min-height: 96px;
+}
+.voting-form > .form-submit {
+  min-height: 62px;
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--color-primary) 25%, transparent);
+}
+.voting-saved-page {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  margin: 0 auto;
+  max-width: 620px;
+  padding: 56px var(--page-gutter);
+  text-align: center;
+}
+.voting-saved-page .create-step-label {
+  margin-top: 28px;
+}
+.voting-saved-page h1 {
+  margin-top: 10px;
+}
+.voting-saved-icon {
+  height: 108px;
+  width: 108px;
+}
+
+@media (max-width: 430px) {
+  .created-page {
+    padding: 38px 14px 40px;
+  }
+  .created-success-icon {
+    height: 104px;
+    width: 104px;
+  }
+  .created-copy {
+    margin-top: 26px;
+  }
+  .created-copy h1,
+  .voting-saved-page h1 {
+    font-size: 32px;
+  }
+  .created-copy p,
+  .voting-saved-summary {
+    font-size: 16px;
+  }
+  .created-link-card {
+    border-radius: 20px;
+    margin-top: 28px;
+    padding: 18px;
+  }
+  .voting-intro {
+    padding: 28px 14px 12px;
+  }
+  .voting-intro h1 {
+    font-size: 32px;
+  }
+  .voting-form {
+    padding: 14px 11px 40px;
+  }
+  .voting-form .panel {
+    border-radius: 20px;
+    padding: 18px;
+  }
+  .voting-form .panel h2 {
+    font-size: 22px;
+  }
+  .voting-form .availability-card {
+    align-items: center;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .voting-form .availability-state {
+    grid-column: 2;
+    white-space: normal;
+  }
+  .voting-saved-page {
+    padding: 42px 14px;
+  }
+}
