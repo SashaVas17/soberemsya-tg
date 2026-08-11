@@ -1,0 +1,234 @@
+-- Open Meetings foundation only. Existing and newly created events remain
+-- private until a later API phase explicitly creates public events.
+alter table public.events
+  add column if not exists visibility text not null default 'private',
+  add column if not exists max_participants integer;
+
+update public.events
+set visibility = 'private'
+where visibility is null;
+
+alter table public.events
+  alter column visibility set default 'private',
+  alter column visibility set not null;
+
+alter table public.events
+  drop constraint if exists events_visibility_check,
+  drop constraint if exists events_visibility_max_participants_check,
+  add constraint events_visibility_check
+    check (visibility in ('private', 'public')),
+  add constraint events_visibility_max_participants_check
+    check (
+      (visibility = 'private' and max_participants is null)
+      or (
+        visibility = 'public'
+        and (
+          max_participants is null
+          or max_participants between 2 and 50
+        )
+      )
+    );
+
+create table if not exists public.join_requests (
+  id uuid primary key default gen_random_uuid(),
+  event_id text not null references public.events(id) on delete cascade,
+  requester_user_id uuid not null references public.users(id) on delete cascade,
+  status text not null default 'pending'
+    check (status in ('pending', 'approved', 'rejected')),
+  created_at timestamptz not null default now(),
+  decided_at timestamptz,
+  decided_by_user_id uuid references public.users(id) on delete set null,
+  constraint join_requests_event_requester_unique
+    unique (event_id, requester_user_id),
+  constraint join_requests_status_decision_check
+    check (
+      (status = 'pending' and decided_at is null and decided_by_user_id is null)
+      or (
+        status in ('approved', 'rejected')
+        and decided_at is not null
+        and decided_by_user_id is not null
+      )
+    )
+);
+
+create index if not exists join_requests_event_pending_idx
+  on public.join_requests (event_id, created_at)
+  where status = 'pending';
+
+create index if not exists join_requests_requester_created_idx
+  on public.join_requests (requester_user_id, created_at desc);
+
+alter table public.join_requests enable row level security;
+
+revoke all on table public.join_requests from anon, authenticated;
+grant select, insert, update on table public.join_requests to service_role;
+
+create or replace function public.approve_join_request(
+  p_event_id text,
+  p_request_id uuid,
+  p_actor_user_id uuid
+)
+returns table (request_id uuid, participant_id uuid)
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  v_event public.events%rowtype;
+  v_request public.join_requests%rowtype;
+  v_participant_id uuid;
+  v_participant_count integer;
+  v_name text;
+begin
+  select *
+  into v_event
+  from public.events
+  where id = p_event_id
+  for update;
+
+  if not found then
+    raise exception using errcode = 'P0001', message = 'Event not found';
+  end if;
+
+  if v_event.owner_user_id is null or v_event.owner_user_id <> p_actor_user_id then
+    raise exception using errcode = 'P0001', message = 'Only the event owner can approve requests';
+  end if;
+
+  if v_event.visibility <> 'public' or v_event.deleted_at is not null then
+    raise exception using errcode = 'P0001', message = 'Join requests are unavailable for this event';
+  end if;
+
+  if v_event.status <> 'collecting' then
+    raise exception using errcode = 'P0001', message = 'Join requests are closed for this event';
+  end if;
+
+  select *
+  into v_request
+  from public.join_requests
+  where id = p_request_id
+    and event_id = p_event_id
+  for update;
+
+  if not found or v_request.status <> 'pending' then
+    raise exception using errcode = 'P0001', message = 'Pending join request not found';
+  end if;
+
+  if v_request.requester_user_id = v_event.owner_user_id then
+    raise exception using errcode = 'P0001', message = 'Event owner cannot join their own event';
+  end if;
+
+  select count(*)::integer
+  into v_participant_count
+  from public.participants
+  where event_id = p_event_id;
+
+  if v_event.max_participants is not null
+    and 1 + v_participant_count >= v_event.max_participants then
+    raise exception using errcode = 'P0001', message = 'Event capacity has been reached';
+  end if;
+
+  if exists (
+    select 1
+    from public.participants
+    where event_id = p_event_id
+      and user_id = v_request.requester_user_id
+  ) then
+    raise exception using errcode = 'P0001', message = 'Participant already exists';
+  end if;
+
+  select concat_ws(' ', first_name, last_name)
+  into v_name
+  from public.users
+  where id = v_request.requester_user_id;
+
+  if v_name is null then
+    raise exception using errcode = 'P0001', message = 'Requester user not found';
+  end if;
+
+  v_participant_id := gen_random_uuid();
+
+  insert into public.participants (
+    id,
+    event_id,
+    user_id,
+    edit_token,
+    name
+  ) values (
+    v_participant_id,
+    p_event_id,
+    v_request.requester_user_id,
+    gen_random_uuid(),
+    v_name
+  );
+
+  update public.join_requests
+  set status = 'approved',
+      decided_at = now(),
+      decided_by_user_id = p_actor_user_id
+  where id = v_request.id;
+
+  return query select v_request.id, v_participant_id;
+end;
+$$;
+
+create or replace function public.reject_join_request(
+  p_event_id text,
+  p_request_id uuid,
+  p_actor_user_id uuid
+)
+returns table (request_id uuid)
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  v_event public.events%rowtype;
+  v_request public.join_requests%rowtype;
+begin
+  select *
+  into v_event
+  from public.events
+  where id = p_event_id
+  for update;
+
+  if not found then
+    raise exception using errcode = 'P0001', message = 'Event not found';
+  end if;
+
+  if v_event.owner_user_id is null or v_event.owner_user_id <> p_actor_user_id then
+    raise exception using errcode = 'P0001', message = 'Only the event owner can reject requests';
+  end if;
+
+  if v_event.visibility <> 'public' or v_event.deleted_at is not null then
+    raise exception using errcode = 'P0001', message = 'Join requests are unavailable for this event';
+  end if;
+
+  select *
+  into v_request
+  from public.join_requests
+  where id = p_request_id
+    and event_id = p_event_id
+  for update;
+
+  if not found or v_request.status <> 'pending' then
+    raise exception using errcode = 'P0001', message = 'Pending join request not found';
+  end if;
+
+  update public.join_requests
+  set status = 'rejected',
+      decided_at = now(),
+      decided_by_user_id = p_actor_user_id
+  where id = v_request.id;
+
+  return query select v_request.id;
+end;
+$$;
+
+revoke all on function public.approve_join_request(text, uuid, uuid)
+  from public, anon, authenticated;
+revoke all on function public.reject_join_request(text, uuid, uuid)
+  from public, anon, authenticated;
+grant execute on function public.approve_join_request(text, uuid, uuid)
+  to service_role;
+grant execute on function public.reject_join_request(text, uuid, uuid)
+  to service_role;
