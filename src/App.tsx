@@ -15,6 +15,17 @@ import {
 } from "lucide-react";
 import { api } from "./api";
 import { BottomNavigation } from "./BottomNavigation";
+import {
+  advanceCreateStep,
+  addTimeOption,
+  createdEventPath,
+  previousCreateStep,
+  removeTimeOption,
+  submitCreateEventOnce,
+  validateCreateStep,
+  type CreateWizardDraft,
+  type PlaceDraft,
+} from "./create-wizard";
 import { areaLeaders, bestSlot, formatSlot, plural } from "./domain";
 import { meetingCardData, meetingDestination } from "./navigation";
 import {
@@ -41,7 +52,6 @@ import type {
 } from "./types";
 
 type Navigate = (path: string, replace?: boolean) => void;
-type PlaceDraft = { title: string; area: string; estimatedBudget: number };
 
 const statusLabels: Record<EventStatus, string> = {
   collecting: "Сбор ответов",
@@ -450,10 +460,26 @@ function SlotBuilder({
   const [time, setTime] = useState("18:30");
   const add = () => {
     const value = new Date(`${date}T${time}:00`).toISOString();
-    if (!slots.includes(value)) onChange([...slots, value].sort());
+    onChange(addTimeOption(slots, value));
   };
   return (
     <div className="slot-builder">
+      <div className="slot-list" aria-live="polite">
+        {slots.map((slot) => (
+          <div className="slot-card" key={slot}>
+            <span className="slot-card-icon"><CalendarDays size={24} /></span>
+            <strong>{formatSlot(slot)}</strong>
+            <button
+              className="icon-action danger"
+              onClick={() => onChange(removeTimeOption(slots, slot))}
+              title="Удалить вариант"
+              type="button"
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
+        ))}
+      </div>
       <div className="slot-controls">
         <label className="field">
           <span>Дата</span>
@@ -474,23 +500,8 @@ function SlotBuilder({
         </label>
         <button className="secondary-action" onClick={add} type="button">
           <Plus size={18} />
-          Добавить
+          Добавить вариант
         </button>
-      </div>
-      <div className="slot-list">
-        {slots.map((slot) => (
-          <div className="slot-card" key={slot}>
-            <strong>{formatSlot(slot)}</strong>
-            <button
-              className="icon-action danger"
-              onClick={() => onChange(slots.filter((value) => value !== slot))}
-              title="Удалить вариант"
-              type="button"
-            >
-              <Trash2 size={18} />
-            </button>
-          </div>
-        ))}
       </div>
     </div>
   );
@@ -513,40 +524,45 @@ function CreateEvent({
   ]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const submitLock = useRef(false);
+  const draft: CreateWizardDraft = {
+    title,
+    description,
+    budgetLimit,
+    timeOptions,
+    places,
+  };
   useEffect(() => {
     setBackOverride(() => () => {
-      if (step > 1) setStep((current) => current - 1);
+      if (step > 1) setStep((current) => previousCreateStep(current));
       else navigate("/");
     });
     return () => setBackOverride(null);
   }, [navigate, setBackOverride, step]);
 
   const next = () => {
-    if (step === 1 && !title.trim()) {
-      setError("Введите название встречи.");
-      return;
-    }
-    if (step === 2 && !timeOptions.length) {
-      setError("Добавьте хотя бы один вариант даты и времени.");
+    const transition = advanceCreateStep(step, draft);
+    if (transition.error) {
+      setError(transition.error);
       return;
     }
     setError("");
-    setStep((current) => Math.min(3, current + 1));
+    setStep(transition.step);
   };
   const submit = useCallback(async () => {
-    if (!title.trim() || !timeOptions.length || saving) return;
+    if (
+      validateCreateStep(1, draft) ||
+      validateCreateStep(2, draft) ||
+      saving ||
+      submitLock.current
+    ) return;
     setSaving(true);
     setError("");
     try {
-      const { event } = await api.createEvent({
-        title,
-        description,
-        budgetLimit,
-        timeOptions,
-        placeOptions: places.filter((place) => place.title.trim()),
-      });
+      const result = await submitCreateEventOnce(draft, submitLock, api.createEvent);
+      if (!result) return;
       haptic();
-      navigate(`/created/${event.id}`, true);
+      navigate(createdEventPath(result.event.id), true);
     } catch (reason) {
       haptic("error");
       setError(
@@ -559,13 +575,20 @@ function CreateEvent({
     }
   }, [budgetLimit, description, navigate, places, saving, timeOptions, title]);
   return (
-    <main>
+    <main className="create-screen">
       <Header navigate={navigate} />
-      <PageIntro eyebrow={`Новая встреча · ${step}/3`} title={step === 1 ? "О встрече" : step === 2 ? "Когда встречаемся?" : "Где встречаемся?"}>
+      <section className="create-intro">
+        <p className="create-step-label">Шаг {step} из 3</p>
+        <h1>{step === 1 ? "Что планируем?" : step === 2 ? "Когда встречаемся?" : "Где и сколько?"}</h1>
+        {step === 2 && (
+          <p className="create-step-description">
+            Добавьте несколько вариантов дат, чтобы участники могли выбрать удобное время.
+          </p>
+        )}
         <div className="step-progress" aria-label={`Шаг ${step} из 3`}>
-          {[1, 2, 3].map((item) => <span className={item <= step ? "active" : ""} key={item} />)}
+          <span style={{ width: `${(step / 3) * 100}%` }} />
         </div>
-      </PageIntro>
+      </section>
       <form
         className="form-page create-wizard"
         onSubmit={(event) => {
@@ -575,61 +598,45 @@ function CreateEvent({
         }}
       >
         {step === 1 && <section className="panel wizard-panel">
-          <h2>О встрече</h2>
           <label className="field">
-            <span>Название</span>
-            <textarea
+            <span>Название встречи</span>
+            <input
+              autoFocus
+              placeholder="Например, шашлыки с друзьями"
               required
-              rows={2}
               value={title}
               onChange={(event) => setTitle(event.target.value)}
             />
           </label>
           <label className="field">
-            <span>Комментарий</span>
+            <span>Описание (необязательно)</span>
             <textarea
+              placeholder="Добавьте детали, чтобы все были в курсе…"
               rows={3}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
             />
           </label>
-          <label className="field narrow">
-            <span>Бюджет, BYN</span>
-            <input
-              min="0"
-              type="number"
-              value={budgetLimit}
-              onChange={(event) => setBudgetLimit(Number(event.target.value))}
-            />
-          </label>
         </section>}
         {step === 2 && <section className="panel wizard-panel">
-          <h2>Дата и время</h2>
-          <p className="panel-hint">Добавьте несколько реальных вариантов — группе будет проще выбрать.</p>
-          <SlotBuilder slots={timeOptions} onChange={setTimeOptions} />
+          <SlotBuilder
+            slots={timeOptions}
+            onChange={(nextOptions) => {
+              setTimeOptions(nextOptions);
+              if (nextOptions.length) setError("");
+            }}
+          />
         </section>}
         {step === 3 && <section className="panel wizard-panel">
           <div className="section-row">
-            <h2>Варианты мест</h2>
-            <button
-              className="icon-action"
-              onClick={() =>
-                setPlaces([
-                  ...places,
-                  { title: "", area: "", estimatedBudget: budgetLimit },
-                ])
-              }
-              title="Добавить место"
-              type="button"
-            >
-              <Plus size={20} />
-            </button>
+            <h2>Места</h2>
           </div>
           {places.map((place, index) => (
             <div className="place-draft" key={index}>
               <label className="field">
                 <span>Место</span>
                 <input
+                  placeholder="Название места"
                   value={place.title}
                   onChange={(event) =>
                     setPlaces(
@@ -645,6 +652,7 @@ function CreateEvent({
               <label className="field">
                 <span>Район или метро</span>
                 <input
+                  placeholder="Район, метро или ориентир"
                   value={place.area}
                   onChange={(event) =>
                     setPlaces(
@@ -691,16 +699,38 @@ function CreateEvent({
               )}
             </div>
           ))}
+          <button
+            className="add-place-action"
+            onClick={() =>
+              setPlaces([
+                ...places,
+                { title: "", area: "", estimatedBudget: budgetLimit },
+              ])
+            }
+            type="button"
+          >
+            <Plus size={22} />
+            Добавить место
+          </button>
+          <label className="field budget-field">
+            <span>Общий бюджет, BYN</span>
+            <input
+              min="0"
+              type="number"
+              value={budgetLimit}
+              onChange={(event) => setBudgetLimit(Number(event.target.value))}
+            />
+          </label>
         </section>}
         <ErrorNote message={error} />
         <div className="wizard-actions">
           {step > 1 && (
-            <button className="secondary-action" disabled={saving} onClick={() => { setError(""); setStep((current) => current - 1); }} type="button">
+            <button className="secondary-action" disabled={saving} onClick={() => { setError(""); setStep((current) => previousCreateStep(current)); }} type="button">
               Назад
             </button>
           )}
           <button className="primary-action" disabled={saving} type="submit">
-            {step < 3 ? `Дальше · ${step + 1}/3` : saving ? "Создаём…" : "Создать встречу"}
+            {step < 3 ? "Продолжить" : saving ? "Создаём…" : "Создать встречу"}
           </button>
         </div>
       </form>

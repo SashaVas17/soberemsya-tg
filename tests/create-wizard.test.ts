@@ -1,0 +1,151 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it, vi } from "vitest";
+import {
+  addTimeOption,
+  advanceCreateStep,
+  createdEventPath,
+  createEventPayload,
+  previousCreateStep,
+  removeTimeOption,
+  submitCreateEventOnce,
+  validateCreateStep,
+  type CreateWizardDraft,
+} from "../src/create-wizard";
+
+const firstTime = "2026-10-15T16:00:00.000Z";
+const secondTime = "2026-10-16T15:30:00.000Z";
+
+function draft(overrides: Partial<CreateWizardDraft> = {}): CreateWizardDraft {
+  return {
+    title: "Шашлыки с друзьями",
+    description: "Встречаемся после работы",
+    budgetLimit: 45,
+    timeOptions: [firstTime],
+    places: [
+      { title: "Парк", area: "Немига", estimatedBudget: 35 },
+      { title: "Публика", area: "Октябрьская", estimatedBudget: 50 },
+    ],
+    ...overrides,
+  };
+}
+
+describe("create meeting wizard", () => {
+  it("requires a title on Step 1", () => {
+    expect(validateCreateStep(1, draft({ title: "  " }))).toBe(
+      "Введите название встречи.",
+    );
+  });
+
+  it("moves from Step 1 to Step 2 with a valid title", () => {
+    expect(advanceCreateStep(1, draft())).toEqual({ error: "", step: 2 });
+  });
+
+  it("requires at least one valid time option on Step 2", () => {
+    expect(validateCreateStep(2, draft({ timeOptions: [] }))).not.toBe("");
+    expect(
+      validateCreateStep(2, draft({ timeOptions: ["not-a-date"] })),
+    ).not.toBe("");
+  });
+
+  it("adds multiple unique time options", () => {
+    const withSecond = addTimeOption([firstTime], secondTime);
+    expect(withSecond).toEqual([firstTime, secondTime]);
+    expect(addTimeOption(withSecond, secondTime)).toBe(withSecond);
+  });
+
+  it("removes one time option without changing the others", () => {
+    expect(removeTimeOption([firstTime, secondTime], firstTime)).toEqual([
+      secondTime,
+    ]);
+  });
+
+  it("moves from Step 2 to Step 3", () => {
+    expect(advanceCreateStep(2, draft())).toEqual({ error: "", step: 3 });
+  });
+
+  it("moves back 3 → 2 and 2 → 1", () => {
+    expect(previousCreateStep(3)).toBe(2);
+    expect(previousCreateStep(2)).toBe(1);
+  });
+
+  it("does not mutate form data while moving between steps", () => {
+    const form = draft();
+    const snapshot = structuredClone(form);
+    advanceCreateStep(1, form);
+    advanceCreateStep(2, form);
+    previousCreateStep(3);
+    expect(form).toEqual(snapshot);
+  });
+
+  it("preserves all existing place and budget fields in the payload", () => {
+    expect(createEventPayload(draft())).toMatchObject({
+      budgetLimit: 45,
+      placeOptions: [
+        { title: "Парк", area: "Немига", estimatedBudget: 35 },
+        { title: "Публика", area: "Октябрьская", estimatedBudget: 50 },
+      ],
+    });
+  });
+
+  it("builds exactly the existing create payload", () => {
+    expect(createEventPayload(draft())).toEqual({
+      title: "Шашлыки с друзьями",
+      description: "Встречаемся после работы",
+      budgetLimit: 45,
+      timeOptions: [firstTime],
+      placeOptions: [
+        { title: "Парк", area: "Немига", estimatedBudget: 35 },
+        { title: "Публика", area: "Октябрьская", estimatedBudget: 50 },
+      ],
+    });
+  });
+
+  it("performs only one create request while a submission is in flight", async () => {
+    let finish!: (value: { event: { id: string } }) => void;
+    const createEvent = vi.fn(
+      () =>
+        new Promise<{ event: { id: string } }>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const lock = { current: false };
+
+    const first = submitCreateEventOnce(draft(), lock, createEvent);
+    const second = submitCreateEventOnce(draft(), lock, createEvent);
+
+    expect(createEvent).toHaveBeenCalledTimes(1);
+    await expect(second).resolves.toBeNull();
+    finish({ event: { id: "evt_real" } });
+    await expect(first).resolves.toEqual({ event: { id: "evt_real" } });
+  });
+
+  it("uses the real event id in the unchanged success route", () => {
+    expect(createdEventPath("evt_real_from_api")).toBe(
+      "/created/evt_real_from_api",
+    );
+  });
+});
+
+describe("create screen boundaries", () => {
+  const appSource = readFileSync("src/App.tsx", "utf8");
+  const createSource = appSource.slice(
+    appSource.indexOf("function CreateEvent("),
+    appSource.indexOf("function useEvent("),
+  );
+
+  it("does not render BottomNavigation on any create step", () => {
+    expect(createSource).not.toContain("<BottomNavigation");
+  });
+
+  it("keeps wizard state independent from theme changes", () => {
+    expect(createSource).not.toContain("resolvedTheme");
+    expect(createSource).not.toContain("key={resolvedTheme}");
+    expect(createSource).toContain("const [step, setStep] = useState(1)");
+  });
+
+  it("keeps Telegram BackButton override and the existing create API", () => {
+    expect(createSource).toContain("setBackOverride");
+    expect(createSource).toContain("api.createEvent");
+    expect(createSource).toContain("createdEventPath(result.event.id)");
+  });
+});

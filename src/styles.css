@@ -1110,3 +1110,291 @@ code {
     padding-right: 6px;
   }
 }
+
+/* Phase C: Create Meeting wizard, based on Stitch 1/2/3 presentation. */
+.create-screen {
+  background: var(--color-bg);
+  min-height: 100dvh;
+}
+.create-intro {
+  margin: 0 auto;
+  max-width: 720px;
+  padding: 44px var(--page-gutter) 20px;
+}
+.create-step-label {
+  color: var(--color-brand);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.create-intro h1 {
+  color: var(--color-text);
+  font-size: clamp(34px, 6vw, 46px);
+  letter-spacing: -0.035em;
+  line-height: 1.12;
+  margin-top: 18px;
+}
+.create-step-description {
+  color: var(--color-text-secondary);
+  font-size: 17px;
+  line-height: 1.55;
+  margin-top: 18px;
+  max-width: 620px;
+}
+.create-intro .step-progress {
+  background: var(--color-surface-secondary);
+  display: block;
+  height: 6px;
+  margin-top: 28px;
+  max-width: none;
+  overflow: hidden;
+}
+.create-intro .step-progress span {
+  background: var(--color-primary);
+  display: block;
+  height: 100%;
+  transition: width 180ms ease;
+}
+.create-wizard {
+  gap: 20px;
+  max-width: 720px;
+  padding: 16px var(--page-gutter) 48px;
+}
+.create-wizard .wizard-panel {
+  background: var(--color-surface);
+  border-color: color-mix(in srgb, var(--color-border) 75%, transparent);
+  border-radius: var(--radius-xl);
+  box-shadow: none;
+  gap: 24px;
+  min-height: 0;
+  padding: 30px;
+}
+.create-wizard .field {
+  gap: 10px;
+  min-width: 0;
+}
+.create-wizard .field > span {
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  font-weight: 700;
+}
+.create-wizard input,
+.create-wizard textarea {
+  background: var(--color-surface-secondary);
+  border-color: var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text);
+  font-size: 16px;
+  min-width: 0;
+  padding: 14px 16px;
+}
+.create-wizard input {
+  min-height: 56px;
+}
+.create-wizard textarea {
+  min-height: 132px;
+  resize: vertical;
+}
+.create-wizard input::placeholder,
+.create-wizard textarea::placeholder {
+  color: color-mix(in srgb, var(--color-text-secondary) 66%, transparent);
+}
+.create-wizard input:focus,
+.create-wizard textarea:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+.slot-builder,
+.slot-list {
+  display: grid;
+  gap: 14px;
+}
+.slot-list {
+  margin: 0;
+}
+.slot-controls {
+  align-items: end;
+  background: var(--color-surface-secondary);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  padding: 18px;
+}
+.slot-controls .secondary-action {
+  border-style: dashed;
+  grid-column: 1 / -1;
+  min-height: 54px;
+  width: 100%;
+}
+.slot-controls input[type="date"],
+.slot-controls input[type="time"] {
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+}
+.slot-card {
+  align-items: center;
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: 14px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: 86px;
+  padding: 14px 16px;
+}
+.slot-card > strong {
+  color: var(--color-text);
+  font-size: 17px;
+  line-height: 1.35;
+  min-width: 0;
+}
+.slot-card-icon {
+  align-items: center;
+  background: var(--color-surface-secondary);
+  border-radius: 14px;
+  color: var(--color-brand) !important;
+  display: inline-flex;
+  height: 50px;
+  justify-content: center;
+  width: 50px;
+}
+.create-wizard .section-row h2 {
+  color: var(--color-text);
+  font-size: 24px;
+}
+.create-wizard .place-draft {
+  align-items: end;
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(92px, 0.5fr) 42px;
+  padding: 18px;
+}
+.create-wizard .place-draft:nth-child(2) {
+  border-top: 1px solid var(--color-border);
+}
+.add-place-action {
+  align-items: center;
+  background: transparent;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-brand);
+  cursor: pointer;
+  display: flex;
+  font-weight: 750;
+  gap: 8px;
+  justify-content: center;
+  min-height: 70px;
+  padding: 14px;
+  width: 100%;
+}
+.budget-field {
+  background: var(--color-surface-secondary);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+}
+.budget-field input {
+  background: var(--color-surface);
+  max-width: 260px;
+}
+.create-wizard .wizard-actions {
+  align-items: stretch;
+  display: grid;
+  grid-template-columns: auto minmax(190px, 1fr);
+  margin-left: auto;
+  width: min(100%, 520px);
+}
+.create-wizard .wizard-actions .primary-action,
+.create-wizard .wizard-actions .secondary-action {
+  min-height: 58px;
+}
+.create-wizard .wizard-actions .primary-action {
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--color-primary) 28%, transparent);
+  min-width: 0;
+}
+.create-wizard .form-error {
+  background: var(--color-error-container);
+  border-radius: var(--radius-lg);
+  color: var(--color-error);
+  padding: 14px 16px;
+}
+
+@media (max-width: 620px) {
+  .create-intro {
+    padding-top: 30px;
+  }
+  .create-intro h1 {
+    font-size: 34px;
+  }
+  .create-wizard .wizard-panel {
+    padding: 20px;
+  }
+  .slot-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .slot-controls .secondary-action {
+    grid-column: auto;
+  }
+  .create-wizard .place-draft {
+    grid-template-columns: minmax(0, 1fr) 42px;
+  }
+  .create-wizard .place-draft .field {
+    grid-column: 1 / -1;
+  }
+  .create-wizard .place-draft .icon-action {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+@media (max-width: 430px) {
+  .create-intro {
+    padding: 24px 14px 12px;
+  }
+  .create-step-label {
+    font-size: 12px;
+  }
+  .create-intro h1 {
+    font-size: 30px;
+    margin-top: 12px;
+  }
+  .create-step-description {
+    font-size: 15px;
+    margin-top: 12px;
+  }
+  .create-intro .step-progress {
+    margin-top: 20px;
+  }
+  .create-wizard {
+    padding: 12px 11px 34px;
+  }
+  .create-wizard .wizard-panel {
+    border-radius: 20px;
+    gap: 20px;
+    padding: 16px;
+  }
+  .slot-controls,
+  .create-wizard .place-draft,
+  .budget-field {
+    padding: 14px;
+  }
+  .slot-card {
+    gap: 10px;
+    padding: 12px;
+  }
+  .slot-card-icon {
+    height: 44px;
+    width: 44px;
+  }
+  .create-wizard .wizard-actions {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+  .budget-field input {
+    max-width: none;
+  }
+}
