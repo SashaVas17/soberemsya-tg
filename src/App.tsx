@@ -26,6 +26,7 @@ import {
   submitCreateEventOnce,
   validateCreateStep,
   type CreateWizardDraft,
+  type MeetingVisibility,
   type PlaceDraft,
 } from "./create-wizard";
 import { areaLeaders, bestSlot, formatSlot, plural } from "./domain";
@@ -536,14 +537,18 @@ function SlotBuilder({
 function CreateEvent({
   navigate,
   setBackOverride,
+  onCreated,
 }: {
   navigate: Navigate;
   setBackOverride: (value: (() => void) | null) => void;
+  onCreated: (event: EventData) => void;
 }) {
   const [step, setStep] = useState(1);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [budgetLimit, setBudgetLimit] = useState(30);
+  const [visibility, setVisibility] = useState<MeetingVisibility>("private");
+  const [maxParticipants, setMaxParticipants] = useState<number | null>(null);
   const [timeOptions, setTimeOptions] = useState<string[]>([]);
   const [places, setPlaces] = useState<PlaceDraft[]>([
     { title: "", area: "", estimatedBudget: 30 },
@@ -555,6 +560,8 @@ function CreateEvent({
     title,
     description,
     budgetLimit,
+    visibility,
+    maxParticipants,
     timeOptions,
     places,
   };
@@ -588,6 +595,7 @@ function CreateEvent({
       const result = await submitCreateEventOnce(draft, submitLock, api.createEvent);
       if (!result) return;
       haptic();
+      onCreated(result.event);
       navigate(createdEventPath(result.event.id), true);
     } catch (reason) {
       haptic("error");
@@ -599,7 +607,7 @@ function CreateEvent({
     } finally {
       setSaving(false);
     }
-  }, [budgetLimit, description, navigate, places, saving, timeOptions, title]);
+  }, [budgetLimit, description, maxParticipants, navigate, onCreated, places, saving, timeOptions, title, visibility]);
   return (
     <main className="create-screen">
       <Header navigate={navigate} />
@@ -643,6 +651,67 @@ function CreateEvent({
               onChange={(event) => setDescription(event.target.value)}
             />
           </label>
+          <fieldset className="visibility-selector">
+            <legend>Кто сможет присоединиться?</legend>
+            <button
+              aria-pressed={visibility === "private"}
+              className={`visibility-option${visibility === "private" ? " selected" : ""}`}
+              onClick={() => {
+                setVisibility("private");
+                setMaxParticipants(null);
+              }}
+              type="button"
+            >
+              <strong>По приглашению</strong>
+              <span>Встречу увидят только те, кому вы отправите ссылку</span>
+            </button>
+            <button
+              aria-pressed={visibility === "public"}
+              className={`visibility-option${visibility === "public" ? " selected" : ""}`}
+              onClick={() => {
+                if (visibility !== "public") setMaxParticipants(6);
+                setVisibility("public");
+              }}
+              type="button"
+            >
+              <strong>Открытая встреча</strong>
+              <span>Пользователи «Соберёмся» смогут найти встречу и отправить заявку</span>
+            </button>
+          </fieldset>
+          {visibility === "public" && (
+            <fieldset className="capacity-selector">
+              <legend>Сколько человек может быть на встрече?</legend>
+              <p>Всего людей, включая вас</p>
+              <label className="capacity-option">
+                <input
+                  checked={maxParticipants !== null}
+                  name="capacity"
+                  onChange={() => setMaxParticipants(6)}
+                  type="radio"
+                />
+                <span>Ограничить</span>
+                <input
+                  aria-label="Лимит участников"
+                  disabled={maxParticipants === null}
+                  max={50}
+                  min={2}
+                  onChange={(event) => setMaxParticipants(event.target.value === "" ? 6 : Number(event.target.value))}
+                  step={1}
+                  type="number"
+                  value={maxParticipants ?? ""}
+                />
+              </label>
+              <label className="capacity-option">
+                <input
+                  checked={maxParticipants === null}
+                  name="capacity"
+                  onChange={() => setMaxParticipants(null)}
+                  type="radio"
+                />
+                <span>Без ограничения</span>
+              </label>
+            </fieldset>
+          )}
         </section>}
         {step === 2 && <section className="wizard-time-panel">
           <SlotBuilder
@@ -827,9 +896,11 @@ function Refresh({
 function Created({
   eventId,
   navigate,
+  event,
 }: {
   eventId: string;
   navigate: Navigate;
+  event: EventData | null;
 }) {
   const link = miniAppLink(eventId);
   return (
@@ -839,6 +910,7 @@ function Created({
         <span className="created-success-icon"><Check size={52} strokeWidth={2.4} /></span>
         <div className="created-copy">
           <h1>Встреча создана 🎉</h1>
+          {event?.visibility === "public" && <span className="visibility-badge">Открытая</span>}
           <p>Всё готово! Теперь можно приглашать друзей.</p>
         </div>
         <div className="created-link-card">
@@ -1256,6 +1328,7 @@ function Manage({
         {event.description && <p className="manage-description">{event.description}</p>}
         <div className="event-meta">
           <StatusBadge status={event.status} />
+          {event.visibility === "public" && <span className="visibility-badge">Открытая</span>}
           <span>
             {plural(
               event.participants.length,
@@ -1741,6 +1814,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [outside, setOutside] = useState(false);
   const [backOverride, setBackOverride] = useState<(() => void) | null>(null);
+  const [createdEvent, setCreatedEvent] = useState<EventData | null>(null);
   useTelegramBack(path, navigate, backOverride);
   useEffect(() => {
     const app = initializeTelegram();
@@ -1793,7 +1867,8 @@ export default function App() {
     );
   const match = (pattern: RegExp) => path.match(pattern)?.[1];
   const created = match(/^\/created\/([^/]+)$/);
-  if (created) return <Created eventId={created} navigate={navigate} />;
+  if (created)
+    return <Created event={createdEvent?.id === created ? createdEvent : null} eventId={created} navigate={navigate} />;
   const manage = match(/^\/manage\/([^/]+)$/);
   if (manage) return <Manage eventId={manage} navigate={navigate} />;
   const result = match(/^\/result\/([^/]+)$/);
@@ -1804,6 +1879,7 @@ export default function App() {
     return (
       <CreateEvent
         navigate={navigate}
+        onCreated={setCreatedEvent}
         setBackOverride={setBackOverride}
       />
     );

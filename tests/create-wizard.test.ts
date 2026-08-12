@@ -20,6 +20,8 @@ function draft(overrides: Partial<CreateWizardDraft> = {}): CreateWizardDraft {
     title: "Шашлыки с друзьями",
     description: "Встречаемся после работы",
     budgetLimit: 45,
+    visibility: "private",
+    maxParticipants: null,
     timeOptions: [firstTime],
     places: [
       { title: "Парк", area: "Немига", estimatedBudget: 35 },
@@ -92,6 +94,8 @@ describe("create meeting wizard", () => {
       title: "Шашлыки с друзьями",
       description: "Встречаемся после работы",
       budgetLimit: 45,
+      visibility: "private",
+      maxParticipants: null,
       timeOptions: [firstTime],
       placeOptions: [
         { title: "Парк", area: "Немига", estimatedBudget: 35 },

@@ -16,6 +16,8 @@ let event: EventData = {
   title: "Ужин с друзьями после работы",
   description: "Выберем время и место, которые подойдут всей компании.",
   budgetLimit: 35,
+  visibility: "private",
+  maxParticipants: null,
   status: "collecting",
   finalPlaceId: null,
   finalTimeOptionId: null,
@@ -126,6 +128,16 @@ export const mockApi = {
       title: payload.title,
       description: payload.description,
       budgetLimit: payload.budgetLimit,
+      visibility: payload.visibility === "public" ? "public" : "private",
+      maxParticipants:
+        payload.visibility === "public" &&
+        (payload.maxParticipants === null ||
+          (typeof payload.maxParticipants === "number" &&
+            Number.isInteger(payload.maxParticipants) &&
+            payload.maxParticipants >= 2 &&
+            payload.maxParticipants <= 50))
+          ? payload.maxParticipants ?? null
+          : null,
       timeOptions: payload.timeOptions.map(
         (startsAt: string, index: number) => ({
           id: `time_${index}`,

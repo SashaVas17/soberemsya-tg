@@ -19,6 +19,8 @@ const event: EventData = {
   title: "Шашлыки с друзьями",
   description: "Встречаемся в выходные",
   budgetLimit: 40,
+  visibility: "private",
+  maxParticipants: null,
   status: "collecting",
   finalPlaceId: null,
   finalTimeOptionId: null,

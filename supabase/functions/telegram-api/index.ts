@@ -4,6 +4,7 @@ import { corsHeaders, errorResponse, json } from "../_shared/http.ts";
 import { meetingListItem } from "../_shared/meeting-list.ts";
 import { collectVisibleMeetings } from "../_shared/meetings.ts";
 import { validateTelegramInitData } from "../_shared/telegram.ts";
+import { parseCreateMeetingMode } from "../_shared/open-meetings.ts";
 
 type Db = ReturnType<typeof createClient>;
 type AppUser = { id: string; telegram_user_id: string; username: string | null; first_name: string; last_name: string | null; photo_url: string | null };
@@ -56,7 +57,7 @@ async function health() {
 }
 
 async function eventPayload(eventId: string, userId: string) {
-  const { data: event, error } = await db.from("events").select("id,owner_user_id,title,description,budget_limit,status,final_place_id,final_time_option_id,created_at,deleted_at").eq("id", eventId).is("deleted_at", null).maybeSingle();
+  const { data: event, error } = await db.from("events").select("id,owner_user_id,title,description,budget_limit,visibility,max_participants,status,final_place_id,final_time_option_id,created_at,deleted_at").eq("id", eventId).is("deleted_at", null).maybeSingle();
   if (error) throw error;
   assertEventAvailable(event);
   const [{ data: times, error: timeError }, { data: places, error: placeError }, { data: people, error: peopleError }] = await Promise.all([
@@ -72,17 +73,18 @@ async function eventPayload(eventId: string, userId: string) {
   for (const vote of votes ?? []) { const target = vote.is_available ? available : unavailable; target.set(vote.participant_id, [...(target.get(vote.participant_id) ?? []), vote.time_option_id]); if (vote.is_available) counts.set(vote.time_option_id, (counts.get(vote.time_option_id) ?? 0) + 1); }
   const canManage = event.owner_user_id === userId;
   const participants = (people ?? []).map((person) => ({ id: person.id, userId: person.user_id, name: person.name, area: person.area, budget: person.budget, preferences: canManage || person.user_id === userId ? person.preferences : "", restrictions: canManage || person.user_id === userId ? person.restrictions : "", availableTimeOptionIds: available.get(person.id) ?? [], unavailableTimeOptionIds: unavailable.get(person.id) ?? [] }));
-  return { id: event.id, title: event.title, description: event.description, budgetLimit: event.budget_limit, status: event.status, finalPlaceId: event.final_place_id, finalTimeOptionId: event.final_time_option_id, timeOptions: (times ?? []).map((time) => ({ id: time.id, startsAt: time.starts_at, availableCount: counts.get(time.id) ?? 0 })), placeOptions: (places ?? []).map((place) => ({ id: place.id, title: place.title, area: place.area, estimatedBudget: place.estimated_budget })), participants, canManage, myResponse: participants.find((person) => person.userId === userId) ?? null, createdAt: event.created_at };
+  return { id: event.id, title: event.title, description: event.description, budgetLimit: event.budget_limit, visibility: event.visibility ?? "private", maxParticipants: event.max_participants ?? null, status: event.status, finalPlaceId: event.final_place_id, finalTimeOptionId: event.final_time_option_id, timeOptions: (times ?? []).map((time) => ({ id: time.id, startsAt: time.starts_at, availableCount: counts.get(time.id) ?? 0 })), placeOptions: (places ?? []).map((place) => ({ id: place.id, title: place.title, area: place.area, estimatedBudget: place.estimated_budget })), participants, canManage, myResponse: participants.find((person) => person.userId === userId) ?? null, createdAt: event.created_at };
 }
 
 async function createEvent(request: Request, auth: AuthContext) {
   const payload = await request.json();
   const title = String(payload.title ?? "").trim();
+  const { visibility, maxParticipants } = parseCreateMeetingMode(payload);
   const times = [...new Set((payload.timeOptions ?? []).map(String).filter((value: string) => !Number.isNaN(Date.parse(value))))].sort() as string[];
   if (!title) throw Object.assign(new Error("Укажите название встречи."), { status: 400 });
   if (!times.length) throw Object.assign(new Error("Добавьте хотя бы один вариант даты и времени."), { status: 400 });
   const eventId = id("evt");
-  const { error } = await db.from("events").insert({ id: eventId, admin_token: id("backup"), owner_user_id: auth.user.id, title, description: String(payload.description ?? "").trim(), budget_limit: Math.max(0, Number(payload.budgetLimit) || 0) });
+  const { error } = await db.from("events").insert({ id: eventId, admin_token: id("backup"), owner_user_id: auth.user.id, title, description: String(payload.description ?? "").trim(), budget_limit: Math.max(0, Number(payload.budgetLimit) || 0), visibility, max_participants: maxParticipants });
   if (error) throw error;
   const { error: timeError } = await db.from("time_options").insert(times.map((startsAt) => ({ id: id("time"), event_id: eventId, starts_at: startsAt })));
   if (timeError) throw timeError;

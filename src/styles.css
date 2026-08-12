@@ -1179,6 +1179,73 @@ code {
   font-size: 15px;
   font-weight: 700;
 }
+.visibility-selector,
+.capacity-selector {
+  border: 0;
+  display: grid;
+  gap: 10px;
+  margin: 4px 0 0;
+  min-width: 0;
+  padding: 0;
+}
+.visibility-selector legend,
+.capacity-selector legend {
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 800;
+  padding: 0;
+}
+.visibility-option,
+.capacity-option {
+  align-items: start;
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text);
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  text-align: left;
+}
+.visibility-option.selected {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+}
+.visibility-option strong,
+.capacity-option span {
+  font-size: 15px;
+  font-weight: 800;
+}
+.visibility-option span,
+.capacity-selector > p {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.35;
+  margin: 0;
+}
+.capacity-option {
+  align-items: center;
+  grid-template-columns: auto 1fr minmax(80px, 110px);
+}
+.capacity-option:last-child {
+  grid-template-columns: auto 1fr;
+}
+.capacity-option input[type="number"] {
+  background: var(--color-surface);
+  min-width: 0;
+  padding: 9px 10px;
+}
+.visibility-badge {
+  background: var(--color-primary-soft);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 45%, transparent);
+  border-radius: var(--radius-full);
+  color: var(--color-on-primary-soft);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 4px 8px;
+  width: max-content;
+}
 .create-wizard input,
 .create-wizard textarea {
   background: var(--color-surface-secondary);

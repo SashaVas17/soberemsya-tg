@@ -1,4 +1,5 @@
 export type EventStatus = "collecting" | "place_selection" | "decided" | "cancelled";
+export type MeetingVisibility = "private" | "public";
 
 export type TelegramUser = {
   id: string;
@@ -28,6 +29,8 @@ export type EventData = {
   title: string;
   description: string;
   budgetLimit: number;
+  visibility: MeetingVisibility;
+  maxParticipants: number | null;
   status: EventStatus;
   finalPlaceId: string | null;
   finalTimeOptionId: string | null;
