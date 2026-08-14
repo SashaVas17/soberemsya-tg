@@ -178,22 +178,23 @@ begin
   into v_event
   from public.events
   where id = p_event_id
+    and deleted_at is null
   for update;
 
   if not found then
-    raise exception using errcode = 'P0001', message = 'Event not found';
+    raise exception using errcode = 'P0001', message = 'EVENT_UNAVAILABLE';
   end if;
 
   if v_event.owner_user_id is null or v_event.owner_user_id <> p_actor_user_id then
-    raise exception using errcode = 'P0001', message = 'Only the event owner can approve requests';
+    raise exception using errcode = 'P0001', message = 'NOT_EVENT_OWNER';
   end if;
 
-  if v_event.visibility <> 'public' or v_event.deleted_at is not null then
-    raise exception using errcode = 'P0001', message = 'Join requests are unavailable for this event';
+  if v_event.visibility <> 'public' then
+    raise exception using errcode = 'P0001', message = 'JOIN_REQUEST_NOT_ALLOWED';
   end if;
 
   if v_event.status <> 'collecting' then
-    raise exception using errcode = 'P0001', message = 'Join requests are closed for this event';
+    raise exception using errcode = 'P0001', message = 'JOIN_REQUESTS_CLOSED';
   end if;
 
   select *
@@ -203,12 +204,16 @@ begin
     and event_id = p_event_id
   for update;
 
-  if not found or v_request.status <> 'pending' then
-    raise exception using errcode = 'P0001', message = 'Pending join request not found';
+  if not found then
+    raise exception using errcode = 'P0001', message = 'JOIN_REQUEST_UNAVAILABLE';
+  end if;
+
+  if v_request.status <> 'pending' then
+    raise exception using errcode = 'P0001', message = 'JOIN_REQUEST_NOT_PENDING';
   end if;
 
   if v_request.requester_user_id = v_event.owner_user_id then
-    raise exception using errcode = 'P0001', message = 'Event owner cannot join their own event';
+    raise exception using errcode = 'P0001', message = 'OWNER_CANNOT_JOIN';
   end if;
 
   if exists (
@@ -217,7 +222,7 @@ begin
     where event_id = p_event_id
       and user_id = v_request.requester_user_id
   ) then
-    raise exception using errcode = 'P0001', message = 'Participant already exists';
+    raise exception using errcode = 'P0001', message = 'JOIN_REQUEST_STATE_INCONSISTENT';
   end if;
 
   select concat_ws(' ', first_name, last_name)
@@ -226,7 +231,7 @@ begin
   where id = v_request.requester_user_id;
 
   if v_name is null then
-    raise exception using errcode = 'P0001', message = 'Requester user not found';
+    raise exception using errcode = 'P0001', message = 'REQUESTER_UNAVAILABLE';
   end if;
 
   select count(*)::integer
@@ -240,7 +245,7 @@ begin
 
   if v_event.max_participants is not null
     and 1 + v_participant_count >= v_event.max_participants then
-    raise exception using errcode = 'P0001', message = 'Event capacity has been reached';
+    raise exception using errcode = 'P0001', message = 'EVENT_FULL';
   end if;
 
   v_participant_id := gen_random_uuid();
@@ -287,18 +292,19 @@ begin
   into v_event
   from public.events
   where id = p_event_id
+    and deleted_at is null
   for update;
 
   if not found then
-    raise exception using errcode = 'P0001', message = 'Event not found';
+    raise exception using errcode = 'P0001', message = 'EVENT_UNAVAILABLE';
   end if;
 
   if v_event.owner_user_id is null or v_event.owner_user_id <> p_actor_user_id then
-    raise exception using errcode = 'P0001', message = 'Only the event owner can reject requests';
+    raise exception using errcode = 'P0001', message = 'NOT_EVENT_OWNER';
   end if;
 
-  if v_event.visibility <> 'public' or v_event.deleted_at is not null then
-    raise exception using errcode = 'P0001', message = 'Join requests are unavailable for this event';
+  if v_event.visibility <> 'public' then
+    raise exception using errcode = 'P0001', message = 'JOIN_REQUEST_NOT_ALLOWED';
   end if;
 
   select *
@@ -308,8 +314,12 @@ begin
     and event_id = p_event_id
   for update;
 
-  if not found or v_request.status <> 'pending' then
-    raise exception using errcode = 'P0001', message = 'Pending join request not found';
+  if not found then
+    raise exception using errcode = 'P0001', message = 'JOIN_REQUEST_UNAVAILABLE';
+  end if;
+
+  if v_request.status <> 'pending' then
+    raise exception using errcode = 'P0001', message = 'JOIN_REQUEST_NOT_PENDING';
   end if;
 
   update public.join_requests

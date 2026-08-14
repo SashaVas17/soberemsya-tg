@@ -9,6 +9,18 @@ const createRequest = migration.slice(
   migration.indexOf("create or replace function public.create_join_request"),
   migration.indexOf("create or replace function public.approve_join_request"),
 );
+const approveRequest = migration.slice(
+  migration.indexOf("create or replace function public.approve_join_request"),
+  migration.indexOf("create or replace function public.reject_join_request"),
+);
+const rejectRequest = migration.slice(
+  migration.indexOf("create or replace function public.reject_join_request"),
+  migration.indexOf("revoke all on function public.approve_join_request"),
+);
+
+function errorTokens(source: string) {
+  return [...source.matchAll(/message = '([A-Z_]+)'/g)].map((match) => match[1]);
+}
 
 describe("Open Meetings database foundation", () => {
   it("defaults every existing and future event to private visibility", () => {
@@ -186,64 +198,182 @@ describe("Open Meetings database foundation", () => {
     });
   });
 
-  it("approves atomically after owner, public, status, duplicate and final capacity checks", () => {
-    const approve = migration.slice(
-      migration.indexOf("create or replace function public.approve_join_request"),
-      migration.indexOf("create or replace function public.reject_join_request"),
-    );
-    expect(approve).toContain("security definer");
-    expect(approve).toContain("set search_path = pg_catalog, public");
-    expect(approve).toContain("for update");
-    expect(approve).toContain("v_event.owner_user_id <> p_actor_user_id");
-    expect(approve).toContain("v_event.visibility <> 'public'");
-    expect(approve).toContain("v_event.status <> 'collecting'");
-    expect(approve).toContain("v_request.requester_user_id = v_event.owner_user_id");
-    expect(approve).toContain("user_id is null");
-    expect(approve).toContain("or user_id <> v_event.owner_user_id");
-    expect(approve).toContain("1 + v_participant_count >= v_event.max_participants");
-    expect(approve).toContain("insert into public.participants");
-    expect(approve).toContain("set status = 'approved'");
-    expect(approve.indexOf("Participant already exists")).toBeLessThan(
-      approve.indexOf("select count(*)::integer"),
-    );
-    expect(approve.indexOf("select count(*)::integer")).toBeLessThan(
-      approve.indexOf("insert into public.participants"),
-    );
-    expect(approve.indexOf("insert into public.participants")).toBeLessThan(
-      approve.indexOf("set status = 'approved'"),
-    );
+  describe("approve_join_request error contract", () => {
+    it("uses the exact stable domain tokens", () => {
+      expect(errorTokens(approveRequest)).toEqual([
+        "EVENT_UNAVAILABLE",
+        "NOT_EVENT_OWNER",
+        "JOIN_REQUEST_NOT_ALLOWED",
+        "JOIN_REQUESTS_CLOSED",
+        "JOIN_REQUEST_UNAVAILABLE",
+        "JOIN_REQUEST_NOT_PENDING",
+        "OWNER_CANNOT_JOIN",
+        "JOIN_REQUEST_STATE_INCONSISTENT",
+        "REQUESTER_UNAVAILABLE",
+        "EVENT_FULL",
+      ]);
+    });
+
+    it("treats missing and deleted events as unavailable before authorization", () => {
+      expect(approveRequest).toMatch(
+        /from public\.events\r?\n[ ]{2}where id = p_event_id\r?\n[ ]{4}and deleted_at is null\r?\n[ ]{2}for update/,
+      );
+      expect(approveRequest.indexOf("message = 'EVENT_UNAVAILABLE'")).toBeLessThan(
+        approveRequest.indexOf("v_event.owner_user_id"),
+      );
+    });
+
+    it("separates a missing request from a non-pending request after locking", () => {
+      const requestRead = approveRequest.indexOf("from public.join_requests");
+      const unavailable = approveRequest.indexOf("message = 'JOIN_REQUEST_UNAVAILABLE'");
+      const notPending = approveRequest.indexOf("message = 'JOIN_REQUEST_NOT_PENDING'");
+      expect(approveRequest.slice(requestRead, unavailable)).toContain("for update");
+      expect(approveRequest.slice(requestRead, unavailable)).toContain("if not found then");
+      expect(approveRequest.slice(unavailable, notPending)).toContain("v_request.status <> 'pending'");
+      expect(requestRead).toBeLessThan(unavailable);
+      expect(unavailable).toBeLessThan(notPending);
+    });
+
+    it("maps owner, visibility, lifecycle, owner-requester and missing-user failures", () => {
+      expect(approveRequest).toContain("v_event.owner_user_id <> p_actor_user_id");
+      expect(approveRequest).toContain("message = 'NOT_EVENT_OWNER'");
+      expect(approveRequest).toContain("v_event.visibility <> 'public'");
+      expect(approveRequest).toContain("message = 'JOIN_REQUEST_NOT_ALLOWED'");
+      expect(approveRequest).toContain("v_event.status <> 'collecting'");
+      expect(approveRequest).toContain("message = 'JOIN_REQUESTS_CLOSED'");
+      expect(approveRequest).toContain("v_request.requester_user_id = v_event.owner_user_id");
+      expect(approveRequest).toContain("message = 'OWNER_CANNOT_JOIN'");
+      expect(approveRequest).toContain("message = 'REQUESTER_UNAVAILABLE'");
+    });
+
+    it("treats a pending request with participant membership as inconsistent", () => {
+      const participantCheck = approveRequest.indexOf("if exists (");
+      const inconsistent = approveRequest.indexOf("message = 'JOIN_REQUEST_STATE_INCONSISTENT'");
+      expect(participantCheck).toBeGreaterThan(approveRequest.indexOf("v_request.status <> 'pending'"));
+      expect(participantCheck).toBeLessThan(inconsistent);
+      expect(approveRequest.slice(participantCheck, inconsistent)).toContain("from public.participants");
+    });
+
+    it("uses P0001 for every expected domain token and removes old prose", () => {
+      expect(approveRequest.match(/raise exception using errcode = 'P0001'/g)).toHaveLength(10);
+      for (const message of [
+        "Event not found",
+        "Only the event owner can approve requests",
+        "Join requests are unavailable for this event",
+        "Join requests are closed for this event",
+        "Pending join request not found",
+        "Event owner cannot join their own event",
+        "Participant already exists",
+        "Requester user not found",
+        "Event capacity has been reached",
+      ]) expect(approveRequest).not.toContain(message);
+    });
+
+    it("preserves signature, return type, security and mutation ordering", () => {
+      expect(approveRequest).toContain("p_event_id text");
+      expect(approveRequest).toContain("p_request_id uuid");
+      expect(approveRequest).toContain("p_actor_user_id uuid");
+      expect(approveRequest).toContain("returns table (request_id uuid, participant_id uuid)");
+      expect(approveRequest).toContain("security definer");
+      expect(approveRequest).toContain("set search_path = pg_catalog, public");
+      const eventLock = approveRequest.indexOf("from public.events");
+      const requestLock = approveRequest.indexOf("from public.join_requests");
+      const capacity = approveRequest.indexOf("select count(*)::integer");
+      const participantInsert = approveRequest.indexOf("insert into public.participants");
+      const requestUpdate = approveRequest.indexOf("update public.join_requests");
+      expect(eventLock).toBeLessThan(requestLock);
+      expect(requestLock).toBeLessThan(capacity);
+      expect(capacity).toBeLessThan(participantInsert);
+      expect(participantInsert).toBeLessThan(requestUpdate);
+    });
+
+    it("keeps the audited capacity calculation and changes only its token", () => {
+      expect(approveRequest).toContain("user_id is null");
+      expect(approveRequest).toContain("or user_id <> v_event.owner_user_id");
+      expect(approveRequest).toContain("1 + v_participant_count >= v_event.max_participants");
+      expect(approveRequest).toContain("message = 'EVENT_FULL'");
+    });
+  });
+
+  describe("reject_join_request error contract", () => {
+    it("uses the exact stable domain tokens", () => {
+      expect(errorTokens(rejectRequest)).toEqual([
+        "EVENT_UNAVAILABLE",
+        "NOT_EVENT_OWNER",
+        "JOIN_REQUEST_NOT_ALLOWED",
+        "JOIN_REQUEST_UNAVAILABLE",
+        "JOIN_REQUEST_NOT_PENDING",
+      ]);
+    });
+
+    it("treats missing and deleted events as unavailable before authorization", () => {
+      expect(rejectRequest).toMatch(
+        /from public\.events\r?\n[ ]{2}where id = p_event_id\r?\n[ ]{4}and deleted_at is null\r?\n[ ]{2}for update/,
+      );
+      expect(rejectRequest.indexOf("message = 'EVENT_UNAVAILABLE'")).toBeLessThan(
+        rejectRequest.indexOf("v_event.owner_user_id"),
+      );
+    });
+
+    it("separates missing and non-pending requests without cross-event lookup", () => {
+      const requestRead = rejectRequest.indexOf("from public.join_requests");
+      const unavailable = rejectRequest.indexOf("message = 'JOIN_REQUEST_UNAVAILABLE'");
+      const notPending = rejectRequest.indexOf("message = 'JOIN_REQUEST_NOT_PENDING'");
+      expect(rejectRequest.slice(requestRead, unavailable)).toContain("id = p_request_id");
+      expect(rejectRequest.slice(requestRead, unavailable)).toContain("event_id = p_event_id");
+      expect(rejectRequest.slice(requestRead, unavailable)).toContain("for update");
+      expect(rejectRequest.slice(requestRead, unavailable)).toContain("if not found then");
+      expect(rejectRequest.slice(unavailable, notPending)).toContain("v_request.status <> 'pending'");
+    });
+
+    it("keeps rejection available outside collecting", () => {
+      expect(rejectRequest).not.toContain("v_event.status");
+      expect(rejectRequest).not.toContain("JOIN_REQUESTS_CLOSED");
+      expect(rejectRequest).toContain("set status = 'rejected'");
+    });
+
+    it("uses P0001 for every domain token and removes old prose", () => {
+      expect(rejectRequest.match(/raise exception using errcode = 'P0001'/g)).toHaveLength(5);
+      for (const message of [
+        "Event not found",
+        "Only the event owner can reject requests",
+        "Join requests are unavailable for this event",
+        "Pending join request not found",
+      ]) expect(rejectRequest).not.toContain(message);
+    });
+
+    it("preserves signature, return type, security and event-first lock order", () => {
+      expect(rejectRequest).toContain("p_event_id text");
+      expect(rejectRequest).toContain("p_request_id uuid");
+      expect(rejectRequest).toContain("p_actor_user_id uuid");
+      expect(rejectRequest).toContain("returns table (request_id uuid)");
+      expect(rejectRequest).toContain("security definer");
+      expect(rejectRequest).toContain("set search_path = pg_catalog, public");
+      expect(rejectRequest.indexOf("from public.events")).toBeLessThan(
+        rejectRequest.indexOf("from public.join_requests"),
+      );
+      expect(rejectRequest).not.toContain("insert into public.participants");
+    });
   });
 
   it("counts the owner once while including ordinary and legacy participant rows", () => {
-    const approve = migration.slice(
-      migration.indexOf("create or replace function public.approve_join_request"),
-      migration.indexOf("create or replace function public.reject_join_request"),
-    );
-    expect(approve).toContain("1 + v_participant_count");
-    expect(approve).toContain("user_id is null");
-    expect(approve).toContain("user_id <> v_event.owner_user_id");
+    expect(approveRequest).toContain("1 + v_participant_count");
+    expect(approveRequest).toContain("user_id is null");
+    expect(approveRequest).toContain("user_id <> v_event.owner_user_id");
   });
 
   it("uses the event lock to serialize approval of the last total-capacity seat", () => {
-    const approve = migration.slice(
-      migration.indexOf("create or replace function public.approve_join_request"),
-      migration.indexOf("create or replace function public.reject_join_request"),
+    expect(approveRequest).toMatch(
+      /from public\.events\r?\n[ ]{2}where id = p_event_id\r?\n[ ]{4}and deleted_at is null\r?\n[ ]{2}for update/,
     );
-    expect(approve).toMatch(
-      /from public\.events\r?\n[ ]{2}where id = p_event_id\r?\n[ ]{2}for update/,
-    );
-    expect(approve).toContain("select count(*)::integer");
+    expect(approveRequest).toContain("select count(*)::integer");
   });
 
   it("rejects without creating a participant", () => {
-    const reject = migration.slice(
-      migration.indexOf("create or replace function public.reject_join_request"),
-      migration.indexOf("revoke all on function public.approve_join_request"),
-    );
-    expect(reject).toContain("v_event.owner_user_id <> p_actor_user_id");
-    expect(reject).toContain("v_event.visibility <> 'public'");
-    expect(reject).toContain("set status = 'rejected'");
-    expect(reject).not.toContain("insert into public.participants");
+    expect(rejectRequest).toContain("v_event.owner_user_id <> p_actor_user_id");
+    expect(rejectRequest).toContain("v_event.visibility <> 'public'");
+    expect(rejectRequest).toContain("set status = 'rejected'");
+    expect(rejectRequest).not.toContain("insert into public.participants");
   });
 
   it("keeps direct table and function access off the frontend roles", () => {
