@@ -42,6 +42,13 @@ export function openTelegramUrl(url: string) {
 
 export function openExternalUrl(url: string) {
   const app = telegram();
-  if (app?.openLink) app.openLink(url);
-  else window.open(url, "_blank", "noopener,noreferrer");
+  try {
+    if (app?.openLink) {
+      app.openLink(url);
+      return;
+    }
+  } catch {
+    // Telegram WebView can reject an external navigation; use the browser fallback.
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
 }

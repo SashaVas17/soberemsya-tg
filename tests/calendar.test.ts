@@ -85,16 +85,18 @@ describe("Google Calendar link", () => {
     expect(resultSource).not.toContain("TELEGRAM_DB_SECRET_KEY");
     expect(calendarSource).not.toContain("navigator.share");
     expect(resultSource).toContain("onClick={() => shareResult(event.id)}");
+    expect(resultSource).toContain('setCalendarError("Не удалось открыть календарь. Попробуйте ещё раз.")');
+    expect(resultSource).not.toContain("setCalendarError(error");
   });
 
-  it("uses the same primary treatment for both calendar actions and a distinct Telegram share action", () => {
+  it("uses the shared Telegram-blue treatment for both calendar actions and result sharing", () => {
     const stylesSource = readFileSync("src/styles.css", "utf8");
     const calendarActionClasses = resultSource.match(/className="primary-action calendar-action"/g) ?? [];
 
     expect(calendarActionClasses).toHaveLength(2);
     expect(resultSource).toContain('className="primary-action share-result-action"');
     expect(resultSource).not.toContain('className="secondary-action calendar-action"');
-    expect(stylesSource).toContain(".result-actions .share-result-action");
+    expect(stylesSource).toContain(".primary-action,\n.telegram-action");
     expect(stylesSource).toContain("background: var(--color-telegram)");
     expect(stylesSource).toContain("color: var(--color-on-telegram)");
   });
@@ -109,6 +111,20 @@ describe("external signed ICS opening", () => {
     const icsUrl = "https://project.supabase.co/functions/v1/telegram-api/calendar/evt_1?expires=1&signature=ticket";
     openExternalUrl(icsUrl);
     expect(openLink).toHaveBeenCalledWith(icsUrl);
+  });
+
+  it("falls back to the browser when Telegram openLink throws", () => {
+    const openLink = vi.fn(() => {
+      throw new Error("Telegram navigation failed");
+    });
+    const open = vi.fn();
+    vi.stubGlobal("window", { Telegram: { WebApp: { openLink } }, open });
+    const icsUrl = "https://project.supabase.co/functions/v1/telegram-api/calendar/evt_1?expires=1&signature=ticket";
+
+    openExternalUrl(icsUrl);
+
+    expect(openLink).toHaveBeenCalledWith(icsUrl);
+    expect(open).toHaveBeenCalledWith(icsUrl, "_blank", "noopener,noreferrer");
   });
 
   it("falls back to the browser for a signed ICS URL outside Telegram", () => {

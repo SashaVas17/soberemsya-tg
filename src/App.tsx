@@ -1016,7 +1016,7 @@ function Created({
             Поделиться в Telegram
           </button>
           <button
-            className="secondary-action"
+            className="secondary-action telegram-action"
             onClick={() => navigate(managementPath(eventId))}
             type="button"
           >
@@ -1271,7 +1271,7 @@ function ParticipantEvent({
               Изменить мой ответ
             </button>
             <button
-              className="secondary-action"
+              className="secondary-action telegram-action"
               onClick={() => navigate(`/result/${eventId}`)}
               type="button"
             >
@@ -1821,7 +1821,7 @@ function Manage({
           </button>
           {event.status === "collecting" && (
             <button
-              className="secondary-action"
+              className="secondary-action telegram-action"
               onClick={() => void mutate(managePayloads.close())}
               type="button"
             >
@@ -1830,7 +1830,7 @@ function Manage({
           )}
           {event.status !== "collecting" && (
             <button
-              className="secondary-action"
+              className="secondary-action telegram-action"
               onClick={() => void mutate(managePayloads.reopen())}
               type="button"
             >
@@ -1840,7 +1840,7 @@ function Manage({
         </section>
         <div className="action-row manage-actions">
           <button
-            className="secondary-action"
+            className="secondary-action telegram-action"
             onClick={() => shareEvent(event.id)}
             type="button"
           >
@@ -1848,7 +1848,7 @@ function Manage({
             Отправить в чат
           </button>
           <button
-            className="secondary-action"
+            className="secondary-action telegram-action"
             onClick={() => navigate(`/result/${event.id}`)}
             type="button"
           >
