@@ -5,6 +5,10 @@ const migration = readFileSync(
   "supabase/migrations/20260811181309_open_meetings_foundation.sql",
   "utf8",
 );
+const createRequest = migration.slice(
+  migration.indexOf("create or replace function public.create_join_request"),
+  migration.indexOf("create or replace function public.approve_join_request"),
+);
 
 describe("Open Meetings database foundation", () => {
   it("defaults every existing and future event to private visibility", () => {
@@ -34,6 +38,152 @@ describe("Open Meetings database foundation", () => {
     expect(migration).toContain("where status = 'pending'");
     expect(migration).toContain("join_requests_requester_created_idx");
     expect(migration).not.toContain("events_public_feed_idx");
+  });
+
+  describe("atomic create_join_request", () => {
+    it("defines the exact text and uuid signature", () => {
+      expect(createRequest).toContain("create or replace function public.create_join_request(");
+      expect(createRequest).toContain("p_event_id text");
+      expect(createRequest).toContain("p_requester_user_id uuid");
+      expect(migration).toContain("public.create_join_request(text, uuid)");
+    });
+
+    it("returns only request identity, status and a stable outcome", () => {
+      expect(createRequest).toContain("returns table (request_id uuid, status text, outcome text)");
+      expect(createRequest).not.toContain("owner_user_id uuid");
+      expect(createRequest).not.toContain("requester_user_id uuid,");
+    });
+
+    it("uses SECURITY DEFINER with the fixed search path", () => {
+      expect(createRequest).toContain("security definer");
+      expect(createRequest).toContain("set search_path = pg_catalog, public");
+    });
+
+    it.each(["public", "anon", "authenticated"])("revokes %s execution", (role) => {
+      expect(migration).toContain(`revoke all on function public.create_join_request(text, uuid) from ${role};`);
+    });
+
+    it("grants execution only to service_role", () => {
+      expect(migration).toContain("grant execute on function public.create_join_request(text, uuid)\n  to service_role;");
+      expect(migration).not.toContain("grant execute on function public.create_join_request(text, uuid)\n  to anon");
+      expect(migration).not.toContain("grant execute on function public.create_join_request(text, uuid)\n  to authenticated");
+    });
+
+    it("locks the available event row before every other authority read", () => {
+      expect(createRequest).toMatch(/from public\.events\r?\n[ ]{2}where id = p_event_id\r?\n[ ]{4}and deleted_at is null\r?\n[ ]{2}for update/);
+      expect(createRequest.indexOf("from public.events")).toBeLessThan(createRequest.indexOf("from public.join_requests"));
+      expect(createRequest.indexOf("from public.events")).toBeLessThan(createRequest.indexOf("from public.participants"));
+    });
+
+    it("uses a stable unavailable token for missing and deleted events", () => {
+      expect(createRequest).toContain("and deleted_at is null");
+      expect(createRequest).toContain("message = 'EVENT_UNAVAILABLE'");
+    });
+
+    it("rejects private, ownerless and non-collecting events", () => {
+      expect(createRequest).toContain("v_event.visibility <> 'public'");
+      expect(createRequest).toContain("v_event.owner_user_id is null");
+      expect(createRequest).toContain("v_event.status <> 'collecting'");
+      expect(createRequest).toContain("message = 'JOIN_REQUEST_NOT_ALLOWED'");
+    });
+
+    it("rejects the event owner and an unavailable requester", () => {
+      expect(createRequest).toContain("p_requester_user_id = v_event.owner_user_id");
+      expect(createRequest).toContain("message = 'OWNER_CANNOT_JOIN'");
+      expect(createRequest).toContain("p_requester_user_id is null");
+      expect(createRequest).toContain("message = 'REQUESTER_UNAVAILABLE'");
+    });
+
+    it("locks the one existing request after the event lock", () => {
+      const requestRead = createRequest.indexOf("from public.join_requests");
+      expect(requestRead).toBeGreaterThan(createRequest.indexOf("from public.events"));
+      expect(createRequest.slice(requestRead)).toContain("for update");
+      expect(createRequest).toContain("v_request_found := found");
+    });
+
+    it("treats participant membership as authoritative before creating pending", () => {
+      const participantRead = createRequest.indexOf("from public.participants");
+      const pendingInsert = createRequest.indexOf("insert into public.join_requests");
+      expect(participantRead).toBeGreaterThan(createRequest.indexOf("from public.join_requests"));
+      expect(participantRead).toBeLessThan(pendingInsert);
+      expect(createRequest).toContain("'already_participant'::text");
+      expect(createRequest).toContain("'approved'::text");
+    });
+
+    it("inserts one pending row only when no request exists", () => {
+      expect(createRequest).toContain("if not v_request_found then");
+      expect(createRequest).toContain("insert into public.join_requests (event_id, requester_user_id)");
+      expect(createRequest).toContain("'created_pending'::text");
+      expect(createRequest.match(/insert into public\.join_requests/g)).toHaveLength(1);
+    });
+
+    it("returns an existing pending request without updating it", () => {
+      const pendingBranch = createRequest.slice(
+        createRequest.indexOf("if v_request.status = 'pending'"),
+        createRequest.indexOf("if v_request.status = 'rejected'"),
+      );
+      expect(pendingBranch).toContain("'existing_pending'::text");
+      expect(pendingBranch).not.toContain("update public.join_requests");
+      expect(pendingBranch).not.toContain("created_at");
+    });
+
+    it("keeps rejection final without resetting the row", () => {
+      const rejectedBranch = createRequest.slice(createRequest.indexOf("if v_request.status = 'rejected'"));
+      expect(rejectedBranch).toContain("message = 'JOIN_REQUEST_REJECTED'");
+      expect(rejectedBranch).not.toContain("update public.join_requests");
+      expect(rejectedBranch).not.toContain("set status = 'pending'");
+    });
+
+    it("fails approved-without-participant as an inconsistent state", () => {
+      expect(createRequest).toContain("message = 'JOIN_REQUEST_STATE_INCONSISTENT'");
+      expect(createRequest.indexOf("'already_participant'::text")).toBeLessThan(createRequest.indexOf("JOIN_REQUEST_STATE_INCONSISTENT"));
+    });
+
+    it("preserves the unique event and requester constraint", () => {
+      expect(migration).toContain("unique (event_id, requester_user_id)");
+    });
+
+    it("adds neither delete behavior nor capacity checks", () => {
+      expect(createRequest).not.toContain("delete from");
+      expect(createRequest).not.toContain("max_participants");
+      expect(createRequest).not.toContain("v_participant_count");
+    });
+
+    it("leaves approval as the only capacity authority", () => {
+      const approve = migration.slice(
+        migration.indexOf("create or replace function public.approve_join_request"),
+        migration.indexOf("create or replace function public.reject_join_request"),
+      );
+      expect(approve).toContain("v_event.max_participants");
+      expect(approve).toContain("1 + v_participant_count >= v_event.max_participants");
+      expect(createRequest).not.toContain("capacity");
+    });
+
+    it("serializes duplicate creates and lifecycle transitions on the event row", () => {
+      const eventLock = createRequest.indexOf("from public.events");
+      const statusCheck = createRequest.indexOf("v_event.status <> 'collecting'");
+      const requestLock = createRequest.indexOf("from public.join_requests");
+      const insert = createRequest.indexOf("insert into public.join_requests");
+      expect(eventLock).toBeLessThan(statusCheck);
+      expect(statusCheck).toBeLessThan(requestLock);
+      expect(requestLock).toBeLessThan(insert);
+      expect(createRequest).toContain("for update");
+    });
+
+    it("introduces no frontend policy or table grant", () => {
+      expect(createRequest).not.toContain("create policy");
+      expect(createRequest).not.toContain("grant select");
+      expect(createRequest).not.toContain("grant insert");
+      expect(migration).toContain("revoke all privileges on table public.join_requests from anon");
+      expect(migration).toContain("revoke all privileges on table public.join_requests from authenticated");
+    });
+
+    it("uses structured outcomes for success and short stable exception tokens", () => {
+      for (const outcome of ["created_pending", "existing_pending", "already_participant"])
+        expect(createRequest).toContain(`'${outcome}'::text`);
+      for (const token of ["EVENT_UNAVAILABLE", "JOIN_REQUEST_NOT_ALLOWED", "REQUESTER_UNAVAILABLE", "OWNER_CANNOT_JOIN", "JOIN_REQUEST_REJECTED", "JOIN_REQUEST_STATE_INCONSISTENT"])
+        expect(createRequest).toContain(`message = '${token}'`);
+    });
   });
 
   it("approves atomically after owner, public, status, duplicate and final capacity checks", () => {

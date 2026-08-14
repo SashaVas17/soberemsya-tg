@@ -68,6 +68,95 @@ grant select, insert, update on table public.join_requests to service_role;
 -- approved participant. The existing private response flow intentionally stays
 -- unchanged until that public API guard is introduced.
 
+create or replace function public.create_join_request(
+  p_event_id text,
+  p_requester_user_id uuid
+)
+returns table (request_id uuid, status text, outcome text)
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  v_event public.events%rowtype;
+  v_request public.join_requests%rowtype;
+  v_request_found boolean;
+  v_participant_id uuid;
+begin
+  select *
+  into v_event
+  from public.events
+  where id = p_event_id
+    and deleted_at is null
+  for update;
+
+  if not found then
+    raise exception using errcode = 'P0001', message = 'EVENT_UNAVAILABLE';
+  end if;
+
+  if v_event.visibility <> 'public'
+    or v_event.owner_user_id is null
+    or v_event.status <> 'collecting' then
+    raise exception using errcode = 'P0001', message = 'JOIN_REQUEST_NOT_ALLOWED';
+  end if;
+
+  if p_requester_user_id is null then
+    raise exception using errcode = 'P0001', message = 'REQUESTER_UNAVAILABLE';
+  end if;
+
+  if p_requester_user_id = v_event.owner_user_id then
+    raise exception using errcode = 'P0001', message = 'OWNER_CANNOT_JOIN';
+  end if;
+
+  select *
+  into v_request
+  from public.join_requests
+  where event_id = p_event_id
+    and requester_user_id = p_requester_user_id
+  for update;
+  v_request_found := found;
+
+  select id
+  into v_participant_id
+  from public.participants
+  where event_id = p_event_id
+    and user_id = p_requester_user_id;
+
+  if found then
+    return query
+      select
+        case when v_request_found then v_request.id else null::uuid end,
+        'approved'::text,
+        'already_participant'::text;
+    return;
+  end if;
+
+  if not v_request_found then
+    insert into public.join_requests (event_id, requester_user_id)
+    values (p_event_id, p_requester_user_id)
+    returning * into v_request;
+
+    return query
+      select v_request.id, 'pending'::text, 'created_pending'::text;
+    return;
+  end if;
+
+  if v_request.status = 'pending' then
+    return query
+      select v_request.id, 'pending'::text, 'existing_pending'::text;
+    return;
+  end if;
+
+  if v_request.status = 'rejected' then
+    raise exception using errcode = 'P0001', message = 'JOIN_REQUEST_REJECTED';
+  end if;
+
+  raise exception using
+    errcode = 'P0001',
+    message = 'JOIN_REQUEST_STATE_INCONSISTENT';
+end;
+$$;
+
 create or replace function public.approve_join_request(
   p_event_id text,
   p_request_id uuid,
@@ -233,6 +322,9 @@ begin
 end;
 $$;
 
+revoke all on function public.create_join_request(text, uuid) from public;
+revoke all on function public.create_join_request(text, uuid) from anon;
+revoke all on function public.create_join_request(text, uuid) from authenticated;
 revoke all on function public.approve_join_request(text, uuid, uuid) from public;
 revoke all on function public.approve_join_request(text, uuid, uuid) from anon;
 revoke all on function public.approve_join_request(text, uuid, uuid) from authenticated;
@@ -242,4 +334,6 @@ revoke all on function public.reject_join_request(text, uuid, uuid) from authent
 grant execute on function public.approve_join_request(text, uuid, uuid)
   to service_role;
 grant execute on function public.reject_join_request(text, uuid, uuid)
+  to service_role;
+grant execute on function public.create_join_request(text, uuid)
   to service_role;
