@@ -39,6 +39,7 @@ import {
 } from "./meeting-links";
 import { managePayloads, runActionOnce } from "./manage-actions";
 import { meetingCardData, meetingDestination } from "./navigation";
+import { OrganizerJoinRequests } from "./OrganizerJoinRequests";
 import {
   createJoinRequestOnce,
   publicJoinRequestView,
@@ -1533,6 +1534,12 @@ function Manage({
           lastUpdated={state.lastUpdated}
           onClick={() => void state.load()}
         />
+        {event.visibility === "public" && event.canManage && (
+          <OrganizerJoinRequests
+            eventId={event.id}
+            onApproved={() => state.load(true)}
+          />
+        )}
         <section className="panel manage-card manage-details-card">
           <h2>Описание</h2>
           <label className="field">
