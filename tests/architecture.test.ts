@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const edgeApi = readFileSync("supabase/functions/telegram-api/index.ts", "utf8");
-const migration = readFileSync("supabase/migrations/20260805171807_telegram_mini_app_identity.sql", "utf8");
+const migration = readFileSync("supabase/migrations/20260806080232_telegram_mini_app_identity.sql", "utf8");
 const frontend = readFileSync("src/App.tsx", "utf8");
 
 describe("Telegram Mini App architecture", () => {
