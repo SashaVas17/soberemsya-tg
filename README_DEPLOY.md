@@ -37,9 +37,9 @@ npx supabase migration list --local
 npx supabase db diff --local
 ```
 
-Telegram identity добавляется миграцией `supabase/migrations/20260805171807_telegram_mini_app_identity.sql`. Она сохраняет существующие строки и добавляет nullable-поля.
+Telegram identity добавляется миграцией `supabase/migrations/20260806080232_telegram_mini_app_identity.sql`. Она сохраняет существующие строки и добавляет nullable-поля.
 
-Миграция `supabase/migrations/20260806081500_security_hardening.sql` отзывает публичный вызов служебной `SECURITY DEFINER`-функции и добавляет индекс внешнего ключа. Обе миграции применяйте к production только после проверки и отдельного подтверждения.
+Миграция `supabase/migrations/20260806084412_security_hardening.sql` отзывает публичный вызов служебной `SECURITY DEFINER`-функции и добавляет индекс внешнего ключа. Обе миграции применяйте к production только после проверки и отдельного подтверждения.
 
 ## Edge Functions
 

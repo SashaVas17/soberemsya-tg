@@ -17,6 +17,8 @@ function event(overrides: Partial<EventData> = {}): EventData {
     title: "День рождения, Маша",
     description: "Возьмите плед",
     budgetLimit: 30,
+    visibility: "private",
+    maxParticipants: null,
     status: "decided",
     finalPlaceId: "place-2",
     finalTimeOptionId: "time-2",

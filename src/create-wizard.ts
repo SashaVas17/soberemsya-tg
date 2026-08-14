@@ -1,3 +1,7 @@
+import type { MeetingVisibility } from "./types";
+
+export type { MeetingVisibility } from "./types";
+
 export type PlaceDraft = {
   title: string;
   area: string;
@@ -8,6 +12,8 @@ export type CreateWizardDraft = {
   title: string;
   description: string;
   budgetLimit: number;
+  visibility: MeetingVisibility;
+  maxParticipants: number | null;
   timeOptions: string[];
   places: PlaceDraft[];
 };
@@ -16,6 +22,8 @@ export type CreateEventPayload = {
   title: string;
   description: string;
   budgetLimit: number;
+  visibility: MeetingVisibility;
+  maxParticipants: number | null;
   timeOptions: string[];
   placeOptions: PlaceDraft[];
 };
@@ -25,6 +33,18 @@ export type SubmissionLock = { current: boolean };
 export function validateCreateStep(step: number, draft: CreateWizardDraft) {
   if (step === 1 && !draft.title.trim()) {
     return "Введите название встречи.";
+  }
+  if (step === 1) {
+    if (draft.visibility === "private" && draft.maxParticipants !== null)
+      return "Для встречи по приглашению лимит участников не задаётся.";
+    if (
+      draft.visibility === "public" &&
+      draft.maxParticipants !== null &&
+      (!Number.isInteger(draft.maxParticipants) ||
+        draft.maxParticipants < 2 ||
+        draft.maxParticipants > 50)
+    )
+      return "Лимит участников должен быть целым числом от 2 до 50.";
   }
   if (
     step === 2 &&
@@ -42,6 +62,9 @@ export function createEventPayload(
     title: draft.title,
     description: draft.description,
     budgetLimit: draft.budgetLimit,
+    visibility: draft.visibility,
+    maxParticipants:
+      draft.visibility === "private" ? null : draft.maxParticipants,
     timeOptions: draft.timeOptions,
     placeOptions: draft.places.filter((place) => place.title.trim()),
   };

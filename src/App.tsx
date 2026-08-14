@@ -15,6 +15,7 @@ import {
   Users,
 } from "lucide-react";
 import { api } from "./api";
+import { hasApiErrorCode } from "./api-error";
 import { BottomNavigation } from "./BottomNavigation";
 import { googleCalendarUrl } from "./calendar";
 import {
@@ -26,6 +27,7 @@ import {
   submitCreateEventOnce,
   validateCreateStep,
   type CreateWizardDraft,
+  type MeetingVisibility,
   type PlaceDraft,
 } from "./create-wizard";
 import { areaLeaders, bestSlot, formatSlot, plural } from "./domain";
@@ -37,6 +39,11 @@ import {
 } from "./meeting-links";
 import { managePayloads, runActionOnce } from "./manage-actions";
 import { meetingCardData, meetingDestination } from "./navigation";
+import { OrganizerJoinRequests } from "./OrganizerJoinRequests";
+import {
+  createJoinRequestOnce,
+  publicJoinRequestView,
+} from "./join-request";
 import {
   saveResponseOnce,
   toggleTimeOption,
@@ -66,6 +73,7 @@ import type {
   EventData,
   EventStatus,
   MeetingListItem,
+  PublicEventPreview,
 } from "./types";
 
 type Navigate = (path: string, replace?: boolean) => void;
@@ -536,14 +544,18 @@ function SlotBuilder({
 function CreateEvent({
   navigate,
   setBackOverride,
+  onCreated,
 }: {
   navigate: Navigate;
   setBackOverride: (value: (() => void) | null) => void;
+  onCreated: (event: EventData) => void;
 }) {
   const [step, setStep] = useState(1);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [budgetLimit, setBudgetLimit] = useState(30);
+  const [visibility, setVisibility] = useState<MeetingVisibility>("private");
+  const [maxParticipants, setMaxParticipants] = useState<number | null>(null);
   const [timeOptions, setTimeOptions] = useState<string[]>([]);
   const [places, setPlaces] = useState<PlaceDraft[]>([
     { title: "", area: "", estimatedBudget: 30 },
@@ -555,6 +567,8 @@ function CreateEvent({
     title,
     description,
     budgetLimit,
+    visibility,
+    maxParticipants,
     timeOptions,
     places,
   };
@@ -588,6 +602,7 @@ function CreateEvent({
       const result = await submitCreateEventOnce(draft, submitLock, api.createEvent);
       if (!result) return;
       haptic();
+      onCreated(result.event);
       navigate(createdEventPath(result.event.id), true);
     } catch (reason) {
       haptic("error");
@@ -599,7 +614,7 @@ function CreateEvent({
     } finally {
       setSaving(false);
     }
-  }, [budgetLimit, description, navigate, places, saving, timeOptions, title]);
+  }, [budgetLimit, description, maxParticipants, navigate, onCreated, places, saving, timeOptions, title, visibility]);
   return (
     <main className="create-screen">
       <Header navigate={navigate} />
@@ -643,6 +658,67 @@ function CreateEvent({
               onChange={(event) => setDescription(event.target.value)}
             />
           </label>
+          <fieldset className="visibility-selector">
+            <legend>Кто сможет присоединиться?</legend>
+            <button
+              aria-pressed={visibility === "private"}
+              className={`visibility-option${visibility === "private" ? " selected" : ""}`}
+              onClick={() => {
+                setVisibility("private");
+                setMaxParticipants(null);
+              }}
+              type="button"
+            >
+              <strong>По приглашению</strong>
+              <span>Встречу увидят только те, кому вы отправите ссылку</span>
+            </button>
+            <button
+              aria-pressed={visibility === "public"}
+              className={`visibility-option${visibility === "public" ? " selected" : ""}`}
+              onClick={() => {
+                if (visibility !== "public") setMaxParticipants(6);
+                setVisibility("public");
+              }}
+              type="button"
+            >
+              <strong>Открытая встреча</strong>
+              <span>Пользователи «Соберёмся» смогут найти встречу и отправить заявку</span>
+            </button>
+          </fieldset>
+          {visibility === "public" && (
+            <fieldset className="capacity-selector">
+              <legend>Сколько человек может быть на встрече?</legend>
+              <p>Всего людей, включая вас</p>
+              <label className="capacity-option">
+                <input
+                  checked={maxParticipants !== null}
+                  name="capacity"
+                  onChange={() => setMaxParticipants(6)}
+                  type="radio"
+                />
+                <span>Ограничить</span>
+                <input
+                  aria-label="Лимит участников"
+                  disabled={maxParticipants === null}
+                  max={50}
+                  min={2}
+                  onChange={(event) => setMaxParticipants(event.target.value === "" ? 6 : Number(event.target.value))}
+                  step={1}
+                  type="number"
+                  value={maxParticipants ?? ""}
+                />
+              </label>
+              <label className="capacity-option">
+                <input
+                  checked={maxParticipants === null}
+                  name="capacity"
+                  onChange={() => setMaxParticipants(null)}
+                  type="radio"
+                />
+                <span>Без ограничения</span>
+              </label>
+            </fieldset>
+          )}
         </section>}
         {step === 2 && <section className="wizard-time-panel">
           <SlotBuilder
@@ -795,6 +871,58 @@ function useEvent(eventId: string) {
   return { event, setEvent, error, setError, refreshing, lastUpdated, load };
 }
 
+function useParticipantEvent(eventId: string) {
+  const [event, setEvent] = useState<EventData | null>(null);
+  const [preview, setPreview] = useState<PublicEventPreview | null>(null);
+  const [error, setError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const load = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const result = await api.event(eventId);
+      setEvent(result.event);
+      setPreview(null);
+      setError("");
+    } catch (reason) {
+      if (!hasApiErrorCode(reason, "PUBLIC_PREVIEW_REQUIRED")) {
+        setError(
+          reason instanceof Error
+            ? reason.message
+            : "Не удалось загрузить встречу.",
+        );
+        return;
+      }
+      try {
+        const result = await api.publicEventPreview(eventId);
+        setEvent(null);
+        setPreview(result.preview);
+        setError("");
+      } catch (previewError) {
+        setError(
+          previewError instanceof Error
+            ? previewError.message
+            : "Не удалось загрузить встречу.",
+        );
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  }, [eventId]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  return {
+    event,
+    setEvent,
+    preview,
+    setPreview,
+    error,
+    setError,
+    refreshing,
+    load,
+  };
+}
+
 function Refresh({
   refreshing,
   lastUpdated,
@@ -827,9 +955,11 @@ function Refresh({
 function Created({
   eventId,
   navigate,
+  event,
 }: {
   eventId: string;
   navigate: Navigate;
+  event: EventData | null;
 }) {
   const link = miniAppLink(eventId);
   return (
@@ -839,6 +969,7 @@ function Created({
         <span className="created-success-icon"><Check size={52} strokeWidth={2.4} /></span>
         <div className="created-copy">
           <h1>Встреча создана 🎉</h1>
+          {event?.visibility === "public" && <span className="visibility-badge">Открытая</span>}
           <p>Всё готово! Теперь можно приглашать друзей.</p>
         </div>
         <div className="created-link-card">
@@ -867,6 +998,82 @@ function Created({
   );
 }
 
+function PublicPreviewScreen({
+  error,
+  joining,
+  navigate,
+  onJoin,
+  preview,
+}: {
+  error: string;
+  joining: boolean;
+  navigate: Navigate;
+  onJoin: () => void;
+  preview: PublicEventPreview;
+}) {
+  const requestView = publicJoinRequestView(
+    preview.status,
+    preview.joinRequestStatus,
+  );
+  return (
+    <main className="public-preview-screen">
+      <Header navigate={navigate} />
+      <section className="public-preview-page">
+        <div className="public-preview-heading">
+          <div className="event-meta">
+            <span className="visibility-badge">Открытая</span>
+            <StatusBadge status={preview.status} />
+          </div>
+          <h1>{preview.title}</h1>
+          {preview.description && <p>{preview.description}</p>}
+        </div>
+        <section className="panel public-preview-details">
+          <div className="public-preview-row">
+            <CalendarDays size={22} />
+            <div>
+              <span>Когда</span>
+              <strong>{preview.dateSummary ?? "Дата пока не указана"}</strong>
+            </div>
+          </div>
+          <div className="public-preview-row">
+            <Users size={22} />
+            <div>
+              <span>Участники</span>
+              <strong>
+                {preview.maxParticipants === null
+                  ? plural(preview.participantCount, "участник", "участника", "участников")
+                  : `${preview.participantCount} из ${preview.maxParticipants} участников`}
+              </strong>
+            </div>
+          </div>
+          <div className="public-preview-budget">
+            {preview.budgetLimit > 0
+              ? `Ориентир до ${preview.budgetLimit} BYN`
+              : "Бюджет не указан"}
+          </div>
+        </section>
+        <section className="public-preview-request">
+          <div className="public-preview-notice">
+            <strong>{requestView.message}</strong>
+            {requestView.supportingText && <span>{requestView.supportingText}</span>}
+          </div>
+          {requestView.actionLabel && (
+            <button
+              className="primary-action"
+              disabled={joining}
+              onClick={onJoin}
+              type="button"
+            >
+              {joining ? "Отправляем…" : requestView.actionLabel}
+            </button>
+          )}
+          <ErrorNote message={error} />
+        </section>
+      </section>
+    </main>
+  );
+}
+
 function ParticipantEvent({
   eventId,
   navigate,
@@ -874,7 +1081,7 @@ function ParticipantEvent({
   eventId: string;
   navigate: Navigate;
 }) {
-  const state = useEvent(eventId);
+  const state = useParticipantEvent(eventId);
   const [area, setArea] = useState("");
   const [budget, setBudget] = useState(30);
   const [preferences, setPreferences] = useState("");
@@ -882,7 +1089,10 @@ function ParticipantEvent({
   const [available, setAvailable] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [joining, setJoining] = useState(false);
   const saveLock = useRef(false);
+  const joinLock = useRef(false);
+  const approvedReloadAttempted = useRef(false);
   useEffect(() => {
     if (!state.event) return;
     const draft = votingDraftFromEvent(state.event);
@@ -892,6 +1102,46 @@ function ParticipantEvent({
     setRestrictions(draft.restrictions);
     setAvailable(draft.availableTimeOptionIds);
   }, [state.event?.id]);
+  useEffect(() => {
+    if (
+      state.preview?.joinRequestStatus !== "approved" ||
+      approvedReloadAttempted.current
+    )
+      return;
+    approvedReloadAttempted.current = true;
+    void state.load();
+  }, [state.load, state.preview?.joinRequestStatus]);
+  const submitJoinRequest = useCallback(async () => {
+    if (!state.preview || joining || joinLock.current) return;
+    setJoining(true);
+    state.setError("");
+    try {
+      const result = await createJoinRequestOnce(
+        eventId,
+        joinLock,
+        api.createJoinRequest,
+      );
+      if (!result) return;
+      if (result.joinRequestStatus === "approved") {
+        approvedReloadAttempted.current = true;
+        await state.load();
+      } else {
+        state.setPreview((current) =>
+          current ? { ...current, joinRequestStatus: "pending" } : current,
+        );
+      }
+      haptic();
+    } catch (reason) {
+      state.setError(
+        reason instanceof Error
+          ? reason.message
+          : "Не удалось отправить заявку.",
+      );
+      haptic("error");
+    } finally {
+      setJoining(false);
+    }
+  }, [eventId, joining, state]);
   const submit = useCallback(async () => {
     if (!state.event || saving || saveLock.current) return;
     const draft: VotingDraft = {
@@ -939,7 +1189,17 @@ function ParticipantEvent({
     submit,
     Boolean(state.event && !saved && state.event.status === "collecting"),
   );
-  if (!state.event)
+  if (!state.event) {
+    if (state.preview)
+      return (
+        <PublicPreviewScreen
+          error={state.error}
+          joining={joining}
+          navigate={navigate}
+          onJoin={() => void submitJoinRequest()}
+          preview={state.preview}
+        />
+      );
     return (
       <main className="voting-screen">
         <Header navigate={navigate} />
@@ -954,6 +1214,7 @@ function ParticipantEvent({
         )}
       </main>
     );
+  }
   const event = state.event;
   if (event.status !== "collecting")
     return <Result eventId={eventId} navigate={navigate} initial={event} />;
@@ -1256,6 +1517,7 @@ function Manage({
         {event.description && <p className="manage-description">{event.description}</p>}
         <div className="event-meta">
           <StatusBadge status={event.status} />
+          {event.visibility === "public" && <span className="visibility-badge">Открытая</span>}
           <span>
             {plural(
               event.participants.length,
@@ -1272,6 +1534,12 @@ function Manage({
           lastUpdated={state.lastUpdated}
           onClick={() => void state.load()}
         />
+        {event.visibility === "public" && event.canManage && (
+          <OrganizerJoinRequests
+            eventId={event.id}
+            onApproved={() => state.load(true)}
+          />
+        )}
         <section className="panel manage-card manage-details-card">
           <h2>Описание</h2>
           <label className="field">
@@ -1741,6 +2009,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [outside, setOutside] = useState(false);
   const [backOverride, setBackOverride] = useState<(() => void) | null>(null);
+  const [createdEvent, setCreatedEvent] = useState<EventData | null>(null);
   useTelegramBack(path, navigate, backOverride);
   useEffect(() => {
     const app = initializeTelegram();
@@ -1793,7 +2062,8 @@ export default function App() {
     );
   const match = (pattern: RegExp) => path.match(pattern)?.[1];
   const created = match(/^\/created\/([^/]+)$/);
-  if (created) return <Created eventId={created} navigate={navigate} />;
+  if (created)
+    return <Created event={createdEvent?.id === created ? createdEvent : null} eventId={created} navigate={navigate} />;
   const manage = match(/^\/manage\/([^/]+)$/);
   if (manage) return <Manage eventId={manage} navigate={navigate} />;
   const result = match(/^\/result\/([^/]+)$/);
@@ -1804,6 +2074,7 @@ export default function App() {
     return (
       <CreateEvent
         navigate={navigate}
+        onCreated={setCreatedEvent}
         setBackOverride={setBackOverride}
       />
     );

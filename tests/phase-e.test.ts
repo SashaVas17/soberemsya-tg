@@ -10,6 +10,8 @@ const decidedEvent: EventData = {
   title: "День рождения",
   description: "Встречаемся вечером",
   budgetLimit: 50,
+  visibility: "private",
+  maxParticipants: null,
   status: "decided",
   finalPlaceId: "place_pub",
   finalTimeOptionId: "time_evening",

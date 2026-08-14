@@ -2,8 +2,22 @@ import type {
   AuthResult,
   EventData,
   MeetingListItem,
-  Participant,
 } from "./types";
+import { applyMockResponse } from "./participant-voting";
+import { mockCreateJoinRequest } from "./join-request";
+import {
+  approveJoinRequest as mockApproveJoinRequest,
+  listJoinRequests as mockListJoinRequests,
+  rejectJoinRequest as mockRejectJoinRequest,
+  type MockOrganizerJoinRequestRecord,
+  type MockOrganizerJoinRequestState,
+  type MockOrganizerRequesterProfile,
+} from "./organizer-join-requests";
+import {
+  mockPublicEventAccess,
+  mockPublicEventPreview,
+  type MockPublicRole,
+} from "./public-preview";
 
 const future = (days: number, hour: number) => {
   const value = new Date();
@@ -16,6 +30,8 @@ let event: EventData = {
   title: "Ужин с друзьями после работы",
   description: "Выберем время и место, которые подойдут всей компании.",
   budgetLimit: 35,
+  visibility: "private",
+  maxParticipants: null,
   status: "collecting",
   finalPlaceId: null,
   finalTimeOptionId: null,
@@ -77,6 +93,34 @@ const auth: AuthResult = {
   startParam: null,
 };
 const clone = <T>(value: T): T => structuredClone(value);
+let joinRequestStatus: "none" | "pending" | "rejected" = "none";
+let organizerRequests: MockOrganizerJoinRequestRecord[] = [];
+let organizerRequesterProfiles: MockOrganizerRequesterProfile[] = [];
+let eventDeleted = false;
+const organizerRequestState = (): MockOrganizerJoinRequestState => ({
+  event: {
+    id: event.id,
+    ownerUserId: event.canManage ? auth.user.id : "user_owner",
+    visibility: event.visibility,
+    status: event.status,
+    maxParticipants: event.maxParticipants,
+    deleted: eventDeleted,
+  },
+  requests: organizerRequests,
+  profiles: organizerRequesterProfiles,
+  participants: event.participants,
+});
+const applyOrganizerRequestState = (state: MockOrganizerJoinRequestState) => {
+  organizerRequests = state.requests;
+  organizerRequesterProfiles = state.profiles;
+  event.participants = state.participants;
+};
+const currentPublicRole = (): MockPublicRole => {
+  if (event.canManage) return "owner";
+  if (event.participants.some((person) => person.userId === auth.user.id))
+    return "approved";
+  return joinRequestStatus;
+};
 const mockDate = (startsAt: string) =>
   new Intl.DateTimeFormat("ru-RU", {
     day: "numeric",
@@ -118,14 +162,75 @@ const listItem = (role: "owner" | "participant"): MeetingListItem => ({
 
 export const mockApi = {
   auth: async () => clone(auth),
-  event: async () => ({ event: clone(event) }),
+  event: async (eventId: string) => {
+    void eventId;
+    return mockPublicEventAccess(event, currentPublicRole());
+  },
+  publicEventPreview: async (eventId: string) => {
+    void eventId;
+    return mockPublicEventPreview(
+      event,
+      currentPublicRole(),
+      currentPublicRole() === "owner" ? auth.user.id : "user_owner",
+    );
+  },
+  createJoinRequest: async (eventId: string) => {
+    void eventId;
+    const result = mockCreateJoinRequest({
+      eventStatus: event.status,
+      visibility: event.visibility,
+      isOwner: event.canManage,
+      participantExists: event.participants.some(
+        (person) => person.userId === auth.user.id,
+      ),
+      requestStatus: joinRequestStatus,
+    });
+    if (result.joinRequestStatus === "pending") joinRequestStatus = "pending";
+    return result;
+  },
+  joinRequests: async (eventId: string) =>
+    clone(mockListJoinRequests(organizerRequestState(), eventId, auth.user.id)),
+  approveJoinRequest: async (eventId: string, requestId: string) => {
+    const result = mockApproveJoinRequest(
+      organizerRequestState(),
+      eventId,
+      requestId,
+      auth.user.id,
+    );
+    applyOrganizerRequestState(result.state);
+    return clone(result.response);
+  },
+  rejectJoinRequest: async (eventId: string, requestId: string) => {
+    const result = mockRejectJoinRequest(
+      organizerRequestState(),
+      eventId,
+      requestId,
+      auth.user.id,
+    );
+    applyOrganizerRequestState(result.state);
+    return clone(result.response);
+  },
   createEvent: async (payload: any) => {
+    joinRequestStatus = "none";
+    organizerRequests = [];
+    organizerRequesterProfiles = [];
+    eventDeleted = false;
     event = {
       ...event,
       id: `evt_${Date.now()}`,
       title: payload.title,
       description: payload.description,
       budgetLimit: payload.budgetLimit,
+      visibility: payload.visibility === "public" ? "public" : "private",
+      maxParticipants:
+        payload.visibility === "public" &&
+        (payload.maxParticipants === null ||
+          (typeof payload.maxParticipants === "number" &&
+            Number.isInteger(payload.maxParticipants) &&
+            payload.maxParticipants >= 2 &&
+            payload.maxParticipants <= 50))
+          ? payload.maxParticipants ?? null
+          : null,
       timeOptions: payload.timeOptions.map(
         (startsAt: string, index: number) => ({
           id: `time_${index}`,
@@ -143,30 +248,7 @@ export const mockApi = {
     return { event: clone(event) };
   },
   saveResponse: async (_id: string, payload: any) => {
-    const participant: Participant = {
-      id: "person_me",
-      userId: auth.user.id,
-      name: auth.user.firstName,
-      area: payload.area,
-      budget: payload.budget,
-      preferences: payload.preferences,
-      restrictions: payload.restrictions,
-      availableTimeOptionIds: payload.availableTimeOptionIds,
-      unavailableTimeOptionIds: event.timeOptions
-        .filter((time) => !payload.availableTimeOptionIds.includes(time.id))
-        .map((time) => time.id),
-    };
-    event.participants = [
-      ...event.participants.filter((person) => person.userId !== auth.user.id),
-      participant,
-    ];
-    event.myResponse = participant;
-    event.timeOptions = event.timeOptions.map((time) => ({
-      ...time,
-      availableCount: event.participants.filter((person) =>
-        person.availableTimeOptionIds.includes(time.id),
-      ).length,
-    }));
+    event = applyMockResponse(event, auth.user, payload);
     return { event: clone(event) };
   },
   meetings: async () => ({ owned: [listItem("owner")], participating: [] }),
@@ -188,5 +270,8 @@ export const mockApi = {
       };
     return { event: clone(event) };
   },
-  remove: async () => ({ deleted: true as const }),
+  remove: async () => {
+    eventDeleted = true;
+    return { deleted: true as const };
+  },
 };

@@ -1,4 +1,28 @@
 export type EventStatus = "collecting" | "place_selection" | "decided" | "cancelled";
+export type MeetingVisibility = "private" | "public";
+export type JoinRequestStatus = "none" | "pending" | "approved" | "rejected";
+export type JoinRequestActionResponse = {
+  joinRequestStatus: "pending" | "approved";
+};
+
+export type OrganizerJoinRequest = {
+  requestId: string;
+  status: "pending";
+  createdAt: string;
+  requester: {
+    displayName: string;
+    username: string | null;
+  };
+};
+
+export type OrganizerJoinRequestsResponse = {
+  requests: OrganizerJoinRequest[];
+};
+
+export type JoinRequestDecisionResponse = {
+  requestId: string;
+  status: "approved" | "rejected";
+};
 
 export type TelegramUser = {
   id: string;
@@ -28,6 +52,8 @@ export type EventData = {
   title: string;
   description: string;
   budgetLimit: number;
+  visibility: MeetingVisibility;
+  maxParticipants: number | null;
   status: EventStatus;
   finalPlaceId: string | null;
   finalTimeOptionId: string | null;
@@ -36,6 +62,19 @@ export type EventData = {
   participants: Participant[];
   canManage: boolean;
   myResponse: Participant | null;
+};
+
+export type PublicEventPreview = {
+  id: string;
+  visibility: "public";
+  title: string;
+  description: string;
+  status: EventStatus;
+  dateSummary: string | null;
+  budgetLimit: number;
+  participantCount: number;
+  maxParticipants: number | null;
+  joinRequestStatus: JoinRequestStatus;
 };
 
 export type MeetingListItem = {
