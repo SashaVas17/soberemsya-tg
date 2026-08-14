@@ -1,14 +1,17 @@
 import { createClient } from "npm:@supabase/supabase-js@2.111.0";
-import { assertEventAvailable, assertOwner, assertVotingOpen, authorizeParticipantResponse, parseEventStartParam } from "../_shared/domain.ts";
+import { assertEventAvailable, assertFullEventReadAccess, assertOwner, assertVotingOpen, authorizeParticipantResponse, parseEventStartParam, type Status } from "../_shared/domain.ts";
 import { corsHeaders, errorResponse, json } from "../_shared/http.ts";
 import { meetingListItem } from "../_shared/meeting-list.ts";
 import { collectVisibleMeetings } from "../_shared/meetings.ts";
+import { buildPublicEventPreview } from "../_shared/public-preview.ts";
 import { validateTelegramInitData } from "../_shared/telegram.ts";
 import { parseCreateMeetingMode } from "../_shared/open-meetings.ts";
 
 type Db = ReturnType<typeof createClient>;
 type AppUser = { id: string; telegram_user_id: string; username: string | null; first_name: string; last_name: string | null; photo_url: string | null };
 type AuthContext = { user: AppUser; startParam: string | null };
+type FullEventRow = { id: string; owner_user_id: string | null; title: string; description: string; budget_limit: number; visibility: string | null; max_participants: number | null; status: Status; final_place_id: string | null; final_time_option_id: string | null; created_at: string; deleted_at: string | null };
+type PreviewEventRow = Pick<FullEventRow, "id" | "owner_user_id" | "title" | "description" | "budget_limit" | "visibility" | "max_participants" | "status" | "deleted_at">;
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = (Deno.env.get("TELEGRAM_DB_SECRET_KEY") ?? "").trim();
@@ -56,10 +59,15 @@ async function health() {
     : json({ status: "ok", telegramConfigured: true, databaseConfigured: true, databaseSecretPresent, databaseSecretLooksValid });
 }
 
-async function eventPayload(eventId: string, userId: string) {
-  const { data: event, error } = await db.from("events").select("id,owner_user_id,title,description,budget_limit,visibility,max_participants,status,final_place_id,final_time_option_id,created_at,deleted_at").eq("id", eventId).is("deleted_at", null).maybeSingle();
+async function loadFullEventRow(eventId: string) {
+  const { data: event, error } = await db.from("events").select("id,owner_user_id,title,description,budget_limit,visibility,max_participants,status,final_place_id,final_time_option_id,created_at,deleted_at").eq("id", eventId).is("deleted_at", null).maybeSingle<FullEventRow>();
   if (error) throw error;
   assertEventAvailable(event);
+  return event;
+}
+
+async function eventPayload(eventId: string, userId: string, loadedEvent?: FullEventRow) {
+  const event = loadedEvent ?? await loadFullEventRow(eventId);
   const [{ data: times, error: timeError }, { data: places, error: placeError }, { data: people, error: peopleError }] = await Promise.all([
     db.from("time_options").select("id,starts_at").eq("event_id", eventId).order("starts_at"),
     db.from("place_options").select("id,title,area,estimated_budget").eq("event_id", eventId),
@@ -74,6 +82,49 @@ async function eventPayload(eventId: string, userId: string) {
   const canManage = event.owner_user_id === userId;
   const participants = (people ?? []).map((person) => ({ id: person.id, userId: person.user_id, name: person.name, area: person.area, budget: person.budget, preferences: canManage || person.user_id === userId ? person.preferences : "", restrictions: canManage || person.user_id === userId ? person.restrictions : "", availableTimeOptionIds: available.get(person.id) ?? [], unavailableTimeOptionIds: unavailable.get(person.id) ?? [] }));
   return { id: event.id, title: event.title, description: event.description, budgetLimit: event.budget_limit, visibility: event.visibility ?? "private", maxParticipants: event.max_participants ?? null, status: event.status, finalPlaceId: event.final_place_id, finalTimeOptionId: event.final_time_option_id, timeOptions: (times ?? []).map((time) => ({ id: time.id, startsAt: time.starts_at, availableCount: counts.get(time.id) ?? 0 })), placeOptions: (places ?? []).map((place) => ({ id: place.id, title: place.title, area: place.area, estimatedBudget: place.estimated_budget })), participants, canManage, myResponse: participants.find((person) => person.userId === userId) ?? null, createdAt: event.created_at };
+}
+
+async function fullEventForRequest(eventId: string, userId: string) {
+  const event = await loadFullEventRow(eventId);
+  let participantExists = false;
+  if (event.visibility === "public" && event.owner_user_id !== userId) {
+    const { data: participant, error } = await db.from("participants").select("id").eq("event_id", eventId).eq("user_id", userId).maybeSingle();
+    if (error) throw error;
+    participantExists = Boolean(participant);
+  }
+  assertFullEventReadAccess({ visibility: event.visibility, ownerUserId: event.owner_user_id, currentUserId: userId, participantExists });
+  return eventPayload(eventId, userId, event);
+}
+
+async function publicEventPreview(eventId: string, userId: string) {
+  const { data: event, error } = await db.from("events").select("id,owner_user_id,title,description,budget_limit,visibility,max_participants,status,deleted_at").eq("id", eventId).is("deleted_at", null).maybeSingle<PreviewEventRow>();
+  if (error) throw error;
+  assertEventAvailable(event);
+  if (event.visibility !== "public")
+    throw Object.assign(new Error("Встреча не найдена или удалена."), { status: 404 });
+
+  const [{ data: times, error: timeError }, { data: people, error: peopleError }] = await Promise.all([
+    db.from("time_options").select("starts_at").eq("event_id", eventId),
+    db.from("participants").select("user_id").eq("event_id", eventId),
+  ]);
+  if (timeError || peopleError) throw timeError ?? peopleError;
+  const participantUserIds = (people ?? []).map((person) => person.user_id as string | null);
+  const participantExists = participantUserIds.includes(userId);
+  let requestStatus: string | null = null;
+  if (!participantExists) {
+    const { data: joinRequest, error: joinRequestError } = await db.from("join_requests").select("status").eq("event_id", eventId).eq("requester_user_id", userId).maybeSingle();
+    if (joinRequestError) throw joinRequestError;
+    requestStatus = joinRequest?.status ?? null;
+  }
+
+  return buildPublicEventPreview({
+    event: { id: event.id, title: event.title, description: event.description, status: event.status, budgetLimit: event.budget_limit, maxParticipants: event.max_participants ?? null },
+    startsAtValues: (times ?? []).map((time) => time.starts_at),
+    participantUserIds,
+    ownerUserId: event.owner_user_id,
+    participantExists,
+    requestStatus,
+  });
 }
 
 async function createEvent(request: Request, auth: AuthContext) {
@@ -151,7 +202,8 @@ Deno.serve(async (request) => {
     if (path === "/me/meetings" && request.method === "GET") return await meetings(auth);
     const responseMatch = path.match(/^\/events\/([^/]+)\/response$/); if (responseMatch && request.method === "POST") return await saveResponse(request, decodeURIComponent(responseMatch[1]), auth);
     const manageMatch = path.match(/^\/events\/([^/]+)\/manage$/); if (manageMatch && ["PATCH", "DELETE"].includes(request.method)) return await manageEvent(request, decodeURIComponent(manageMatch[1]), auth);
-    const eventMatch = path.match(/^\/events\/([^/]+)$/); if (eventMatch && request.method === "GET") return json({ event: await eventPayload(decodeURIComponent(eventMatch[1]), auth.user.id) });
+    const previewMatch = path.match(/^\/events\/([^/]+)\/preview$/); if (previewMatch && request.method === "GET") return json({ preview: await publicEventPreview(decodeURIComponent(previewMatch[1]), auth.user.id) });
+    const eventMatch = path.match(/^\/events\/([^/]+)$/); if (eventMatch && request.method === "GET") return json({ event: await fullEventForRequest(decodeURIComponent(eventMatch[1]), auth.user.id) });
     return json({ error: "Маршрут не найден." }, 404);
   } catch (error) { return errorResponse(error); }
 });

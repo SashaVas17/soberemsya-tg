@@ -1,4 +1,5 @@
-import type { AuthResult, EventData, MeetingListItem } from "./types";
+import { apiErrorFromBody } from "./api-error";
+import type { AuthResult, EventData, MeetingListItem, PublicEventPreview } from "./types";
 import { mockApi } from "./mock-api";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "") ?? "";
@@ -27,8 +28,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     },
   });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok)
-    throw new Error(body.error || "Не удалось выполнить действие.");
+  if (!response.ok) throw apiErrorFromBody(response.status, body);
   return body as T;
 }
 
@@ -44,8 +44,14 @@ export const api = {
   },
   event: (id: string) =>
     useMock
-      ? mockApi.event()
+      ? mockApi.event(id)
       : request<{ event: EventData }>(`/events/${encodeURIComponent(id)}`),
+  publicEventPreview: (id: string) =>
+    useMock
+      ? mockApi.publicEventPreview(id)
+      : request<{ preview: PublicEventPreview }>(
+          `/events/${encodeURIComponent(id)}/preview`,
+        ),
   createEvent: (payload: unknown) =>
     useMock
       ? mockApi.createEvent(payload)

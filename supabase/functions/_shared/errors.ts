@@ -1,6 +1,7 @@
 export const SAFE_APPLICATION_ERROR_CODES = [
   "PUBLIC_JOIN_REQUIRED",
   "PUBLIC_OWNER_CANNOT_RESPOND",
+  "PUBLIC_PREVIEW_REQUIRED",
 ] as const;
 
 export type SafeApplicationErrorCode =

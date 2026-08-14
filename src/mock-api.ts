@@ -4,6 +4,11 @@ import type {
   MeetingListItem,
 } from "./types";
 import { applyMockResponse } from "./participant-voting";
+import {
+  mockPublicEventAccess,
+  mockPublicEventPreview,
+  type MockPublicRole,
+} from "./public-preview";
 
 const future = (days: number, hour: number) => {
   const value = new Date();
@@ -79,6 +84,12 @@ const auth: AuthResult = {
   startParam: null,
 };
 const clone = <T>(value: T): T => structuredClone(value);
+const currentPublicRole = (): MockPublicRole => {
+  if (event.canManage) return "owner";
+  if (event.participants.some((person) => person.userId === auth.user.id))
+    return "approved";
+  return "none";
+};
 const mockDate = (startsAt: string) =>
   new Intl.DateTimeFormat("ru-RU", {
     day: "numeric",
@@ -120,7 +131,18 @@ const listItem = (role: "owner" | "participant"): MeetingListItem => ({
 
 export const mockApi = {
   auth: async () => clone(auth),
-  event: async () => ({ event: clone(event) }),
+  event: async (eventId: string) => {
+    void eventId;
+    return mockPublicEventAccess(event, currentPublicRole());
+  },
+  publicEventPreview: async (eventId: string) => {
+    void eventId;
+    return mockPublicEventPreview(
+      event,
+      currentPublicRole(),
+      currentPublicRole() === "owner" ? auth.user.id : "user_owner",
+    );
+  },
   createEvent: async (payload: any) => {
     event = {
       ...event,

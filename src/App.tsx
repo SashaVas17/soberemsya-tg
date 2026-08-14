@@ -15,6 +15,7 @@ import {
   Users,
 } from "lucide-react";
 import { api } from "./api";
+import { hasApiErrorCode } from "./api-error";
 import { BottomNavigation } from "./BottomNavigation";
 import { googleCalendarUrl } from "./calendar";
 import {
@@ -67,6 +68,7 @@ import type {
   EventData,
   EventStatus,
   MeetingListItem,
+  PublicEventPreview,
 } from "./types";
 
 type Navigate = (path: string, replace?: boolean) => void;
@@ -864,6 +866,49 @@ function useEvent(eventId: string) {
   return { event, setEvent, error, setError, refreshing, lastUpdated, load };
 }
 
+function useParticipantEvent(eventId: string) {
+  const [event, setEvent] = useState<EventData | null>(null);
+  const [preview, setPreview] = useState<PublicEventPreview | null>(null);
+  const [error, setError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const load = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const result = await api.event(eventId);
+      setEvent(result.event);
+      setPreview(null);
+      setError("");
+    } catch (reason) {
+      if (!hasApiErrorCode(reason, "PUBLIC_PREVIEW_REQUIRED")) {
+        setError(
+          reason instanceof Error
+            ? reason.message
+            : "Не удалось загрузить встречу.",
+        );
+        return;
+      }
+      try {
+        const result = await api.publicEventPreview(eventId);
+        setEvent(null);
+        setPreview(result.preview);
+        setError("");
+      } catch (previewError) {
+        setError(
+          previewError instanceof Error
+            ? previewError.message
+            : "Не удалось загрузить встречу.",
+        );
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  }, [eventId]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  return { event, setEvent, preview, error, setError, refreshing, load };
+}
+
 function Refresh({
   refreshing,
   lastUpdated,
@@ -939,6 +984,64 @@ function Created({
   );
 }
 
+function PublicPreviewScreen({
+  navigate,
+  preview,
+}: {
+  navigate: Navigate;
+  preview: PublicEventPreview;
+}) {
+  const joinStatusText = {
+    none: "Доступна публичная информация о встрече.",
+    pending: "Заявка ожидает решения организатора",
+    rejected: "Заявка не одобрена",
+    approved: "Вы уже участник встречи.",
+  }[preview.joinRequestStatus];
+  return (
+    <main className="public-preview-screen">
+      <Header navigate={navigate} />
+      <section className="public-preview-page">
+        <div className="public-preview-heading">
+          <div className="event-meta">
+            <span className="visibility-badge">Открытая</span>
+            <StatusBadge status={preview.status} />
+          </div>
+          <h1>{preview.title}</h1>
+          {preview.description && <p>{preview.description}</p>}
+        </div>
+        <section className="panel public-preview-details">
+          <div className="public-preview-row">
+            <CalendarDays size={22} />
+            <div>
+              <span>Когда</span>
+              <strong>{preview.dateSummary ?? "Дата пока не указана"}</strong>
+            </div>
+          </div>
+          <div className="public-preview-row">
+            <Users size={22} />
+            <div>
+              <span>Участники</span>
+              <strong>
+                {preview.maxParticipants === null
+                  ? plural(preview.participantCount, "участник", "участника", "участников")
+                  : `${preview.participantCount} из ${preview.maxParticipants} участников`}
+              </strong>
+            </div>
+          </div>
+          <div className="public-preview-budget">
+            {preview.budgetLimit > 0
+              ? `Ориентир до ${preview.budgetLimit} BYN`
+              : "Бюджет не указан"}
+          </div>
+        </section>
+        <p className="public-preview-notice">
+          {preview.status === "cancelled" ? "Встреча отменена" : joinStatusText}
+        </p>
+      </section>
+    </main>
+  );
+}
+
 function ParticipantEvent({
   eventId,
   navigate,
@@ -946,7 +1049,7 @@ function ParticipantEvent({
   eventId: string;
   navigate: Navigate;
 }) {
-  const state = useEvent(eventId);
+  const state = useParticipantEvent(eventId);
   const [area, setArea] = useState("");
   const [budget, setBudget] = useState(30);
   const [preferences, setPreferences] = useState("");
@@ -1011,7 +1114,9 @@ function ParticipantEvent({
     submit,
     Boolean(state.event && !saved && state.event.status === "collecting"),
   );
-  if (!state.event)
+  if (!state.event) {
+    if (state.preview)
+      return <PublicPreviewScreen navigate={navigate} preview={state.preview} />;
     return (
       <main className="voting-screen">
         <Header navigate={navigate} />
@@ -1026,6 +1131,7 @@ function ParticipantEvent({
         )}
       </main>
     );
+  }
   const event = state.event;
   if (event.status !== "collecting")
     return <Result eventId={eventId} navigate={navigate} initial={event} />;

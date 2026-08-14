@@ -4,6 +4,26 @@ export type Status = "collecting" | "place_selection" | "decided" | "cancelled";
 
 export type ParticipantResponseAction = "insert-private" | "update";
 
+export function assertFullEventReadAccess(input: {
+  visibility?: string | null;
+  ownerUserId: string | null;
+  currentUserId: string;
+  participantExists: boolean;
+}) {
+  if (
+    input.visibility !== "public" ||
+    input.ownerUserId === input.currentUserId ||
+    input.participantExists
+  )
+    return;
+
+  throw applicationError(
+    "PUBLIC_PREVIEW_REQUIRED",
+    403,
+    "Доступна только публичная информация о встрече.",
+  );
+}
+
 export function authorizeParticipantResponse(input: {
   visibility?: string | null;
   ownerUserId: string | null;
