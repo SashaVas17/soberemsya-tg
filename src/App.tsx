@@ -17,7 +17,7 @@ import {
 import { api } from "./api";
 import { hasApiErrorCode } from "./api-error";
 import { BottomNavigation } from "./BottomNavigation";
-import { downloadCalendarIcs, googleCalendarUrl } from "./calendar";
+import { googleCalendarUrl } from "./calendar";
 import {
   advanceCreateStep,
   addTimeOption,
@@ -1886,6 +1886,8 @@ function Result({
   initial?: EventData | null;
 }) {
   const state = useEvent(eventId);
+  const [calendarError, setCalendarError] = useState("");
+  const [calendarOpening, setCalendarOpening] = useState(false);
   const event = initial ?? state.event;
   if (!event)
     return (
@@ -1926,8 +1928,16 @@ function Result({
     );
   };
   const addAppleCalendar = async () => {
-    const details = calendarDetails();
-    if (details) await downloadCalendarIcs(details);
+    setCalendarError("");
+    setCalendarOpening(true);
+    try {
+      const { icsUrl } = await api.calendarLink(event.id);
+      openExternalUrl(icsUrl);
+    } catch {
+      setCalendarError("Не удалось открыть календарь. Попробуйте ещё раз.");
+    } finally {
+      setCalendarOpening(false);
+    }
   };
   return (
     <main className="result-screen">
@@ -2020,12 +2030,14 @@ function Result({
           </button>
           <button
             className="primary-action calendar-action"
+            disabled={calendarOpening}
             onClick={() => void addAppleCalendar()}
             type="button"
           >
             <CalendarPlus size={18} />
             Календарь iPhone
           </button>
+          {calendarError && <p className="form-error">{calendarError}</p>}
           <button
             className="text-action result-home-action"
             onClick={() => navigate("/")}

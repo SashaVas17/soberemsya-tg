@@ -174,15 +174,15 @@ describe("Phase E screen and state boundaries", () => {
     expect(manageSource).not.toContain("api.event");
   });
 
-  it("uses the frontend Google Calendar action and keeps an ICS helper", () => {
+  it("keeps Google Calendar frontend-only and moves iPhone ICS generation to the signed server helper", () => {
     const calendarSource = readFileSync("src/calendar.ts", "utf8");
+    const serverCalendarSource = readFileSync("supabase/functions/_shared/calendar.ts", "utf8");
     expect(resultSource).toContain("googleCalendarUrl");
     expect(resultSource).toContain("openExternalUrl");
-    expect(calendarSource).toContain("BEGIN:VCALENDAR");
-    expect(calendarSource).toContain('type: "text/calendar;charset=utf-8"');
-    expect(calendarSource).toContain('join("\\r\\n")');
-    expect(resultSource).not.toContain("api.calendar");
-    expect(resultSource).not.toContain('request("/calendar');
+    expect(calendarSource).not.toContain("BEGIN:VCALENDAR");
+    expect(serverCalendarSource).toContain("BEGIN:VCALENDAR");
+    expect(serverCalendarSource).toContain('join("\\r\\n")');
+    expect(resultSource).toContain("api.calendarLink(event.id)");
     expect(resultSource).not.toContain("fetch(");
   });
 

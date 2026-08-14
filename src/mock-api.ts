@@ -274,4 +274,7 @@ export const mockApi = {
     eventDeleted = true;
     return { deleted: true as const };
   },
+  calendarLink: async (eventId: string) => ({
+    icsUrl: `https://example.test/calendar/${encodeURIComponent(eventId)}.ics?expires=0&signature=mock`,
+  }),
 };

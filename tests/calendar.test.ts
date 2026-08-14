@@ -1,10 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import {
-  downloadCalendarIcs,
   googleCalendarTimestamp,
   googleCalendarUrl,
-  icsCalendarText,
 } from "../src/calendar";
 import { resultPlace, resultTime } from "../src/result-model";
 import { openExternalUrl } from "../src/telegram";
@@ -76,28 +74,17 @@ describe("Google Calendar link", () => {
     expect(resultPlace(fallback)?.title).toBe("Парк");
   });
 
-  it("keeps ICS text as a CRLF and escaped frontend-only fallback", () => {
-    const text = icsCalendarText({
-      title: "Встреча, тест; один",
-      startsAt,
-      endsAt,
-      location: "Минск\nПарк",
-    });
-    expect(text).toContain("\r\n");
-    expect(text).toContain("SUMMARY:Встреча\\, тест\\; один");
-    expect(text).toContain("LOCATION:Минск\\nПарк");
-  });
-
-  it("keeps Google and iPhone calendar actions available through the existing ICS helper", () => {
+  it("keeps Google Calendar unchanged and opens iPhone Calendar through a signed backend link", () => {
     expect(resultSource).toContain("googleCalendarUrl");
     expect(resultSource).toContain("Google Calendar");
-    expect(resultSource).toContain("downloadCalendarIcs");
     expect(resultSource).toContain("Календарь iPhone");
-    expect(resultSource).toContain("if (!recommendedTime) return;");
-    expect(resultSource).not.toContain("api.calendar");
+    expect(resultSource).toContain("api.calendarLink(event.id)");
+    expect(resultSource).toContain("openExternalUrl(icsUrl)");
+    expect(resultSource).not.toContain("downloadCalendarIcs");
+    expect(resultSource).not.toContain("navigator.share");
     expect(resultSource).not.toContain("TELEGRAM_DB_SECRET_KEY");
-    expect(calendarSource).toContain('type: "text/calendar;charset=utf-8"');
-    expect(calendarSource).toContain("navigator.canShare");
+    expect(calendarSource).not.toContain("navigator.share");
+    expect(resultSource).toContain("onClick={() => shareResult(event.id)}");
   });
 
   it("uses the same primary treatment for both calendar actions and a distinct Telegram share action", () => {
@@ -113,38 +100,24 @@ describe("Google Calendar link", () => {
   });
 });
 
-describe("external calendar opening", () => {
+describe("external signed ICS opening", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("uses the native share sheet for an iPhone ICS action when available", async () => {
-    const file = { name: "soberemsya.ics" };
-    const canShare = vi.fn(() => true);
-    const share = vi.fn().mockResolvedValue(undefined);
-    function MockFile() {
-      return file;
-    }
-    vi.stubGlobal("File", MockFile);
-    vi.stubGlobal("navigator", { canShare, share });
-
-    await downloadCalendarIcs({ title: "Встреча", startsAt, endsAt });
-
-    expect(canShare).toHaveBeenCalledWith({ files: [file] });
-    expect(share).toHaveBeenCalledWith({ files: [file], title: "Встреча" });
-  });
-
-  it("uses Telegram WebApp openLink when available", () => {
+  it("uses Telegram WebApp openLink for a signed ICS URL when available", () => {
     const openLink = vi.fn();
     vi.stubGlobal("window", { Telegram: { WebApp: { openLink } } });
-    openExternalUrl("https://calendar.google.com/calendar/render?action=TEMPLATE");
-    expect(openLink).toHaveBeenCalledOnce();
+    const icsUrl = "https://project.supabase.co/functions/v1/telegram-api/calendar/evt_1?expires=1&signature=ticket";
+    openExternalUrl(icsUrl);
+    expect(openLink).toHaveBeenCalledWith(icsUrl);
   });
 
-  it("falls back to the browser outside Telegram", () => {
+  it("falls back to the browser for a signed ICS URL outside Telegram", () => {
     const open = vi.fn();
     vi.stubGlobal("window", { open });
-    openExternalUrl("https://calendar.google.com/calendar/render?action=TEMPLATE");
+    const icsUrl = "https://project.supabase.co/functions/v1/telegram-api/calendar/evt_1?expires=1&signature=ticket";
+    openExternalUrl(icsUrl);
     expect(open).toHaveBeenCalledWith(
-      "https://calendar.google.com/calendar/render?action=TEMPLATE",
+      icsUrl,
       "_blank",
       "noopener,noreferrer",
     );

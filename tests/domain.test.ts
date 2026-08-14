@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertEventAvailable, assertOwner, assertVotingOpen, parseEventStartParam, participantIdentityKey } from "../supabase/functions/_shared/domain";
+import { assertEventAvailable, assertFullEventReadAccess, assertOwner, assertVotingOpen, parseEventStartParam, participantIdentityKey } from "../supabase/functions/_shared/domain";
 
 describe("meeting authorization guards", () => {
   it("uses event and Telegram user together for a repeat response", () => {
@@ -21,5 +21,16 @@ describe("meeting authorization guards", () => {
 
   it("blocks responses after voting is closed", () => {
     expect(() => assertVotingOpen("decided")).toThrow("закрыт");
+  });
+
+  it("does not grant a non-participant full access to an open meeting", () => {
+    expect(() =>
+      assertFullEventReadAccess({
+        visibility: "public",
+        ownerUserId: "owner_1",
+        currentUserId: "viewer_1",
+        participantExists: false,
+      }),
+    ).toThrow("публичная информация");
   });
 });

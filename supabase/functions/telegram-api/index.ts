@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.111.0";
+import { buildIcs, isCalendarTicketValid, signCalendarTicket } from "../_shared/calendar.ts";
 import { assertEventAvailable, assertFullEventReadAccess, assertOwner, assertVotingOpen, authorizeParticipantResponse, parseEventStartParam, type Status } from "../_shared/domain.ts";
 import { corsHeaders, errorResponse, json } from "../_shared/http.ts";
 import { meetingListItem } from "../_shared/meeting-list.ts";
@@ -21,6 +22,7 @@ type JoinRequestStateRow = { status: string; requester_user_id: string };
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = (Deno.env.get("TELEGRAM_DB_SECRET_KEY") ?? "").trim();
 const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
+const calendarSigningSecret = Deno.env.get("TELEGRAM_CALENDAR_SIGNING_SECRET") ?? "";
 // New-format secret keys must reach the REST API only in the apikey header.
 const adminFetch: typeof fetch = (input, init) => {
   const headers = new Headers(init?.headers);
@@ -319,16 +321,77 @@ async function meetings(auth: AuthContext) {
   return json(await collectVisibleMeetings(ownedIds, participatingIds, mapItem));
 }
 
+async function calendarLink(request: Request, eventId: string, auth: AuthContext) {
+  if (!calendarSigningSecret)
+    throw Object.assign(new Error("Экспорт календаря пока не настроен."), { status: 503 });
+
+  const event = await fullEventForRequest(eventId, auth.user.id);
+  if (event.status !== "decided" || !event.finalTimeOptionId || !event.finalPlaceId)
+    throw Object.assign(new Error("Итог встречи ещё не выбран."), { status: 409 });
+
+  const expires = Math.floor(Date.now() / 1000) + 10 * 60;
+  const signature = await signCalendarTicket(eventId, expires, calendarSigningSecret);
+  const url = new URL(request.url);
+  const calendarPath = url.pathname.replace(
+    /\/events\/[^/]+\/calendar-link$/,
+    `/calendar/${encodeURIComponent(eventId)}`,
+  );
+  return json({
+    icsUrl: `${url.origin}${calendarPath}?expires=${expires}&signature=${encodeURIComponent(signature)}`,
+  });
+}
+
+async function calendarDownload(eventId: string, search: URLSearchParams) {
+  const expires = Number(search.get("expires"));
+  const signature = search.get("signature") ?? "";
+  if (!await isCalendarTicketValid(eventId, expires, signature, calendarSigningSecret))
+    throw Object.assign(new Error("Ссылка на календарь недействительна или устарела."), { status: 401 });
+
+  const event = await loadFullEventRow(eventId);
+  if (event.status !== "decided" || !event.final_time_option_id || !event.final_place_id)
+    throw Object.assign(new Error("Итог встречи ещё не выбран."), { status: 409 });
+
+  const [{ data: time, error: timeError }, { data: place, error: placeError }] = await Promise.all([
+    db.from("time_options").select("starts_at").eq("id", event.final_time_option_id).eq("event_id", eventId).maybeSingle(),
+    db.from("place_options").select("title,area").eq("id", event.final_place_id).eq("event_id", eventId).maybeSingle(),
+  ]);
+  if (timeError || placeError) throw timeError ?? placeError;
+  if (!time || !place)
+    throw Object.assign(new Error("Итоговые данные встречи недоступны."), { status: 409 });
+
+  const bot = Deno.env.get("TELEGRAM_BOT_USERNAME") ?? "soberemsyabelarusbot";
+  const app = Deno.env.get("TELEGRAM_APP_SHORT_NAME") ?? "soberemsya";
+  const eventUrl = `https://t.me/${bot}/${app}?startapp=event_${event.id}`;
+  const text = buildIcs({
+    id: event.id,
+    title: event.title,
+    description: event.description || `Встреча в «Соберёмся»: ${eventUrl}`,
+    location: [place.title, place.area].filter(Boolean).join(", "),
+    url: eventUrl,
+    startsAt: time.starts_at,
+  });
+  return new Response(text, {
+    headers: {
+      ...corsHeaders,
+      "content-type": "text/calendar; charset=utf-8",
+      "content-disposition": "attachment; filename=\"soberemsya.ics\"",
+      "cache-control": "private, no-store",
+    },
+  });
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
     const url = new URL(request.url); const segments = url.pathname.split("/").filter(Boolean); const functionIndex = segments.lastIndexOf("telegram-api"); const path = `/${segments.slice(functionIndex + 1).join("/")}`;
     if (path === "/health" && request.method === "GET") return await health();
+    const calendarMatch = path.match(/^\/calendar\/([^/]+)$/); if (calendarMatch && request.method === "GET") return await calendarDownload(decodeURIComponent(calendarMatch[1]), url.searchParams);
     if (path === "/telegram/auth" && request.method === "POST") { const body = await request.json(); const auth = await authenticate(request, String(body.initData ?? "")); parseEventStartParam(auth.startParam); return json({ user: { id: auth.user.id, telegramUserId: auth.user.telegram_user_id, username: auth.user.username, firstName: auth.user.first_name, lastName: auth.user.last_name, photoUrl: auth.user.photo_url }, startParam: auth.startParam }); }
     const auth = await authenticate(request);
     if (path === "/events" && request.method === "POST") return await createEvent(request, auth);
     if (path === "/me/meetings" && request.method === "GET") return await meetings(auth);
     const responseMatch = path.match(/^\/events\/([^/]+)\/response$/); if (responseMatch && request.method === "POST") return await saveResponse(request, decodeURIComponent(responseMatch[1]), auth);
+    const calendarLinkMatch = path.match(/^\/events\/([^/]+)\/calendar-link$/); if (calendarLinkMatch && request.method === "POST") return await calendarLink(request, decodeURIComponent(calendarLinkMatch[1]), auth);
     const joinRequestMatch = path.match(/^\/events\/([^/]+)\/join-request$/); if (joinRequestMatch && request.method === "POST") return await createJoinRequest(decodeURIComponent(joinRequestMatch[1]), auth);
     const organizerJoinRequestsMatch = path.match(/^\/events\/([^/]+)\/join-requests$/); if (organizerJoinRequestsMatch && request.method === "GET") return await organizerJoinRequests(decodeURIComponent(organizerJoinRequestsMatch[1]), auth);
     const joinRequestDecisionMatch = path.match(/^\/events\/([^/]+)\/join-requests\/([^/]+)\/(approve|reject)$/); if (joinRequestDecisionMatch && request.method === "POST") return await decideJoinRequest(joinRequestDecisionMatch[3] as JoinRequestDecisionAction, decodeURIComponent(joinRequestDecisionMatch[1]), decodeURIComponent(joinRequestDecisionMatch[2]), auth);
