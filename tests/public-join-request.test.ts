@@ -19,7 +19,7 @@ const backendSource = readFileSync(
 );
 const handlerSource = backendSource.slice(
   backendSource.indexOf("async function createJoinRequest"),
-  backendSource.indexOf("async function saveResponse"),
+  backendSource.indexOf("async function organizerJoinRequests"),
 );
 const appSource = readFileSync("src/App.tsx", "utf8");
 const previewSource = appSource.slice(

@@ -1,5 +1,5 @@
 import { apiErrorFromBody } from "./api-error";
-import type { AuthResult, EventData, JoinRequestActionResponse, MeetingListItem, PublicEventPreview } from "./types";
+import type { AuthResult, EventData, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PublicEventPreview } from "./types";
 import { mockApi } from "./mock-api";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "") ?? "";
@@ -58,6 +58,26 @@ export const api = {
       : request<JoinRequestActionResponse>(
           `/events/${encodeURIComponent(id)}/join-request`,
           { method: "POST", body: "{}" },
+        ),
+  joinRequests: (eventId: string) =>
+    useMock
+      ? mockApi.joinRequests(eventId)
+      : request<OrganizerJoinRequestsResponse>(
+          `/events/${encodeURIComponent(eventId)}/join-requests`,
+        ),
+  approveJoinRequest: (eventId: string, requestId: string) =>
+    useMock
+      ? mockApi.approveJoinRequest(eventId, requestId)
+      : request<JoinRequestDecisionResponse>(
+          `/events/${encodeURIComponent(eventId)}/join-requests/${encodeURIComponent(requestId)}/approve`,
+          { method: "POST" },
+        ),
+  rejectJoinRequest: (eventId: string, requestId: string) =>
+    useMock
+      ? mockApi.rejectJoinRequest(eventId, requestId)
+      : request<JoinRequestDecisionResponse>(
+          `/events/${encodeURIComponent(eventId)}/join-requests/${encodeURIComponent(requestId)}/reject`,
+          { method: "POST" },
         ),
   createEvent: (payload: unknown) =>
     useMock

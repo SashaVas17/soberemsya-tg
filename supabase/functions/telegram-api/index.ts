@@ -7,12 +7,16 @@ import { buildPublicEventPreview } from "../_shared/public-preview.ts";
 import { validateTelegramInitData } from "../_shared/telegram.ts";
 import { parseCreateMeetingMode } from "../_shared/open-meetings.ts";
 import { createJoinRequestErrorToken, createJoinRequestHttpError, createJoinRequestHttpResult, type CreateJoinRequestRow } from "../_shared/join-request.ts";
+import { joinRequestDecisionErrorToken, joinRequestDecisionHttpError, joinRequestDecisionResponse, organizerJoinRequestsResponse, resolveJoinRequestDecisionRetry, type JoinRequestDecisionAction, type JoinRequestListRow, type RequesterProfileRow } from "../_shared/organizer-join-requests.ts";
 
 type Db = ReturnType<typeof createClient>;
 type AppUser = { id: string; telegram_user_id: string; username: string | null; first_name: string; last_name: string | null; photo_url: string | null };
 type AuthContext = { user: AppUser; startParam: string | null };
 type FullEventRow = { id: string; owner_user_id: string | null; title: string; description: string; budget_limit: number; visibility: string | null; max_participants: number | null; status: Status; final_place_id: string | null; final_time_option_id: string | null; created_at: string; deleted_at: string | null };
 type PreviewEventRow = Pick<FullEventRow, "id" | "owner_user_id" | "title" | "description" | "budget_limit" | "visibility" | "max_participants" | "status" | "deleted_at">;
+type OrganizerEventRow = Pick<FullEventRow, "owner_user_id" | "visibility">;
+type JoinRequestDecisionRpcRow = { request_id: string; participant_id?: string };
+type JoinRequestStateRow = { status: string; requester_user_id: string };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = (Deno.env.get("TELEGRAM_DB_SECRET_KEY") ?? "").trim();
@@ -162,6 +166,112 @@ async function createJoinRequest(eventId: string, auth: AuthContext) {
   return json(result.body, result.status);
 }
 
+async function organizerJoinRequests(eventId: string, auth: AuthContext) {
+  const { data: event, error: eventError } = await db
+    .from("events")
+    .select("owner_user_id,visibility")
+    .eq("id", eventId)
+    .is("deleted_at", null)
+    .maybeSingle<OrganizerEventRow>();
+  if (eventError) throw eventError;
+  assertEventAvailable(event);
+  if (event.owner_user_id !== auth.user.id)
+    throw joinRequestDecisionHttpError("NOT_EVENT_OWNER");
+  if (event.visibility !== "public")
+    throw joinRequestDecisionHttpError("JOIN_REQUEST_NOT_ALLOWED");
+
+  const { data: requests, error: requestError } = await db
+    .from("join_requests")
+    .select("id,status,created_at,requester_user_id")
+    .eq("event_id", eventId)
+    .eq("status", "pending")
+    .order("created_at");
+  if (requestError) throw requestError;
+  const rows = (requests ?? []) as JoinRequestListRow[];
+  const requesterIds = [...new Set(rows.map((row) => row.requester_user_id))];
+  if (!requesterIds.length) return json({ requests: [] });
+
+  const { data: profiles, error: profileError } = await db
+    .from("users")
+    .select("id,first_name,last_name,username")
+    .in("id", requesterIds);
+  if (profileError) throw profileError;
+  return json(
+    organizerJoinRequestsResponse(rows, (profiles ?? []) as RequesterProfileRow[]),
+  );
+}
+
+function assertJoinRequestId(requestId: string) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId))
+    throw Object.assign(new Error("Заявка не найдена."), { status: 404 });
+}
+
+async function loadJoinRequestRetryState(eventId: string, requestId: string) {
+  const { data: request, error: requestError } = await db
+    .from("join_requests")
+    .select("status,requester_user_id")
+    .eq("event_id", eventId)
+    .eq("id", requestId)
+    .maybeSingle<JoinRequestStateRow>();
+  if (requestError) throw requestError;
+  if (!request) return null;
+
+  const { data: participant, error: participantError } = await db
+    .from("participants")
+    .select("id")
+    .eq("event_id", eventId)
+    .eq("user_id", request.requester_user_id)
+    .maybeSingle();
+  if (participantError) throw participantError;
+  return {
+    status: request.status,
+    requesterUserId: request.requester_user_id,
+    participantExists: Boolean(participant),
+  };
+}
+
+async function decideJoinRequest(
+  action: JoinRequestDecisionAction,
+  eventId: string,
+  requestId: string,
+  auth: AuthContext,
+) {
+  assertJoinRequestId(requestId);
+  const rpcName = action === "approve"
+    ? "approve_join_request"
+    : "reject_join_request";
+  const { data, error } = await db.rpc(rpcName, {
+    p_event_id: eventId,
+    p_request_id: requestId,
+    p_actor_user_id: auth.user.id,
+  }).single<JoinRequestDecisionRpcRow>();
+
+  if (error) {
+    const token = joinRequestDecisionErrorToken(error, action);
+    console.error(`${rpcName}_rpc_failed`, error.code, token ?? "unknown");
+    const retrySource = token === "JOIN_REQUEST_NOT_PENDING"
+      ? "not_pending"
+      : action === "approve" && token === "JOIN_REQUESTS_CLOSED"
+        ? "closed"
+        : null;
+    if (retrySource) {
+      const state = await loadJoinRequestRetryState(eventId, requestId);
+      return json(
+        resolveJoinRequestDecisionRetry(action, requestId, state, retrySource),
+      );
+    }
+    throw joinRequestDecisionHttpError(token);
+  }
+
+  if (!data?.request_id) throw new Error("Join request RPC returned no request.");
+  return json(
+    joinRequestDecisionResponse(
+      data.request_id,
+      action === "approve" ? "approved" : "rejected",
+    ),
+  );
+}
+
 async function saveResponse(request: Request, eventId: string, auth: AuthContext) {
   const payload = await request.json();
   const { data: event, error } = await db.from("events").select("status,visibility,owner_user_id").eq("id", eventId).is("deleted_at", null).maybeSingle();
@@ -220,6 +330,8 @@ Deno.serve(async (request) => {
     if (path === "/me/meetings" && request.method === "GET") return await meetings(auth);
     const responseMatch = path.match(/^\/events\/([^/]+)\/response$/); if (responseMatch && request.method === "POST") return await saveResponse(request, decodeURIComponent(responseMatch[1]), auth);
     const joinRequestMatch = path.match(/^\/events\/([^/]+)\/join-request$/); if (joinRequestMatch && request.method === "POST") return await createJoinRequest(decodeURIComponent(joinRequestMatch[1]), auth);
+    const organizerJoinRequestsMatch = path.match(/^\/events\/([^/]+)\/join-requests$/); if (organizerJoinRequestsMatch && request.method === "GET") return await organizerJoinRequests(decodeURIComponent(organizerJoinRequestsMatch[1]), auth);
+    const joinRequestDecisionMatch = path.match(/^\/events\/([^/]+)\/join-requests\/([^/]+)\/(approve|reject)$/); if (joinRequestDecisionMatch && request.method === "POST") return await decideJoinRequest(joinRequestDecisionMatch[3] as JoinRequestDecisionAction, decodeURIComponent(joinRequestDecisionMatch[1]), decodeURIComponent(joinRequestDecisionMatch[2]), auth);
     const manageMatch = path.match(/^\/events\/([^/]+)\/manage$/); if (manageMatch && ["PATCH", "DELETE"].includes(request.method)) return await manageEvent(request, decodeURIComponent(manageMatch[1]), auth);
     const previewMatch = path.match(/^\/events\/([^/]+)\/preview$/); if (previewMatch && request.method === "GET") return json({ preview: await publicEventPreview(decodeURIComponent(previewMatch[1]), auth.user.id) });
     const eventMatch = path.match(/^\/events\/([^/]+)$/); if (eventMatch && request.method === "GET") return json({ event: await fullEventForRequest(decodeURIComponent(eventMatch[1]), auth.user.id) });

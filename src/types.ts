@@ -5,6 +5,25 @@ export type JoinRequestActionResponse = {
   joinRequestStatus: "pending" | "approved";
 };
 
+export type OrganizerJoinRequest = {
+  requestId: string;
+  status: "pending";
+  createdAt: string;
+  requester: {
+    displayName: string;
+    username: string | null;
+  };
+};
+
+export type OrganizerJoinRequestsResponse = {
+  requests: OrganizerJoinRequest[];
+};
+
+export type JoinRequestDecisionResponse = {
+  requestId: string;
+  status: "approved" | "rejected";
+};
+
 export type TelegramUser = {
   id: string;
   telegramUserId: string;

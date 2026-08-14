@@ -6,6 +6,14 @@ import type {
 import { applyMockResponse } from "./participant-voting";
 import { mockCreateJoinRequest } from "./join-request";
 import {
+  approveJoinRequest as mockApproveJoinRequest,
+  listJoinRequests as mockListJoinRequests,
+  rejectJoinRequest as mockRejectJoinRequest,
+  type MockOrganizerJoinRequestRecord,
+  type MockOrganizerJoinRequestState,
+  type MockOrganizerRequesterProfile,
+} from "./organizer-join-requests";
+import {
   mockPublicEventAccess,
   mockPublicEventPreview,
   type MockPublicRole,
@@ -86,6 +94,27 @@ const auth: AuthResult = {
 };
 const clone = <T>(value: T): T => structuredClone(value);
 let joinRequestStatus: "none" | "pending" | "rejected" = "none";
+let organizerRequests: MockOrganizerJoinRequestRecord[] = [];
+let organizerRequesterProfiles: MockOrganizerRequesterProfile[] = [];
+let eventDeleted = false;
+const organizerRequestState = (): MockOrganizerJoinRequestState => ({
+  event: {
+    id: event.id,
+    ownerUserId: event.canManage ? auth.user.id : "user_owner",
+    visibility: event.visibility,
+    status: event.status,
+    maxParticipants: event.maxParticipants,
+    deleted: eventDeleted,
+  },
+  requests: organizerRequests,
+  profiles: organizerRequesterProfiles,
+  participants: event.participants,
+});
+const applyOrganizerRequestState = (state: MockOrganizerJoinRequestState) => {
+  organizerRequests = state.requests;
+  organizerRequesterProfiles = state.profiles;
+  event.participants = state.participants;
+};
 const currentPublicRole = (): MockPublicRole => {
   if (event.canManage) return "owner";
   if (event.participants.some((person) => person.userId === auth.user.id))
@@ -159,8 +188,33 @@ export const mockApi = {
     if (result.joinRequestStatus === "pending") joinRequestStatus = "pending";
     return result;
   },
+  joinRequests: async (eventId: string) =>
+    clone(mockListJoinRequests(organizerRequestState(), eventId, auth.user.id)),
+  approveJoinRequest: async (eventId: string, requestId: string) => {
+    const result = mockApproveJoinRequest(
+      organizerRequestState(),
+      eventId,
+      requestId,
+      auth.user.id,
+    );
+    applyOrganizerRequestState(result.state);
+    return clone(result.response);
+  },
+  rejectJoinRequest: async (eventId: string, requestId: string) => {
+    const result = mockRejectJoinRequest(
+      organizerRequestState(),
+      eventId,
+      requestId,
+      auth.user.id,
+    );
+    applyOrganizerRequestState(result.state);
+    return clone(result.response);
+  },
   createEvent: async (payload: any) => {
     joinRequestStatus = "none";
+    organizerRequests = [];
+    organizerRequesterProfiles = [];
+    eventDeleted = false;
     event = {
       ...event,
       id: `evt_${Date.now()}`,
@@ -216,5 +270,8 @@ export const mockApi = {
       };
     return { event: clone(event) };
   },
-  remove: async () => ({ deleted: true as const }),
+  remove: async () => {
+    eventDeleted = true;
+    return { deleted: true as const };
+  },
 };
