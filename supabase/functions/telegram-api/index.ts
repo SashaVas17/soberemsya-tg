@@ -6,6 +6,7 @@ import { collectVisibleMeetings } from "../_shared/meetings.ts";
 import { buildPublicEventPreview } from "../_shared/public-preview.ts";
 import { validateTelegramInitData } from "../_shared/telegram.ts";
 import { parseCreateMeetingMode } from "../_shared/open-meetings.ts";
+import { createJoinRequestErrorToken, createJoinRequestHttpError, createJoinRequestHttpResult, type CreateJoinRequestRow } from "../_shared/join-request.ts";
 
 type Db = ReturnType<typeof createClient>;
 type AppUser = { id: string; telegram_user_id: string; username: string | null; first_name: string; last_name: string | null; photo_url: string | null };
@@ -144,6 +145,23 @@ async function createEvent(request: Request, auth: AuthContext) {
   return json({ event: await eventPayload(eventId, auth.user.id) }, 201);
 }
 
+async function createJoinRequest(eventId: string, auth: AuthContext) {
+  const { data, error } = await db.rpc("create_join_request", {
+    p_event_id: eventId,
+    p_requester_user_id: auth.user.id,
+  }).single<CreateJoinRequestRow>();
+  if (error) {
+    console.error(
+      "create_join_request_rpc_failed",
+      error.code,
+      createJoinRequestErrorToken(error) ?? "unknown",
+    );
+    throw createJoinRequestHttpError(error);
+  }
+  const result = createJoinRequestHttpResult(data);
+  return json(result.body, result.status);
+}
+
 async function saveResponse(request: Request, eventId: string, auth: AuthContext) {
   const payload = await request.json();
   const { data: event, error } = await db.from("events").select("status,visibility,owner_user_id").eq("id", eventId).is("deleted_at", null).maybeSingle();
@@ -201,6 +219,7 @@ Deno.serve(async (request) => {
     if (path === "/events" && request.method === "POST") return await createEvent(request, auth);
     if (path === "/me/meetings" && request.method === "GET") return await meetings(auth);
     const responseMatch = path.match(/^\/events\/([^/]+)\/response$/); if (responseMatch && request.method === "POST") return await saveResponse(request, decodeURIComponent(responseMatch[1]), auth);
+    const joinRequestMatch = path.match(/^\/events\/([^/]+)\/join-request$/); if (joinRequestMatch && request.method === "POST") return await createJoinRequest(decodeURIComponent(joinRequestMatch[1]), auth);
     const manageMatch = path.match(/^\/events\/([^/]+)\/manage$/); if (manageMatch && ["PATCH", "DELETE"].includes(request.method)) return await manageEvent(request, decodeURIComponent(manageMatch[1]), auth);
     const previewMatch = path.match(/^\/events\/([^/]+)\/preview$/); if (previewMatch && request.method === "GET") return json({ preview: await publicEventPreview(decodeURIComponent(previewMatch[1]), auth.user.id) });
     const eventMatch = path.match(/^\/events\/([^/]+)$/); if (eventMatch && request.method === "GET") return json({ event: await fullEventForRequest(decodeURIComponent(eventMatch[1]), auth.user.id) });

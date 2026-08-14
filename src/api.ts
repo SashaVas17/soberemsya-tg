@@ -1,5 +1,5 @@
 import { apiErrorFromBody } from "./api-error";
-import type { AuthResult, EventData, MeetingListItem, PublicEventPreview } from "./types";
+import type { AuthResult, EventData, JoinRequestActionResponse, MeetingListItem, PublicEventPreview } from "./types";
 import { mockApi } from "./mock-api";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "") ?? "";
@@ -51,6 +51,13 @@ export const api = {
       ? mockApi.publicEventPreview(id)
       : request<{ preview: PublicEventPreview }>(
           `/events/${encodeURIComponent(id)}/preview`,
+        ),
+  createJoinRequest: (id: string) =>
+    useMock
+      ? mockApi.createJoinRequest(id)
+      : request<JoinRequestActionResponse>(
+          `/events/${encodeURIComponent(id)}/join-request`,
+          { method: "POST", body: "{}" },
         ),
   createEvent: (payload: unknown) =>
     useMock

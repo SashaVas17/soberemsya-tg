@@ -1,6 +1,9 @@
 export type EventStatus = "collecting" | "place_selection" | "decided" | "cancelled";
 export type MeetingVisibility = "private" | "public";
 export type JoinRequestStatus = "none" | "pending" | "approved" | "rejected";
+export type JoinRequestActionResponse = {
+  joinRequestStatus: "pending" | "approved";
+};
 
 export type TelegramUser = {
   id: string;

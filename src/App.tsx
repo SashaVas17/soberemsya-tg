@@ -40,6 +40,10 @@ import {
 import { managePayloads, runActionOnce } from "./manage-actions";
 import { meetingCardData, meetingDestination } from "./navigation";
 import {
+  createJoinRequestOnce,
+  publicJoinRequestView,
+} from "./join-request";
+import {
   saveResponseOnce,
   toggleTimeOption,
   votingDraftFromEvent,
@@ -906,7 +910,16 @@ function useParticipantEvent(eventId: string) {
   useEffect(() => {
     void load();
   }, [load]);
-  return { event, setEvent, preview, error, setError, refreshing, load };
+  return {
+    event,
+    setEvent,
+    preview,
+    setPreview,
+    error,
+    setError,
+    refreshing,
+    load,
+  };
 }
 
 function Refresh({
@@ -985,18 +998,22 @@ function Created({
 }
 
 function PublicPreviewScreen({
+  error,
+  joining,
   navigate,
+  onJoin,
   preview,
 }: {
+  error: string;
+  joining: boolean;
   navigate: Navigate;
+  onJoin: () => void;
   preview: PublicEventPreview;
 }) {
-  const joinStatusText = {
-    none: "Доступна публичная информация о встрече.",
-    pending: "Заявка ожидает решения организатора",
-    rejected: "Заявка не одобрена",
-    approved: "Вы уже участник встречи.",
-  }[preview.joinRequestStatus];
+  const requestView = publicJoinRequestView(
+    preview.status,
+    preview.joinRequestStatus,
+  );
   return (
     <main className="public-preview-screen">
       <Header navigate={navigate} />
@@ -1034,9 +1051,23 @@ function PublicPreviewScreen({
               : "Бюджет не указан"}
           </div>
         </section>
-        <p className="public-preview-notice">
-          {preview.status === "cancelled" ? "Встреча отменена" : joinStatusText}
-        </p>
+        <section className="public-preview-request">
+          <div className="public-preview-notice">
+            <strong>{requestView.message}</strong>
+            {requestView.supportingText && <span>{requestView.supportingText}</span>}
+          </div>
+          {requestView.actionLabel && (
+            <button
+              className="primary-action"
+              disabled={joining}
+              onClick={onJoin}
+              type="button"
+            >
+              {joining ? "Отправляем…" : requestView.actionLabel}
+            </button>
+          )}
+          <ErrorNote message={error} />
+        </section>
       </section>
     </main>
   );
@@ -1057,7 +1088,10 @@ function ParticipantEvent({
   const [available, setAvailable] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [joining, setJoining] = useState(false);
   const saveLock = useRef(false);
+  const joinLock = useRef(false);
+  const approvedReloadAttempted = useRef(false);
   useEffect(() => {
     if (!state.event) return;
     const draft = votingDraftFromEvent(state.event);
@@ -1067,6 +1101,46 @@ function ParticipantEvent({
     setRestrictions(draft.restrictions);
     setAvailable(draft.availableTimeOptionIds);
   }, [state.event?.id]);
+  useEffect(() => {
+    if (
+      state.preview?.joinRequestStatus !== "approved" ||
+      approvedReloadAttempted.current
+    )
+      return;
+    approvedReloadAttempted.current = true;
+    void state.load();
+  }, [state.load, state.preview?.joinRequestStatus]);
+  const submitJoinRequest = useCallback(async () => {
+    if (!state.preview || joining || joinLock.current) return;
+    setJoining(true);
+    state.setError("");
+    try {
+      const result = await createJoinRequestOnce(
+        eventId,
+        joinLock,
+        api.createJoinRequest,
+      );
+      if (!result) return;
+      if (result.joinRequestStatus === "approved") {
+        approvedReloadAttempted.current = true;
+        await state.load();
+      } else {
+        state.setPreview((current) =>
+          current ? { ...current, joinRequestStatus: "pending" } : current,
+        );
+      }
+      haptic();
+    } catch (reason) {
+      state.setError(
+        reason instanceof Error
+          ? reason.message
+          : "Не удалось отправить заявку.",
+      );
+      haptic("error");
+    } finally {
+      setJoining(false);
+    }
+  }, [eventId, joining, state]);
   const submit = useCallback(async () => {
     if (!state.event || saving || saveLock.current) return;
     const draft: VotingDraft = {
@@ -1116,7 +1190,15 @@ function ParticipantEvent({
   );
   if (!state.event) {
     if (state.preview)
-      return <PublicPreviewScreen navigate={navigate} preview={state.preview} />;
+      return (
+        <PublicPreviewScreen
+          error={state.error}
+          joining={joining}
+          navigate={navigate}
+          onJoin={() => void submitJoinRequest()}
+          preview={state.preview}
+        />
+      );
     return (
       <main className="voting-screen">
         <Header navigate={navigate} />

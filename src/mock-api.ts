@@ -4,6 +4,7 @@ import type {
   MeetingListItem,
 } from "./types";
 import { applyMockResponse } from "./participant-voting";
+import { mockCreateJoinRequest } from "./join-request";
 import {
   mockPublicEventAccess,
   mockPublicEventPreview,
@@ -84,11 +85,12 @@ const auth: AuthResult = {
   startParam: null,
 };
 const clone = <T>(value: T): T => structuredClone(value);
+let joinRequestStatus: "none" | "pending" | "rejected" = "none";
 const currentPublicRole = (): MockPublicRole => {
   if (event.canManage) return "owner";
   if (event.participants.some((person) => person.userId === auth.user.id))
     return "approved";
-  return "none";
+  return joinRequestStatus;
 };
 const mockDate = (startsAt: string) =>
   new Intl.DateTimeFormat("ru-RU", {
@@ -143,7 +145,22 @@ export const mockApi = {
       currentPublicRole() === "owner" ? auth.user.id : "user_owner",
     );
   },
+  createJoinRequest: async (eventId: string) => {
+    void eventId;
+    const result = mockCreateJoinRequest({
+      eventStatus: event.status,
+      visibility: event.visibility,
+      isOwner: event.canManage,
+      participantExists: event.participants.some(
+        (person) => person.userId === auth.user.id,
+      ),
+      requestStatus: joinRequestStatus,
+    });
+    if (result.joinRequestStatus === "pending") joinRequestStatus = "pending";
+    return result;
+  },
   createEvent: async (payload: any) => {
+    joinRequestStatus = "none";
     event = {
       ...event,
       id: `evt_${Date.now()}`,
