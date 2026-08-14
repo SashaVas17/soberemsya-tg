@@ -64,8 +64,8 @@ export function participantIdentityKey(eventId: string, userId: string) {
   return `${eventId}:${userId}`;
 }
 
-export function assertEventAvailable<T extends { deleted_at?: string | null }>(event: T | null): asserts event is T {
-  if (!event || event.deleted_at)
+export function assertEventAvailable<T extends object>(event: T | null): asserts event is T {
+  if (!event || ("deleted_at" in event && event.deleted_at))
     throw Object.assign(new Error("Встреча не найдена или удалена."), {
       code: "EVENT_UNAVAILABLE",
       status: 404,
