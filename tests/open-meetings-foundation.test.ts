@@ -22,6 +22,17 @@ function errorTokens(source: string) {
   return [...source.matchAll(/message = '([A-Z_]+)'/g)].map((match) => match[1]);
 }
 
+function ownerGuard(source: string) {
+  const tokenIndex = source.indexOf("message = 'NOT_EVENT_OWNER'");
+  const start = source.lastIndexOf("if ", tokenIndex);
+  const end = source.indexOf("end if;", tokenIndex);
+  return source.slice(start, end + "end if;".length);
+}
+
+function ownerGuardRejects(ownerUserId: string | null, actorUserId: string | null) {
+  return actorUserId === null || ownerUserId === null || ownerUserId !== actorUserId;
+}
+
 describe("Open Meetings database foundation", () => {
   it("defaults every existing and future event to private visibility", () => {
     expect(migration).toContain("visibility text not null default 'private'");
@@ -246,6 +257,12 @@ describe("Open Meetings database foundation", () => {
       expect(approveRequest).toContain("message = 'REQUESTER_UNAVAILABLE'");
     });
 
+    it("rejects a null approve actor through NOT_EVENT_OWNER", () => {
+      expect(ownerGuard(approveRequest)).toMatch(
+        /if p_actor_user_id is null\r?\n[ ]{4}or v_event\.owner_user_id is null\r?\n[ ]{4}or v_event\.owner_user_id <> p_actor_user_id then\r?\n[ ]{4}raise exception using errcode = 'P0001', message = 'NOT_EVENT_OWNER';\r?\n[ ]{2}end if;/,
+      );
+    });
+
     it("treats a pending request with participant membership as inconsistent", () => {
       const participantCheck = approveRequest.indexOf("if exists (");
       const inconsistent = approveRequest.indexOf("message = 'JOIN_REQUEST_STATE_INCONSISTENT'");
@@ -332,6 +349,12 @@ describe("Open Meetings database foundation", () => {
       expect(rejectRequest).toContain("set status = 'rejected'");
     });
 
+    it("rejects a null reject actor through NOT_EVENT_OWNER", () => {
+      expect(ownerGuard(rejectRequest)).toMatch(
+        /if p_actor_user_id is null\r?\n[ ]{4}or v_event\.owner_user_id is null\r?\n[ ]{4}or v_event\.owner_user_id <> p_actor_user_id then\r?\n[ ]{4}raise exception using errcode = 'P0001', message = 'NOT_EVENT_OWNER';\r?\n[ ]{2}end if;/,
+      );
+    });
+
     it("uses P0001 for every domain token and removes old prose", () => {
       expect(rejectRequest.match(/raise exception using errcode = 'P0001'/g)).toHaveLength(5);
       for (const message of [
@@ -400,6 +423,15 @@ describe("Open Meetings database foundation", () => {
     expect(migration).toContain("decided_by_user_id uuid references public.users(id) on delete set null");
     expect(approve).toContain("decided_by_user_id = p_actor_user_id");
     expect(reject).toContain("decided_by_user_id = p_actor_user_id");
+  });
+
+  it.each([
+    ["matching owner", "owner", "owner", false],
+    ["wrong owner", "owner", "other", true],
+    ["null actor", "owner", null, true],
+    ["null owner", null, "actor", true],
+  ] as const)("models the NULL-safe owner guard for %s", (_case, owner, actor, denied) => {
+    expect(ownerGuardRejects(owner, actor)).toBe(denied);
   });
 
   it("documents the required public saveResponse guard without changing the private flow", () => {

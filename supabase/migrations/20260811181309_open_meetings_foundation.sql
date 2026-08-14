@@ -185,7 +185,9 @@ begin
     raise exception using errcode = 'P0001', message = 'EVENT_UNAVAILABLE';
   end if;
 
-  if v_event.owner_user_id is null or v_event.owner_user_id <> p_actor_user_id then
+  if p_actor_user_id is null
+    or v_event.owner_user_id is null
+    or v_event.owner_user_id <> p_actor_user_id then
     raise exception using errcode = 'P0001', message = 'NOT_EVENT_OWNER';
   end if;
 
@@ -299,7 +301,9 @@ begin
     raise exception using errcode = 'P0001', message = 'EVENT_UNAVAILABLE';
   end if;
 
-  if v_event.owner_user_id is null or v_event.owner_user_id <> p_actor_user_id then
+  if p_actor_user_id is null
+    or v_event.owner_user_id is null
+    or v_event.owner_user_id <> p_actor_user_id then
     raise exception using errcode = 'P0001', message = 'NOT_EVENT_OWNER';
   end if;
 
