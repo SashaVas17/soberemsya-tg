@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.111.0";
-import { assertEventAvailable, assertOwner, assertVotingOpen, parseEventStartParam } from "../_shared/domain.ts";
+import { assertEventAvailable, assertOwner, assertVotingOpen, authorizeParticipantResponse, parseEventStartParam } from "../_shared/domain.ts";
 import { corsHeaders, errorResponse, json } from "../_shared/http.ts";
 import { meetingListItem } from "../_shared/meeting-list.ts";
 import { collectVisibleMeetings } from "../_shared/meetings.ts";
@@ -95,16 +95,17 @@ async function createEvent(request: Request, auth: AuthContext) {
 
 async function saveResponse(request: Request, eventId: string, auth: AuthContext) {
   const payload = await request.json();
-  const { data: event, error } = await db.from("events").select("status").eq("id", eventId).is("deleted_at", null).maybeSingle();
+  const { data: event, error } = await db.from("events").select("status,visibility,owner_user_id").eq("id", eventId).is("deleted_at", null).maybeSingle();
   if (error) throw error; if (!event) throw Object.assign(new Error("Встреча не найдена или удалена."), { status: 404 }); assertVotingOpen(event.status);
+  const { data: existing, error: existingError } = await db.from("participants").select("id").eq("event_id", eventId).eq("user_id", auth.user.id).maybeSingle(); if (existingError) throw existingError;
+  const authorization = authorizeParticipantResponse({ visibility: event.visibility, ownerUserId: event.owner_user_id, currentUserId: auth.user.id, participantId: existing?.id ?? null });
   const { data: options, error: optionsError } = await db.from("time_options").select("id").eq("event_id", eventId); if (optionsError) throw optionsError;
   const validIds = new Set((options ?? []).map((option) => option.id)); const availableIds = [...new Set((payload.availableTimeOptionIds ?? []).map(String))] as string[];
   if (availableIds.some((optionId) => !validIds.has(optionId))) throw Object.assign(new Error("Один из вариантов времени больше недоступен."), { status: 400 });
   const name = [auth.user.first_name, auth.user.last_name].filter(Boolean).join(" ");
   const values = { name, area: String(payload.area ?? "").trim(), budget: Math.max(0, Number(payload.budget) || 0), preferences: String(payload.preferences ?? "").trim(), restrictions: String(payload.restrictions ?? "").trim() };
-  const { data: existing, error: existingError } = await db.from("participants").select("id").eq("event_id", eventId).eq("user_id", auth.user.id).maybeSingle(); if (existingError) throw existingError;
   const participantId = existing?.id ?? crypto.randomUUID();
-  const participantError = existing ? (await db.from("participants").update(values).eq("event_id", eventId).eq("user_id", auth.user.id)).error : (await db.from("participants").insert({ id: participantId, event_id: eventId, user_id: auth.user.id, edit_token: crypto.randomUUID(), ...values })).error;
+  const participantError = authorization === "update" ? (await db.from("participants").update(values).eq("event_id", eventId).eq("user_id", auth.user.id)).error : (await db.from("participants").insert({ id: participantId, event_id: eventId, user_id: auth.user.id, edit_token: crypto.randomUUID(), ...values })).error;
   if (participantError) throw participantError;
   const { error: deleteError } = await db.from("availability_votes").delete().eq("participant_id", participantId); if (deleteError) throw deleteError;
   const rows = (options ?? []).map((option) => ({ participant_id: participantId, time_option_id: option.id, is_available: availableIds.includes(option.id) }));

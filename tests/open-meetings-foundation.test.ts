@@ -79,7 +79,9 @@ describe("Open Meetings database foundation", () => {
       migration.indexOf("create or replace function public.approve_join_request"),
       migration.indexOf("create or replace function public.reject_join_request"),
     );
-    expect(approve).toContain("from public.events\n  where id = p_event_id\n  for update");
+    expect(approve).toMatch(
+      /from public\.events\r?\n[ ]{2}where id = p_event_id\r?\n[ ]{2}for update/,
+    );
     expect(approve).toContain("select count(*)::integer");
   });
 

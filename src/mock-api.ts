@@ -2,8 +2,8 @@ import type {
   AuthResult,
   EventData,
   MeetingListItem,
-  Participant,
 } from "./types";
+import { applyMockResponse } from "./participant-voting";
 
 const future = (days: number, hour: number) => {
   const value = new Date();
@@ -155,30 +155,7 @@ export const mockApi = {
     return { event: clone(event) };
   },
   saveResponse: async (_id: string, payload: any) => {
-    const participant: Participant = {
-      id: "person_me",
-      userId: auth.user.id,
-      name: auth.user.firstName,
-      area: payload.area,
-      budget: payload.budget,
-      preferences: payload.preferences,
-      restrictions: payload.restrictions,
-      availableTimeOptionIds: payload.availableTimeOptionIds,
-      unavailableTimeOptionIds: event.timeOptions
-        .filter((time) => !payload.availableTimeOptionIds.includes(time.id))
-        .map((time) => time.id),
-    };
-    event.participants = [
-      ...event.participants.filter((person) => person.userId !== auth.user.id),
-      participant,
-    ];
-    event.myResponse = participant;
-    event.timeOptions = event.timeOptions.map((time) => ({
-      ...time,
-      availableCount: event.participants.filter((person) =>
-        person.availableTimeOptionIds.includes(time.id),
-      ).length,
-    }));
+    event = applyMockResponse(event, auth.user, payload);
     return { event: clone(event) };
   },
   meetings: async () => ({ owned: [listItem("owner")], participating: [] }),

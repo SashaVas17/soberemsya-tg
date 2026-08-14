@@ -1,4 +1,35 @@
+import { applicationError } from "./errors.ts";
+
 export type Status = "collecting" | "place_selection" | "decided" | "cancelled";
+
+export type ParticipantResponseAction = "insert-private" | "update";
+
+export function authorizeParticipantResponse(input: {
+  visibility?: string | null;
+  ownerUserId: string | null;
+  currentUserId: string;
+  participantId: string | null;
+}): ParticipantResponseAction {
+  const visibility = input.visibility === "public" ? "public" : "private";
+  if (visibility === "private")
+    return input.participantId ? "update" : "insert-private";
+
+  if (input.ownerUserId === input.currentUserId)
+    throw applicationError(
+      "PUBLIC_OWNER_CANNOT_RESPOND",
+      403,
+      "Организатор не может отвечать как участник открытой встречи.",
+    );
+
+  if (!input.participantId)
+    throw applicationError(
+      "PUBLIC_JOIN_REQUIRED",
+      403,
+      "Сначала отправьте заявку и дождитесь одобрения организатора.",
+    );
+
+  return "update";
+}
 
 export function assertVotingOpen(status: Status) {
   if (status !== "collecting") throw Object.assign(new Error("Сбор ответов уже закрыт."), { status: 409 });
