@@ -99,6 +99,18 @@ describe("Google Calendar link", () => {
     expect(calendarSource).toContain('type: "text/calendar;charset=utf-8"');
     expect(calendarSource).toContain("navigator.canShare");
   });
+
+  it("uses the same primary treatment for both calendar actions and a distinct Telegram share action", () => {
+    const stylesSource = readFileSync("src/styles.css", "utf8");
+    const calendarActionClasses = resultSource.match(/className="primary-action calendar-action"/g) ?? [];
+
+    expect(calendarActionClasses).toHaveLength(2);
+    expect(resultSource).toContain('className="primary-action share-result-action"');
+    expect(resultSource).not.toContain('className="secondary-action calendar-action"');
+    expect(stylesSource).toContain(".result-actions .share-result-action");
+    expect(stylesSource).toContain("background: var(--color-telegram)");
+    expect(stylesSource).toContain("color: var(--color-on-telegram)");
+  });
 });
 
 describe("external calendar opening", () => {

@@ -16,6 +16,8 @@
   --color-warning: #f0bd3d;
   --color-error: #d95c48;
   --color-error-container: #fbe8e3;
+  --color-telegram: #1976b9;
+  --color-on-telegram: #ffffff;
   --shadow-surface: 0 10px 30px rgb(23 32 28 / 7%);
 
   --space-xs: 4px;

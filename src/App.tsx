@@ -2003,7 +2003,7 @@ function Result({
         </section>
         <div className="result-actions">
           <button
-            className="primary-action"
+            className="primary-action share-result-action"
             onClick={() => shareResult(event.id)}
             type="button"
           >
@@ -2019,7 +2019,7 @@ function Result({
             Google Calendar
           </button>
           <button
-            className="secondary-action calendar-action"
+            className="primary-action calendar-action"
             onClick={() => void addAppleCalendar()}
             type="button"
           >

@@ -2142,6 +2142,11 @@ code {
 .result-actions .primary-action {
   box-shadow: 0 14px 30px color-mix(in srgb, var(--color-primary) 25%, transparent);
 }
+.result-actions .share-result-action {
+  background: var(--color-telegram);
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--color-telegram) 25%, transparent);
+  color: var(--color-on-telegram);
+}
 .result-home-action {
   color: var(--color-text-secondary);
   justify-content: center;
