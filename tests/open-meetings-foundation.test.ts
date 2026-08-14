@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20260811181309_open_meetings_foundation.sql",
+  "supabase/migrations/20260814104624_open_meetings_foundation.sql",
   "utf8",
 );
 const createRequest = migration.slice(

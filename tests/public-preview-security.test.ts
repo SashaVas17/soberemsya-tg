@@ -27,7 +27,7 @@ const backendSource = readFileSync(
 const appSource = readFileSync("src/App.tsx", "utf8");
 const apiSource = readFileSync("src/api.ts", "utf8");
 const migrationSource = readFileSync(
-  "supabase/migrations/20260811181309_open_meetings_foundation.sql",
+  "supabase/migrations/20260814104624_open_meetings_foundation.sql",
   "utf8",
 );
 
