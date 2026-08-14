@@ -75,8 +75,10 @@ describe("Open Meetings create mode", () => {
     const create = source.slice(source.indexOf("function CreateEvent("), source.indexOf("function useEvent("));
     expect(create).toContain("Кто сможет присоединиться?");
     expect(create).toContain("Сколько человек может быть на встрече?");
-    expect(create).toContain("setMaxParticipants(6)");
-    expect(create).toContain("type=\"number\"");
+    expect(create).toContain("setMaxParticipantsInput");
+    expect(create).toContain("requiredNonNegativeIntegerFromInput");
+    expect(create).toContain('inputMode="numeric"');
+    expect(create).toContain('type="text"');
     expect(source).toContain('event?.visibility === "public"');
     expect(source).toContain('event.visibility === "public"');
   });

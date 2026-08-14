@@ -17,7 +17,7 @@ import {
 import { api } from "./api";
 import { hasApiErrorCode } from "./api-error";
 import { BottomNavigation } from "./BottomNavigation";
-import { googleCalendarUrl } from "./calendar";
+import { downloadCalendarIcs, googleCalendarUrl } from "./calendar";
 import {
   advanceCreateStep,
   addTimeOption,
@@ -39,6 +39,11 @@ import {
 } from "./meeting-links";
 import { managePayloads, runActionOnce } from "./manage-actions";
 import { meetingCardData, meetingDestination } from "./navigation";
+import {
+  nonNegativeIntegerFromInput,
+  normalizeNumericInput,
+  requiredNonNegativeIntegerFromInput,
+} from "./numeric-input";
 import { OrganizerJoinRequests } from "./OrganizerJoinRequests";
 import {
   createJoinRequestOnce,
@@ -77,6 +82,9 @@ import type {
 } from "./types";
 
 type Navigate = (path: string, replace?: boolean) => void;
+type EditablePlaceDraft = Omit<PlaceDraft, "estimatedBudget"> & {
+  estimatedBudget: string;
+};
 
 const statusLabels: Record<EventStatus, string> = {
   collecting: "Сбор ответов",
@@ -553,16 +561,21 @@ function CreateEvent({
   const [step, setStep] = useState(1);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [budgetLimit, setBudgetLimit] = useState(30);
+  const [budgetLimitInput, setBudgetLimitInput] = useState("30");
   const [visibility, setVisibility] = useState<MeetingVisibility>("private");
-  const [maxParticipants, setMaxParticipants] = useState<number | null>(null);
+  const [hasParticipantLimit, setHasParticipantLimit] = useState(false);
+  const [maxParticipantsInput, setMaxParticipantsInput] = useState("6");
   const [timeOptions, setTimeOptions] = useState<string[]>([]);
-  const [places, setPlaces] = useState<PlaceDraft[]>([
-    { title: "", area: "", estimatedBudget: 30 },
+  const [places, setPlaces] = useState<EditablePlaceDraft[]>([
+    { title: "", area: "", estimatedBudget: "30" },
   ]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const submitLock = useRef(false);
+  const budgetLimit = nonNegativeIntegerFromInput(budgetLimitInput);
+  const maxParticipants = hasParticipantLimit
+    ? requiredNonNegativeIntegerFromInput(maxParticipantsInput)
+    : null;
   const draft: CreateWizardDraft = {
     title,
     description,
@@ -570,7 +583,10 @@ function CreateEvent({
     visibility,
     maxParticipants,
     timeOptions,
-    places,
+    places: places.map((place) => ({
+      ...place,
+      estimatedBudget: nonNegativeIntegerFromInput(place.estimatedBudget),
+    })),
   };
   useEffect(() => {
     setBackOverride(() => () => {
@@ -614,7 +630,7 @@ function CreateEvent({
     } finally {
       setSaving(false);
     }
-  }, [budgetLimit, description, maxParticipants, navigate, onCreated, places, saving, timeOptions, title, visibility]);
+  }, [budgetLimit, description, hasParticipantLimit, maxParticipants, maxParticipantsInput, navigate, onCreated, places, saving, timeOptions, title, visibility]);
   return (
     <main className="create-screen">
       <Header navigate={navigate} />
@@ -665,7 +681,7 @@ function CreateEvent({
               className={`visibility-option${visibility === "private" ? " selected" : ""}`}
               onClick={() => {
                 setVisibility("private");
-                setMaxParticipants(null);
+                setHasParticipantLimit(false);
               }}
               type="button"
             >
@@ -676,7 +692,10 @@ function CreateEvent({
               aria-pressed={visibility === "public"}
               className={`visibility-option${visibility === "public" ? " selected" : ""}`}
               onClick={() => {
-                if (visibility !== "public") setMaxParticipants(6);
+                if (visibility !== "public") {
+                  setHasParticipantLimit(true);
+                  setMaxParticipantsInput((current) => current || "6");
+                }
                 setVisibility("public");
               }}
               type="button"
@@ -691,28 +710,32 @@ function CreateEvent({
               <p>Всего людей, включая вас</p>
               <label className="capacity-option">
                 <input
-                  checked={maxParticipants !== null}
+                  checked={hasParticipantLimit}
                   name="capacity"
-                  onChange={() => setMaxParticipants(6)}
+                  onChange={() => {
+                    setHasParticipantLimit(true);
+                    setMaxParticipantsInput((current) => current || "6");
+                  }}
                   type="radio"
                 />
                 <span>Ограничить</span>
                 <input
                   aria-label="Лимит участников"
-                  disabled={maxParticipants === null}
-                  max={50}
-                  min={2}
-                  onChange={(event) => setMaxParticipants(event.target.value === "" ? 6 : Number(event.target.value))}
-                  step={1}
-                  type="number"
-                  value={maxParticipants ?? ""}
+                  disabled={!hasParticipantLimit}
+                  inputMode="numeric"
+                  onChange={(event) =>
+                    setMaxParticipantsInput(normalizeNumericInput(event.target.value))
+                  }
+                  pattern="[0-9]*"
+                  type="text"
+                  value={maxParticipantsInput}
                 />
               </label>
               <label className="capacity-option">
                 <input
-                  checked={maxParticipants === null}
+                  checked={!hasParticipantLimit}
                   name="capacity"
-                  onChange={() => setMaxParticipants(null)}
+                  onChange={() => setHasParticipantLimit(false)}
                   type="radio"
                 />
                 <span>Без ограничения</span>
@@ -771,15 +794,18 @@ function CreateEvent({
                 <span>До, BYN</span>
                 <input
                   min="0"
-                  type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="Например, 30"
+                  type="text"
                   value={place.estimatedBudget}
                   onChange={(event) =>
                     setPlaces(
                       places.map((item, i) =>
                         i === index
-                          ? {
+                            ? {
                               ...item,
-                              estimatedBudget: Number(event.target.value),
+                              estimatedBudget: normalizeNumericInput(event.target.value),
                             }
                           : item,
                       ),
@@ -806,7 +832,7 @@ function CreateEvent({
             onClick={() =>
               setPlaces([
                 ...places,
-                { title: "", area: "", estimatedBudget: budgetLimit },
+                { title: "", area: "", estimatedBudget: budgetLimitInput },
               ])
             }
             type="button"
@@ -817,10 +843,14 @@ function CreateEvent({
           <label className="field budget-field">
             <span>Общий бюджет, BYN</span>
             <input
-              min="0"
-              type="number"
-              value={budgetLimit}
-              onChange={(event) => setBudgetLimit(Number(event.target.value))}
+              inputMode="numeric"
+              onChange={(event) =>
+                setBudgetLimitInput(normalizeNumericInput(event.target.value))
+              }
+              pattern="[0-9]*"
+              placeholder="Например, 30"
+              type="text"
+              value={budgetLimitInput}
             />
           </label>
         </section>}
@@ -1083,7 +1113,7 @@ function ParticipantEvent({
 }) {
   const state = useParticipantEvent(eventId);
   const [area, setArea] = useState("");
-  const [budget, setBudget] = useState(30);
+  const [budgetInput, setBudgetInput] = useState("30");
   const [preferences, setPreferences] = useState("");
   const [restrictions, setRestrictions] = useState("");
   const [available, setAvailable] = useState<string[]>([]);
@@ -1093,11 +1123,12 @@ function ParticipantEvent({
   const saveLock = useRef(false);
   const joinLock = useRef(false);
   const approvedReloadAttempted = useRef(false);
+  const budget = nonNegativeIntegerFromInput(budgetInput);
   useEffect(() => {
     if (!state.event) return;
     const draft = votingDraftFromEvent(state.event);
     setArea(draft.area);
-    setBudget(draft.budget);
+    setBudgetInput(draft.budget > 0 ? String(draft.budget) : "");
     setPreferences(draft.preferences);
     setRestrictions(draft.restrictions);
     setAvailable(draft.availableTimeOptionIds);
@@ -1309,10 +1340,14 @@ function ParticipantEvent({
           <label className="field">
             <span>Бюджет, BYN</span>
             <input
-              min="0"
-              type="number"
-              value={budget}
-              onChange={(input) => setBudget(Number(input.target.value))}
+              inputMode="numeric"
+              onChange={(input) =>
+                setBudgetInput(normalizeNumericInput(input.target.value))
+              }
+              pattern="[0-9]*"
+              placeholder="Например, 30"
+              type="text"
+              value={budgetInput}
             />
           </label>
           <label className="field">
@@ -1439,10 +1474,10 @@ function Manage({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [newTime, setNewTime] = useState("");
-  const [place, setPlace] = useState<PlaceDraft>({
+  const [place, setPlace] = useState<EditablePlaceDraft>({
     title: "",
     area: "",
-    estimatedBudget: 30,
+    estimatedBudget: "30",
   });
   const [finalTime, setFinalTime] = useState("");
   const [finalPlace, setFinalPlace] = useState("");
@@ -1664,13 +1699,15 @@ function Manage({
               }
             />
             <input
-              min="0"
-              type="number"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder="До, BYN"
+              type="text"
               value={place.estimatedBudget}
               onChange={(input) =>
                 setPlace({
                   ...place,
-                  estimatedBudget: Number(input.target.value),
+                  estimatedBudget: normalizeNumericInput(input.target.value),
                 })
               }
             />
@@ -1678,11 +1715,14 @@ function Manage({
               className="secondary-action"
               disabled={!place.title.trim()}
               onClick={async () => {
-                if (await mutate(managePayloads.addPlace(place)))
+                if (await mutate(managePayloads.addPlace({
+                  ...place,
+                  estimatedBudget: nonNegativeIntegerFromInput(place.estimatedBudget),
+                })))
                   setPlace({
                     title: "",
                     area: "",
-                    estimatedBudget: event.budgetLimit,
+                    estimatedBudget: event.budgetLimit > 0 ? String(event.budgetLimit) : "",
                   });
               }}
               type="button"
@@ -1866,19 +1906,28 @@ function Result({
   const finalPlace = resultPlace(event);
   const areas = areaLeaders(event);
   const tie = areas.length > 1;
-  const addCalendar = () => {
+  const calendarDetails = () => {
     if (!recommendedTime) return;
     const start = new Date(recommendedTime.startsAt);
     const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
+    return {
+      title: event.title,
+      startsAt: start.toISOString(),
+      endsAt: end.toISOString(),
+      location: [finalPlace?.title, finalPlace?.area].filter(Boolean).join(", "),
+      description: event.description || undefined,
+    };
+  };
+  const addGoogleCalendar = () => {
+    const details = calendarDetails();
+    if (!details) return;
     openExternalUrl(
-      googleCalendarUrl({
-        title: event.title,
-        startsAt: start.toISOString(),
-        endsAt: end.toISOString(),
-        location: [finalPlace?.title, finalPlace?.area].filter(Boolean).join(", "),
-        description: event.description || undefined,
-      }),
+      googleCalendarUrl(details),
     );
+  };
+  const addAppleCalendar = async () => {
+    const details = calendarDetails();
+    if (details) await downloadCalendarIcs(details);
   };
   return (
     <main className="result-screen">
@@ -1963,11 +2012,19 @@ function Result({
           </button>
           <button
             className="primary-action calendar-action"
-            onClick={addCalendar}
+            onClick={addGoogleCalendar}
             type="button"
           >
             <CalendarPlus size={18} />
-            Добавить в календарь
+            Google Calendar
+          </button>
+          <button
+            className="secondary-action calendar-action"
+            onClick={() => void addAppleCalendar()}
+            type="button"
+          >
+            <CalendarPlus size={18} />
+            Календарь iPhone
           </button>
           <button
             className="text-action result-home-action"

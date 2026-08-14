@@ -1304,7 +1304,7 @@ code {
 .capacity-option:last-child {
   grid-template-columns: auto 1fr;
 }
-.capacity-option input[type="number"] {
+.capacity-option input[aria-label="Лимит участников"] {
   background: var(--color-surface);
   min-width: 0;
   padding: 9px 10px;

@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import {
+  downloadCalendarIcs,
   googleCalendarTimestamp,
   googleCalendarUrl,
   icsCalendarText,
@@ -7,6 +9,9 @@ import {
 import { resultPlace, resultTime } from "../src/result-model";
 import { openExternalUrl } from "../src/telegram";
 import type { EventData } from "../src/types";
+
+const resultSource = readFileSync("src/App.tsx", "utf8");
+const calendarSource = readFileSync("src/calendar.ts", "utf8");
 
 const startsAt = "2026-08-15T16:00:00.000Z";
 const endsAt = "2026-08-15T18:00:00.000Z";
@@ -82,10 +87,38 @@ describe("Google Calendar link", () => {
     expect(text).toContain("SUMMARY:Встреча\\, тест\\; один");
     expect(text).toContain("LOCATION:Минск\\nПарк");
   });
+
+  it("keeps Google and iPhone calendar actions available through the existing ICS helper", () => {
+    expect(resultSource).toContain("googleCalendarUrl");
+    expect(resultSource).toContain("Google Calendar");
+    expect(resultSource).toContain("downloadCalendarIcs");
+    expect(resultSource).toContain("Календарь iPhone");
+    expect(resultSource).toContain("if (!recommendedTime) return;");
+    expect(resultSource).not.toContain("api.calendar");
+    expect(resultSource).not.toContain("TELEGRAM_DB_SECRET_KEY");
+    expect(calendarSource).toContain('type: "text/calendar;charset=utf-8"');
+    expect(calendarSource).toContain("navigator.canShare");
+  });
 });
 
 describe("external calendar opening", () => {
   afterEach(() => vi.unstubAllGlobals());
+
+  it("uses the native share sheet for an iPhone ICS action when available", async () => {
+    const file = { name: "soberemsya.ics" };
+    const canShare = vi.fn(() => true);
+    const share = vi.fn().mockResolvedValue(undefined);
+    function MockFile() {
+      return file;
+    }
+    vi.stubGlobal("File", MockFile);
+    vi.stubGlobal("navigator", { canShare, share });
+
+    await downloadCalendarIcs({ title: "Встреча", startsAt, endsAt });
+
+    expect(canShare).toHaveBeenCalledWith({ files: [file] });
+    expect(share).toHaveBeenCalledWith({ files: [file], title: "Встреча" });
+  });
 
   it("uses Telegram WebApp openLink when available", () => {
     const openLink = vi.fn();

@@ -52,12 +52,30 @@ export function icsCalendarText(details: CalendarEventDetails) {
   return lines.join("\r\n");
 }
 
-export function downloadCalendarIcs(details: CalendarEventDetails) {
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(
-    new Blob([icsCalendarText(details)], { type: "text/calendar;charset=utf-8" }),
+export async function downloadCalendarIcs(details: CalendarEventDetails) {
+  const blob = new Blob(
+    [icsCalendarText(details)],
+    { type: "text/calendar;charset=utf-8" },
   );
+  if (typeof File !== "undefined") {
+    const file = new File([blob], "soberemsya.ics", { type: blob.type });
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: details.title });
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+      }
+    }
+  }
+
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  link.href = url;
   link.download = "soberemsya.ics";
+  link.rel = "noopener";
+  document.body.append(link);
   link.click();
-  URL.revokeObjectURL(link.href);
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
