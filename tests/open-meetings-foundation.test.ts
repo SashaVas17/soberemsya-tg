@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 const migration = readFileSync(
   "supabase/migrations/20260814104624_open_meetings_foundation.sql",
   "utf8",
-);
+).replace(/\r\n/g, "\n");
 const createRequest = migration.slice(
   migration.indexOf("create or replace function public.create_join_request"),
   migration.indexOf("create or replace function public.approve_join_request"),
