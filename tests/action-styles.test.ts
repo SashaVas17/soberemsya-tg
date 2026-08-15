@@ -10,6 +10,8 @@ describe("Telegram action styling", () => {
     expect(stylesSource).toContain("background: var(--color-telegram)");
     expect(stylesSource).toContain("color: var(--color-on-telegram)");
     expect(appSource).toContain('className="secondary-action telegram-action"');
+    expect(appSource).toContain("Принять решение");
+    expect(appSource).toContain('className="primary-action"');
   });
 
   it("keeps destructive actions red and disabled actions neutral", () => {
@@ -18,6 +20,7 @@ describe("Telegram action styling", () => {
     expect(stylesSource).toContain(".primary-action:disabled,");
     expect(stylesSource).toContain("background: var(--color-surface-secondary)");
     expect(stylesSource).toContain("color: var(--color-text-secondary)");
+    expect(appSource).toContain("disabled={!finalTime || !finalPlace || saving}");
   });
 
   it("keeps result sharing and both calendar actions on the shared active treatment", () => {

@@ -1485,7 +1485,6 @@ code {
   min-height: 58px;
 }
 .create-wizard .wizard-actions .primary-action {
-  box-shadow: 0 12px 28px color-mix(in srgb, var(--color-primary) 28%, transparent);
   min-width: 0;
 }
 .create-wizard .form-error {
@@ -1666,9 +1665,6 @@ code {
 .voting-saved-actions .secondary-action {
   min-height: 62px;
   width: 100%;
-}
-.created-actions .primary-action {
-  box-shadow: 0 14px 30px color-mix(in srgb, var(--color-primary) 25%, transparent);
 }
 .voting-intro {
   margin: 0 auto;
@@ -2149,12 +2145,6 @@ code {
 .result-actions > button {
   min-height: 60px;
   width: 100%;
-}
-.result-actions .primary-action {
-  box-shadow: 0 14px 30px color-mix(in srgb, var(--color-telegram) 25%, transparent);
-}
-.result-actions .share-result-action {
-  box-shadow: 0 14px 30px color-mix(in srgb, var(--color-telegram) 25%, transparent);
 }
 .result-home-action {
   color: var(--color-text-secondary);
