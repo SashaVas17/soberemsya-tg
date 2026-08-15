@@ -133,8 +133,7 @@ h1 {
   padding: 0 16px;
   font-weight: 800;
 }
-.primary-action,
-.telegram-action {
+.primary-action {
   background: var(--color-telegram);
   color: var(--color-on-telegram);
   box-shadow: 0 14px 30px color-mix(in srgb, var(--color-telegram) 25%, transparent);
@@ -154,7 +153,6 @@ button:disabled {
 }
 .primary-action:disabled,
 .secondary-action:disabled,
-.telegram-action:disabled,
 .danger-button:disabled {
   background: var(--color-surface-secondary);
   border-color: var(--color-border);

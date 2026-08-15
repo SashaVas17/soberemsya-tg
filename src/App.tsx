@@ -305,7 +305,7 @@ function OutsideTelegram() {
           голосовать вместе.
         </p>
         <button
-          className="primary-action"
+          className="secondary-action"
           disabled={!bot}
           onClick={() => openTelegramUrl(`https://t.me/${bot}`)}
           type="button"
@@ -861,7 +861,7 @@ function CreateEvent({
               Назад
             </button>
           )}
-          <button className="primary-action" disabled={saving} type="submit">
+          <button className="secondary-action" disabled={saving} type="submit">
             {step < 3 ? "Продолжить" : saving ? "Создаём…" : "Создать встречу"}
           </button>
         </div>
@@ -1016,7 +1016,7 @@ function Created({
             Поделиться в Telegram
           </button>
           <button
-            className="secondary-action telegram-action"
+            className="secondary-action"
             onClick={() => navigate(managementPath(eventId))}
             type="button"
           >
@@ -1089,7 +1089,7 @@ function PublicPreviewScreen({
           </div>
           {requestView.actionLabel && (
             <button
-              className="primary-action"
+              className="secondary-action"
               disabled={joining}
               onClick={onJoin}
               type="button"
@@ -1264,14 +1264,14 @@ function ParticipantEvent({
           </p>
           <div className="voting-saved-actions">
             <button
-              className="primary-action"
+              className="secondary-action"
               onClick={() => setSaved(false)}
               type="button"
             >
               Изменить мой ответ
             </button>
             <button
-              className="secondary-action telegram-action"
+              className="secondary-action"
               onClick={() => navigate(`/result/${eventId}`)}
               type="button"
             >
@@ -1371,7 +1371,7 @@ function ParticipantEvent({
         </section>
         <ErrorNote message={state.error} />
         <button
-          className="primary-action form-submit"
+          className="secondary-action form-submit"
           disabled={saving}
           type="submit"
         >
@@ -1810,7 +1810,7 @@ function Manage({
             </select>
           </label>
           <button
-            className="primary-action"
+            className="secondary-action"
             disabled={!finalTime || !finalPlace || saving}
             onClick={() =>
               void mutate(managePayloads.decide(finalTime, finalPlace))
@@ -1821,7 +1821,7 @@ function Manage({
           </button>
           {event.status === "collecting" && (
             <button
-              className="secondary-action telegram-action"
+              className="secondary-action"
               onClick={() => void mutate(managePayloads.close())}
               type="button"
             >
@@ -1830,7 +1830,7 @@ function Manage({
           )}
           {event.status !== "collecting" && (
             <button
-              className="secondary-action telegram-action"
+              className="secondary-action"
               onClick={() => void mutate(managePayloads.reopen())}
               type="button"
             >
@@ -1840,7 +1840,7 @@ function Manage({
         </section>
         <div className="action-row manage-actions">
           <button
-            className="secondary-action telegram-action"
+            className="primary-action"
             onClick={() => shareEvent(event.id)}
             type="button"
           >
@@ -1848,7 +1848,7 @@ function Manage({
             Отправить в чат
           </button>
           <button
-            className="secondary-action telegram-action"
+            className="secondary-action"
             onClick={() => navigate(`/result/${event.id}`)}
             type="button"
           >
@@ -2021,7 +2021,7 @@ function Result({
             Поделиться результатом
           </button>
           <button
-            className="primary-action calendar-action"
+            className="secondary-action calendar-action"
             onClick={addGoogleCalendar}
             type="button"
           >
@@ -2029,7 +2029,7 @@ function Result({
             Google Calendar
           </button>
           <button
-            className="primary-action calendar-action"
+            className="secondary-action calendar-action"
             disabled={calendarOpening}
             onClick={() => void addAppleCalendar()}
             type="button"

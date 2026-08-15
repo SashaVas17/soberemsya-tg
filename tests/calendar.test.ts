@@ -89,14 +89,14 @@ describe("Google Calendar link", () => {
     expect(resultSource).not.toContain("setCalendarError(error");
   });
 
-  it("uses the shared Telegram-blue treatment for both calendar actions and result sharing", () => {
+  it("keeps result sharing blue and calendar actions neutral", () => {
     const stylesSource = readFileSync("src/styles.css", "utf8");
-    const calendarActionClasses = resultSource.match(/className="primary-action calendar-action"/g) ?? [];
+    const calendarActionClasses = resultSource.match(/className="secondary-action calendar-action"/g) ?? [];
 
     expect(calendarActionClasses).toHaveLength(2);
     expect(resultSource).toContain('className="primary-action share-result-action"');
-    expect(resultSource).not.toContain('className="secondary-action calendar-action"');
-    expect(stylesSource).toContain(".primary-action,\n.telegram-action");
+    expect(resultSource).not.toContain('className="primary-action calendar-action"');
+    expect(stylesSource).toContain(".primary-action {");
     expect(stylesSource).toContain("background: var(--color-telegram)");
     expect(stylesSource).toContain("color: var(--color-on-telegram)");
   });
