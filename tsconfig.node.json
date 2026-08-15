@@ -9,5 +9,5 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "include": ["vite.config.ts", "vitest.config.ts", "tests", "src/api-error.ts", "src/calendar.ts", "src/create-wizard.ts", "src/domain.ts", "src/join-request.ts", "src/manage-actions.ts", "src/meeting-links.ts", "src/navigation.ts", "src/numeric-input.ts", "src/organizer-join-requests.ts", "src/organizer-request-ui.ts", "src/participant-voting.ts", "src/public-preview.ts", "src/public-feed.ts", "src/result-model.ts", "src/telegram.ts", "src/theme.ts", "src/types.ts", "supabase/functions/_shared"]
+  "include": ["vite.config.ts", "vitest.config.ts", "tests", "src/api-error.ts", "src/calendar.ts", "src/create-wizard.ts", "src/domain.ts", "src/join-request.ts", "src/leave-meeting.ts", "src/manage-actions.ts", "src/meeting-links.ts", "src/navigation.ts", "src/numeric-input.ts", "src/organizer-join-requests.ts", "src/organizer-request-ui.ts", "src/participant-voting.ts", "src/public-preview.ts", "src/public-feed.ts", "src/result-model.ts", "src/telegram.ts", "src/theme.ts", "src/types.ts", "supabase/functions/_shared"]
 }

@@ -272,6 +272,29 @@ export const mockApi = {
     event = applyMockResponse(event, auth.user, payload);
     return { event: clone(event) };
   },
+  leaveParticipation: async (id: string) => {
+    if (id !== event.id)
+      throw Object.assign(new Error("Встреча не найдена."), { status: 404 });
+    if (event.canManage)
+      throw Object.assign(new Error("Организатор не может покинуть встречу."), {
+        status: 403,
+      });
+    const participant = event.participants.find(
+      (person) => person.userId === auth.user.id,
+    );
+    if (!participant)
+      throw Object.assign(new Error("Вы не участвуете в этой встрече."), {
+        status: 404,
+      });
+    event = {
+      ...event,
+      participants: event.participants.filter(
+        (person) => person.userId !== auth.user.id,
+      ),
+      myResponse: null,
+    };
+    return { left: true as const };
+  },
   meetings: async () => ({ owned: [listItem("owner")], participating: [] }),
   manage: async (_id: string, payload: any) => {
     if (payload.action === "update_details")

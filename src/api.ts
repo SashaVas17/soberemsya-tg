@@ -99,6 +99,13 @@ export const api = {
           `/events/${encodeURIComponent(id)}/response`,
           { method: "POST", body: JSON.stringify(payload) },
         ),
+  leaveParticipation: (id: string) =>
+    useMock
+      ? mockApi.leaveParticipation(id)
+      : request<{ left: true }>(
+          `/events/${encodeURIComponent(id)}/participation`,
+          { method: "DELETE" },
+        ),
   meetings: () =>
     useMock
       ? mockApi.meetings()

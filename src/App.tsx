@@ -32,6 +32,7 @@ import {
 } from "./create-wizard";
 import { areaLeaders, bestSlot, formatSlot, plural } from "./domain";
 import { mergePublicMeetings } from "./public-feed";
+import { canLeaveMeeting, leaveMeetingOnce } from "./leave-meeting";
 import {
   eventShareUrl as buildEventShareUrl,
   managementPath,
@@ -1508,8 +1509,63 @@ function ParticipantEvent({
               ? "Обновить ответ"
               : "Отправить ответ"}
         </button>
+        <LeaveMeetingAction event={event} eventId={eventId} navigate={navigate} />
       </form>
     </main>
+  );
+}
+
+function LeaveMeetingAction({
+  event,
+  eventId,
+  navigate,
+}: {
+  event: EventData;
+  eventId: string;
+  navigate: Navigate;
+}) {
+  const [leaving, setLeaving] = useState(false);
+  const [error, setError] = useState("");
+  const leaveLock = useRef(false);
+  if (!canLeaveMeeting(event)) return null;
+  const leave = async () => {
+    if (leaving || leaveLock.current) return;
+    if (
+      !window.confirm(
+        "Покинуть встречу?\nВаше участие и голоса будут удалены.",
+      )
+    )
+      return;
+    setError("");
+    setLeaving(true);
+    try {
+      const result = await leaveMeetingOnce(
+        eventId,
+        leaveLock,
+        api.leaveParticipation,
+      );
+      if (!result || !result.left) throw new Error("Leave request failed");
+      haptic();
+      navigate("/my-events");
+    } catch {
+      setError("Не удалось покинуть встречу. Попробуйте ещё раз.");
+      haptic("error");
+    } finally {
+      setLeaving(false);
+    }
+  };
+  return (
+    <div className="leave-meeting-action">
+      <button
+        className="danger-button"
+        disabled={leaving}
+        onClick={() => void leave()}
+        type="button"
+      >
+        {leaving ? "Выходим…" : "Покинуть встречу"}
+      </button>
+      {error && <p className="form-error" role="alert">{error}</p>}
+    </div>
   );
 }
 
@@ -2165,6 +2221,7 @@ function Result({
             Календарь iPhone
           </button>
           {calendarError && <p className="form-error">{calendarError}</p>}
+          <LeaveMeetingAction event={event} eventId={eventId} navigate={navigate} />
           <button
             className="text-action result-home-action"
             onClick={() => navigate("/")}
