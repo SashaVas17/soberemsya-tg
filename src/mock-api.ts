@@ -2,6 +2,7 @@ import type {
   AuthResult,
   EventData,
   MeetingListItem,
+  PublicMeetingFeedItem,
 } from "./types";
 import { applyMockResponse } from "./participant-voting";
 import { mockCreateJoinRequest } from "./join-request";
@@ -173,6 +174,26 @@ export const mockApi = {
       currentPublicRole(),
       currentPublicRole() === "owner" ? auth.user.id : "user_owner",
     );
+  },
+  publicMeetings: async (cursor?: string) => {
+    void cursor;
+    return {
+      items: [
+        {
+          id: event.id,
+          title: event.title,
+          description: event.description,
+          status: "collecting" as const,
+          dateSummary: event.timeOptions[0]
+            ? mockDate(event.timeOptions[0].startsAt)
+            : null,
+          budgetLimit: event.budgetLimit,
+          participantCount: event.participants.length,
+          maxParticipants: 6,
+        } satisfies PublicMeetingFeedItem,
+      ],
+      nextCursor: null,
+    };
   },
   createJoinRequest: async (eventId: string) => {
     void eventId;

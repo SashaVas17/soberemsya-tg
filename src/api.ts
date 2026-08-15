@@ -1,5 +1,5 @@
 import { apiErrorFromBody } from "./api-error";
-import type { AuthResult, EventData, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PublicEventPreview } from "./types";
+import type { AuthResult, EventData, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PublicEventPreview, PublicMeetingFeedItem } from "./types";
 import { mockApi } from "./mock-api";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "") ?? "";
@@ -50,7 +50,13 @@ export const api = {
     useMock
       ? mockApi.publicEventPreview(id)
       : request<{ preview: PublicEventPreview }>(
-          `/events/${encodeURIComponent(id)}/preview`,
+        `/events/${encodeURIComponent(id)}/preview`,
+        ),
+  publicMeetings: (cursor?: string) =>
+    useMock
+      ? mockApi.publicMeetings(cursor)
+      : request<{ items: PublicMeetingFeedItem[]; nextCursor: string | null }>(
+          `/public/events${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
         ),
   createJoinRequest: (id: string) =>
     useMock

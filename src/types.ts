@@ -77,6 +77,17 @@ export type PublicEventPreview = {
   joinRequestStatus: JoinRequestStatus;
 };
 
+export type PublicMeetingFeedItem = {
+  id: string;
+  title: string;
+  description: string;
+  status: "collecting";
+  dateSummary: string | null;
+  budgetLimit: number;
+  participantCount: number;
+  maxParticipants: number | null;
+};
+
 export type MeetingListItem = {
   id: string;
   title: string;

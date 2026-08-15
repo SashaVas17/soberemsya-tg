@@ -968,6 +968,36 @@ code {
   font-size: 30px;
   line-height: 1;
 }
+.home-open-meetings {
+  align-items: center;
+  background: var(--color-surface);
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  border-radius: var(--radius-lg);
+  color: var(--color-text);
+  display: flex;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  text-align: left;
+  width: 100%;
+}
+.home-open-meetings svg {
+  color: var(--color-brand);
+  flex: 0 0 auto;
+}
+.home-open-meetings span {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+.home-open-meetings strong {
+  font-size: 16px;
+}
+.home-open-meetings small {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.35;
+}
 .home-section-heading {
   align-items: center;
   display: flex;
@@ -1063,6 +1093,62 @@ code {
 .my-meetings-page {
   max-width: 720px;
 }
+.public-meetings-page {
+  margin: 0 auto;
+  max-width: 720px;
+  padding: 0 var(--page-gutter) 40px;
+}
+.public-meetings-intro {
+  background: transparent;
+  border: 0;
+  padding: 32px 0 18px;
+}
+.public-meetings-intro h1 {
+  color: var(--color-text);
+  font-size: clamp(28px, 6vw, 38px);
+  letter-spacing: -0.025em;
+  line-height: 1.18;
+}
+.public-meetings-intro p {
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+  margin: 10px 0 0;
+}
+.public-meeting-list {
+  margin-top: 8px;
+}
+.public-meeting-card {
+  text-align: left;
+}
+.public-meeting-card-heading {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.public-meeting-card .meeting-card-title {
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+.public-meeting-description {
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.public-feed-load-more {
+  margin-top: 16px;
+  width: 100%;
+}
+.public-feed-pagination-error {
+  align-items: center;
+  color: var(--color-error);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  margin-top: 16px;
+}
 .meeting-segments {
   background: var(--color-surface-elevated);
   border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
@@ -1132,6 +1218,7 @@ code {
   color: var(--color-on-primary-soft);
 }
 .bottom-navigation-item:focus-visible,
+.home-open-meetings:focus-visible,
 .home-create-card:focus-visible,
 .home-meetings-shortcut:focus-visible,
 .meeting-segments button:focus-visible {
