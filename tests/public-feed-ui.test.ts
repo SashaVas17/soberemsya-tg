@@ -4,6 +4,7 @@ import { mergePublicMeetings } from "../src/public-feed";
 import type { PublicMeetingFeedItem } from "../src/types";
 
 const appSource = readFileSync("src/App.tsx", "utf8");
+const navigationSource = readFileSync("src/BottomNavigation.tsx", "utf8");
 const apiSource = readFileSync("src/api.ts", "utf8");
 const stylesSource = readFileSync("src/styles.css", "utf8");
 
@@ -19,9 +20,9 @@ const item = (id: string, title = id): PublicMeetingFeedItem => ({
 });
 
 describe("public feed frontend contract", () => {
-  it("adds a Home entry and hash route", () => {
+  it("keeps the public feed in persistent navigation and its hash route", () => {
     expect(appSource).toContain("Открытые встречи");
-    expect(appSource).toContain('navigate("/open")');
+    expect(navigationSource).toContain("bottomNavigationItems");
     expect(appSource).toContain('path === "/open"');
   });
 

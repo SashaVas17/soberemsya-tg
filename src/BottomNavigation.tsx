@@ -1,4 +1,4 @@
-import { CalendarDays, House } from "lucide-react";
+import { CalendarDays, Compass, House } from "lucide-react";
 import {
   bottomNavigationItems,
   isBottomNavigationSelected,
@@ -17,7 +17,8 @@ export function BottomNavigation({
       <div className="bottom-navigation-inner">
         {bottomNavigationItems.map((item) => {
           const selected = isBottomNavigationSelected(currentPath, item.path);
-          const Icon = item.id === "home" ? House : CalendarDays;
+          const Icon =
+            item.id === "home" ? House : item.id === "open" ? Compass : CalendarDays;
           return (
             <button
               aria-current={selected ? "page" : undefined}

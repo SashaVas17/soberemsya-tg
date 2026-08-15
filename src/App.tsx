@@ -5,7 +5,6 @@ import {
   Check,
   CircleAlert,
   Clock3,
-  Compass,
   MapPin,
   Moon,
   Plus,
@@ -391,17 +390,6 @@ function Home({
             <strong>{meetingCount ?? "—"}</strong>
           </button>
         </div>
-        <button
-          className="home-open-meetings"
-          onClick={() => navigate("/open")}
-          type="button"
-        >
-          <Compass aria-hidden="true" size={22} />
-          <span>
-            <strong>Открытые встречи</strong>
-            <small>Присоединитесь к встрече, которая вам подходит</small>
-          </span>
-        </button>
         <div className="home-section-heading">
           <h2>Ваши встречи</h2>
           <button onClick={() => navigate("/my-events")} type="button">Все</button>

@@ -968,36 +968,6 @@ code {
   font-size: 30px;
   line-height: 1;
 }
-.home-open-meetings {
-  align-items: center;
-  background: var(--color-surface);
-  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
-  border-radius: var(--radius-lg);
-  color: var(--color-text);
-  display: flex;
-  gap: var(--space-md);
-  margin-top: var(--space-md);
-  padding: var(--space-md) var(--space-lg);
-  text-align: left;
-  width: 100%;
-}
-.home-open-meetings svg {
-  color: var(--color-brand);
-  flex: 0 0 auto;
-}
-.home-open-meetings span {
-  display: grid;
-  gap: var(--space-xs);
-  min-width: 0;
-}
-.home-open-meetings strong {
-  font-size: 16px;
-}
-.home-open-meetings small {
-  color: var(--color-text-secondary);
-  font-size: 13px;
-  line-height: 1.35;
-}
 .home-section-heading {
   align-items: center;
   display: flex;
@@ -1193,7 +1163,7 @@ code {
 .bottom-navigation-inner {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   margin: 0 auto;
   max-width: 520px;
 }
@@ -1218,7 +1188,6 @@ code {
   color: var(--color-on-primary-soft);
 }
 .bottom-navigation-item:focus-visible,
-.home-open-meetings:focus-visible,
 .home-create-card:focus-visible,
 .home-meetings-shortcut:focus-visible,
 .meeting-segments button:focus-visible {

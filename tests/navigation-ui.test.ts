@@ -23,10 +23,11 @@ const meeting: MeetingListItem = {
 };
 
 describe("primary frontend navigation", () => {
-  it("contains exactly Home and My Meetings", () => {
-    expect(bottomNavigationItems).toHaveLength(2);
+  it("contains exactly Home, Open Meetings and My Meetings", () => {
+    expect(bottomNavigationItems).toHaveLength(3);
     expect(bottomNavigationItems.map((item) => item.label)).toEqual([
       "Главная",
+      "Открытые встречи",
       "Мои встречи",
     ]);
     expect(bottomNavigationItems.map((item) => item.label)).not.toEqual(
@@ -34,16 +35,24 @@ describe("primary frontend navigation", () => {
     );
   });
 
-  it("navigates Home to My Meetings and back through existing paths", () => {
+  it("navigates between all persistent tabs through existing paths", () => {
     const navigate = vi.fn();
+    navigateToBottomItem("/open", navigate);
     navigateToBottomItem("/my-events", navigate);
     navigateToBottomItem("/", navigate);
-    expect(navigate.mock.calls).toEqual([["/my-events"], ["/"]]);
+    expect(navigate.mock.calls).toEqual([
+      ["/open"],
+      ["/my-events"],
+      ["/"],
+    ]);
   });
 
   it("selects the item matching the current route", () => {
     expect(isBottomNavigationSelected("/", "/")).toBe(true);
+    expect(isBottomNavigationSelected("/", "/open")).toBe(false);
     expect(isBottomNavigationSelected("/", "/my-events")).toBe(false);
+    expect(isBottomNavigationSelected("/open", "/open")).toBe(true);
+    expect(isBottomNavigationSelected("/open", "/")).toBe(false);
     expect(isBottomNavigationSelected("/my-events", "/my-events")).toBe(true);
   });
 
@@ -68,6 +77,7 @@ describe("primary frontend navigation", () => {
 describe("meeting list architecture", () => {
   const appSource = readFileSync("src/App.tsx", "utf8");
   const apiSource = readFileSync("src/api.ts", "utf8");
+  const stylesSource = readFileSync("src/styles.css", "utf8");
 
   it("keeps Loading, EmptyState and RetryState in list screens", () => {
     expect(appSource).toContain("<Loading");
@@ -90,5 +100,13 @@ describe("meeting list architecture", () => {
     expect(appSource).toContain('className="theme-toggle"');
     expect(tokens).toContain(':root[data-theme="dark"]');
     expect(tokens).toContain("--color-surface");
+  });
+
+  it("keeps the public feed route and removes its former Home card", () => {
+    expect(appSource).toContain('path === "/open"');
+    expect(appSource).toContain('<BottomNavigation currentPath="/open"');
+    expect(appSource).not.toContain("className=\"home-open-meetings\"");
+    expect(stylesSource).not.toContain(".home-open-meetings");
+    expect(stylesSource).toContain("grid-template-columns: repeat(3, minmax(0, 1fr));");
   });
 });
