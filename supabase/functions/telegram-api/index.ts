@@ -10,6 +10,7 @@ import { validateTelegramInitData } from "../_shared/telegram.ts";
 import { parseCreateMeetingMode } from "../_shared/open-meetings.ts";
 import { createJoinRequestErrorToken, createJoinRequestHttpError, createJoinRequestHttpResult, type CreateJoinRequestRow } from "../_shared/join-request.ts";
 import { joinRequestDecisionErrorToken, joinRequestDecisionHttpError, joinRequestDecisionResponse, organizerJoinRequestsResponse, resolveJoinRequestDecisionRetry, type JoinRequestDecisionAction, type JoinRequestListRow, type RequesterProfileRow } from "../_shared/organizer-join-requests.ts";
+import { leaveParticipationErrorToken, leaveParticipationHttpError } from "../_shared/leave-participation.ts";
 
 type Db = ReturnType<typeof createClient>;
 type AppUser = { id: string; telegram_user_id: string; username: string | null; first_name: string; last_name: string | null; photo_url: string | null };
@@ -20,6 +21,7 @@ type PublicFeedEventRow = Pick<FullEventRow, "id" | "owner_user_id" | "title" | 
 type OrganizerEventRow = Pick<FullEventRow, "owner_user_id" | "visibility">;
 type JoinRequestDecisionRpcRow = { request_id: string; participant_id?: string };
 type JoinRequestStateRow = { status: string; requester_user_id: string };
+type LeaveParticipationRow = { event_id: string };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = (Deno.env.get("TELEGRAM_DB_SECRET_KEY") ?? "").trim();
@@ -296,6 +298,24 @@ async function saveResponse(request: Request, eventId: string, auth: AuthContext
   return json({ event: await eventPayload(eventId, auth.user.id) });
 }
 
+async function leaveParticipation(eventId: string, auth: AuthContext) {
+  const { data, error } = await db.rpc("leave_event_participation", {
+    p_event_id: eventId,
+    p_user_id: auth.user.id,
+  }).single<LeaveParticipationRow>();
+  if (error) {
+    console.error(
+      "leave_event_participation_rpc_failed",
+      error.code,
+      leaveParticipationErrorToken(error) ?? "unknown",
+    );
+    throw leaveParticipationHttpError(error);
+  }
+  if (data?.event_id !== eventId)
+    throw new Error("Leave participation RPC returned no event.");
+  return json({ left: true });
+}
+
 async function manageEvent(request: Request, eventId: string, auth: AuthContext) {
   const { data: event, error } = await db.from("events").select("owner_user_id,status").eq("id", eventId).is("deleted_at", null).maybeSingle(); if (error) throw error; if (!event) throw Object.assign(new Error("Встреча не найдена."), { status: 404 }); assertOwner(event.owner_user_id, auth.user.id);
   if (request.method === "DELETE") { const { error: deleteError } = await db.from("events").update({ deleted_at: new Date().toISOString() }).eq("id", eventId).eq("owner_user_id", auth.user.id); if (deleteError) throw deleteError; return json({ deleted: true }); }
@@ -465,6 +485,7 @@ Deno.serve(async (request) => {
     if (path === "/me/meetings" && request.method === "GET") return await meetings(auth);
     if (path === "/public/events" && request.method === "GET") return await publicEvents(request, auth);
     const responseMatch = path.match(/^\/events\/([^/]+)\/response$/); if (responseMatch && request.method === "POST") return await saveResponse(request, decodeURIComponent(responseMatch[1]), auth);
+    const participationMatch = path.match(/^\/events\/([^/]+)\/participation$/); if (participationMatch && request.method === "DELETE") return await leaveParticipation(decodeURIComponent(participationMatch[1]), auth);
     const calendarLinkMatch = path.match(/^\/events\/([^/]+)\/calendar-link$/); if (calendarLinkMatch && request.method === "POST") return await calendarLink(request, decodeURIComponent(calendarLinkMatch[1]), auth);
     const joinRequestMatch = path.match(/^\/events\/([^/]+)\/join-request$/); if (joinRequestMatch && request.method === "POST") return await createJoinRequest(decodeURIComponent(joinRequestMatch[1]), auth);
     const organizerJoinRequestsMatch = path.match(/^\/events\/([^/]+)\/join-requests$/); if (organizerJoinRequestsMatch && request.method === "GET") return await organizerJoinRequests(decodeURIComponent(organizerJoinRequestsMatch[1]), auth);
