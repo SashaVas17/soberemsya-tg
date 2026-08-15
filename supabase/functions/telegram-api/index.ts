@@ -5,6 +5,7 @@ import { corsHeaders, errorResponse, json } from "../_shared/http.ts";
 import { meetingListItem } from "../_shared/meeting-list.ts";
 import { collectVisibleMeetings } from "../_shared/meetings.ts";
 import { buildPublicEventPreview } from "../_shared/public-preview.ts";
+import { buildPublicFeedItem, encodePublicFeedCursor, parsePublicFeedCursor, parsePublicFeedLimit, type PublicFeedEvent } from "../_shared/public-feed.ts";
 import { validateTelegramInitData } from "../_shared/telegram.ts";
 import { parseCreateMeetingMode } from "../_shared/open-meetings.ts";
 import { createJoinRequestErrorToken, createJoinRequestHttpError, createJoinRequestHttpResult, type CreateJoinRequestRow } from "../_shared/join-request.ts";
@@ -15,6 +16,7 @@ type AppUser = { id: string; telegram_user_id: string; username: string | null; 
 type AuthContext = { user: AppUser; startParam: string | null };
 type FullEventRow = { id: string; owner_user_id: string | null; title: string; description: string; budget_limit: number; visibility: string | null; max_participants: number | null; status: Status; final_place_id: string | null; final_time_option_id: string | null; created_at: string; deleted_at: string | null };
 type PreviewEventRow = Pick<FullEventRow, "id" | "owner_user_id" | "title" | "description" | "budget_limit" | "visibility" | "max_participants" | "status" | "deleted_at">;
+type PublicFeedEventRow = Pick<FullEventRow, "id" | "owner_user_id" | "title" | "description" | "budget_limit" | "max_participants" | "status" | "created_at">;
 type OrganizerEventRow = Pick<FullEventRow, "owner_user_id" | "visibility">;
 type JoinRequestDecisionRpcRow = { request_id: string; participant_id?: string };
 type JoinRequestStateRow = { status: string; requester_user_id: string };
@@ -321,6 +323,77 @@ async function meetings(auth: AuthContext) {
   return json(await collectVisibleMeetings(ownedIds, participatingIds, mapItem));
 }
 
+async function publicEvents(request: Request, auth: AuthContext) {
+  void auth;
+  const url = new URL(request.url);
+  const limit = parsePublicFeedLimit(url.searchParams.get("limit"));
+  const cursor = parsePublicFeedCursor(url.searchParams.get("cursor"));
+  let eventQuery = db
+    .from("events")
+    .select("id,owner_user_id,title,description,budget_limit,max_participants,status,created_at")
+    .eq("visibility", "public")
+    .is("deleted_at", null)
+    .eq("status", "collecting")
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(limit + 1);
+  if (cursor)
+    eventQuery = eventQuery.or(
+      `created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`,
+    );
+  const { data, error } = await eventQuery;
+  if (error) throw error;
+  const page = ((data ?? []) as PublicFeedEventRow[]).slice(0, limit);
+  const eventIds = page.map((event) => event.id);
+  const hasNextPage = (data ?? []).length > limit;
+  if (!eventIds.length) return json({ items: [], nextCursor: null });
+
+  const [{ data: times, error: timeError }, { data: people, error: peopleError }] =
+    await Promise.all([
+      db.from("time_options").select("event_id,starts_at").in("event_id", eventIds),
+      db.from("participants").select("event_id,user_id").in("event_id", eventIds),
+    ]);
+  if (timeError || peopleError) throw timeError ?? peopleError;
+  const startsByEvent = new Map<string, string[]>();
+  for (const time of times ?? [])
+    startsByEvent.set(time.event_id, [
+      ...(startsByEvent.get(time.event_id) ?? []),
+      time.starts_at,
+    ]);
+  const participantsByEvent = new Map<string, Array<string | null>>();
+  for (const person of people ?? [])
+    participantsByEvent.set(person.event_id, [
+      ...(participantsByEvent.get(person.event_id) ?? []),
+      person.user_id as string | null,
+    ]);
+  const lastEvent = page.at(-1);
+  return json({
+    items: page.map((event) =>
+      buildPublicFeedItem({
+        event: {
+          id: event.id,
+          ownerUserId: event.owner_user_id,
+          title: event.title,
+          description: event.description,
+          budgetLimit: event.budget_limit,
+          maxParticipants: event.max_participants,
+          status: event.status,
+          createdAt: event.created_at,
+        } satisfies PublicFeedEvent,
+        startsAtValues: startsByEvent.get(event.id) ?? [],
+        participantUserIds: participantsByEvent.get(event.id) ?? [],
+      }),
+    ),
+    nextCursor:
+      hasNextPage && lastEvent
+        ? encodePublicFeedCursor({
+            createdAt: lastEvent.created_at,
+            id: lastEvent.id,
+          })
+        : null,
+  });
+}
+
 async function calendarLink(request: Request, eventId: string, auth: AuthContext) {
   if (!calendarSigningSecret)
     throw Object.assign(new Error("Экспорт календаря пока не настроен."), { status: 503 });
@@ -390,6 +463,7 @@ Deno.serve(async (request) => {
     const auth = await authenticate(request);
     if (path === "/events" && request.method === "POST") return await createEvent(request, auth);
     if (path === "/me/meetings" && request.method === "GET") return await meetings(auth);
+    if (path === "/public/events" && request.method === "GET") return await publicEvents(request, auth);
     const responseMatch = path.match(/^\/events\/([^/]+)\/response$/); if (responseMatch && request.method === "POST") return await saveResponse(request, decodeURIComponent(responseMatch[1]), auth);
     const calendarLinkMatch = path.match(/^\/events\/([^/]+)\/calendar-link$/); if (calendarLinkMatch && request.method === "POST") return await calendarLink(request, decodeURIComponent(calendarLinkMatch[1]), auth);
     const joinRequestMatch = path.match(/^\/events\/([^/]+)\/join-request$/); if (joinRequestMatch && request.method === "POST") return await createJoinRequest(decodeURIComponent(joinRequestMatch[1]), auth);
