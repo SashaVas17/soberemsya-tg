@@ -16,7 +16,10 @@ export function bestSlot(event: Pick<EventData, "timeOptions">): TimeOption | nu
 
 export function areaLeaders(event: Pick<EventData, "participants">) {
   const counts = new Map<string, number>();
-  for (const person of event.participants) if (person.area.trim()) counts.set(person.area.trim(), (counts.get(person.area.trim()) ?? 0) + 1);
+  for (const person of event.participants) {
+    const area = person.area?.trim();
+    if (area) counts.set(area, (counts.get(area) ?? 0) + 1);
+  }
   const max = Math.max(0, ...counts.values());
   return [...counts.entries()].filter(([, count]) => count === max).sort((a, b) => a[0].localeCompare(b[0]));
 }

@@ -1,10 +1,9 @@
 import type {
   AuthResult,
-  EventData,
   MeetingListItem,
   PublicMeetingFeedItem,
 } from "./types";
-import { applyMockResponse } from "./participant-voting";
+import { applyMockResponse, type MockVotingEvent } from "./participant-voting";
 import { mockCreateJoinRequest } from "./join-request";
 import {
   approveJoinRequest as mockApproveJoinRequest,
@@ -26,7 +25,7 @@ const future = (days: number, hour: number) => {
   value.setHours(hour, 30, 0, 0);
   return value.toISOString();
 };
-let event: EventData = {
+let event: MockVotingEvent = {
   id: "evt_demo",
   title: "Ужин с друзьями после работы",
   description: "Выберем время и место, которые подойдут всей компании.",

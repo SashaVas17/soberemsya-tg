@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.111.0";
 import { buildIcs, isCalendarTicketValid, signCalendarTicket } from "../_shared/calendar.ts";
 import { assertEventAvailable, assertFullEventReadAccess, assertOwner, assertVotingOpen, authorizeParticipantResponse, parseEventStartParam, type Status } from "../_shared/domain.ts";
+import { organizerEventPayload, participantEventPayload, privateInviteEventPayload, resolveEventViewerRole, type EventViewerRole } from "../_shared/event-payload.ts";
 import { corsHeaders, errorResponse, json } from "../_shared/http.ts";
 import { meetingListItem } from "../_shared/meeting-list.ts";
 import { collectVisibleMeetings } from "../_shared/meetings.ts";
@@ -77,7 +78,23 @@ async function loadFullEventRow(eventId: string) {
   return event;
 }
 
-async function eventPayload(eventId: string, userId: string, loadedEvent?: FullEventRow) {
+async function currentParticipantExists(eventId: string, userId: string) {
+  const { data: participant, error } = await db
+    .from("participants")
+    .select("id")
+    .eq("event_id", eventId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  return Boolean(participant);
+}
+
+async function eventPayload(
+  eventId: string,
+  userId: string,
+  loadedEvent?: FullEventRow,
+  viewerRole?: EventViewerRole,
+) {
   const event = loadedEvent ?? await loadFullEventRow(eventId);
   const [{ data: times, error: timeError }, { data: places, error: placeError }, { data: people, error: peopleError }] = await Promise.all([
     db.from("time_options").select("id,starts_at").eq("event_id", eventId).order("starts_at"),
@@ -88,23 +105,42 @@ async function eventPayload(eventId: string, userId: string, loadedEvent?: FullE
   const participantIds = (people ?? []).map((person) => person.id);
   const { data: votes, error: voteError } = participantIds.length ? await db.from("availability_votes").select("participant_id,time_option_id,is_available").in("participant_id", participantIds) : { data: [], error: null };
   if (voteError) throw voteError;
-  const available = new Map<string, string[]>(); const unavailable = new Map<string, string[]>(); const counts = new Map<string, number>();
-  for (const vote of votes ?? []) { const target = vote.is_available ? available : unavailable; target.set(vote.participant_id, [...(target.get(vote.participant_id) ?? []), vote.time_option_id]); if (vote.is_available) counts.set(vote.time_option_id, (counts.get(vote.time_option_id) ?? 0) + 1); }
-  const canManage = event.owner_user_id === userId;
-  const participants = (people ?? []).map((person) => ({ id: person.id, userId: person.user_id, name: person.name, area: person.area, budget: person.budget, preferences: canManage || person.user_id === userId ? person.preferences : "", restrictions: canManage || person.user_id === userId ? person.restrictions : "", availableTimeOptionIds: available.get(person.id) ?? [], unavailableTimeOptionIds: unavailable.get(person.id) ?? [] }));
-  return { id: event.id, title: event.title, description: event.description, budgetLimit: event.budget_limit, visibility: event.visibility ?? "private", maxParticipants: event.max_participants ?? null, status: event.status, finalPlaceId: event.final_place_id, finalTimeOptionId: event.final_time_option_id, timeOptions: (times ?? []).map((time) => ({ id: time.id, startsAt: time.starts_at, availableCount: counts.get(time.id) ?? 0 })), placeOptions: (places ?? []).map((place) => ({ id: place.id, title: place.title, area: place.area, estimatedBudget: place.estimated_budget })), participants, canManage, myResponse: participants.find((person) => person.userId === userId) ?? null, createdAt: event.created_at };
+  const role = viewerRole ?? resolveEventViewerRole({
+    visibility: event.visibility,
+    ownerUserId: event.owner_user_id,
+    currentUserId: userId,
+    participantExists: await currentParticipantExists(eventId, userId),
+  });
+  const source = {
+    event,
+    times: times ?? [],
+    places: places ?? [],
+    participants: people ?? [],
+    votes: votes ?? [],
+    currentUserId: userId,
+  };
+  if (role === "owner") return organizerEventPayload(source);
+  if (role === "participant") return participantEventPayload(source);
+  return privateInviteEventPayload(source);
 }
 
 async function fullEventForRequest(eventId: string, userId: string) {
   const event = await loadFullEventRow(eventId);
-  let participantExists = false;
-  if (event.visibility === "public" && event.owner_user_id !== userId) {
-    const { data: participant, error } = await db.from("participants").select("id").eq("event_id", eventId).eq("user_id", userId).maybeSingle();
-    if (error) throw error;
-    participantExists = Boolean(participant);
-  }
+  const participantExists = event.owner_user_id === userId
+    ? false
+    : await currentParticipantExists(eventId, userId);
   assertFullEventReadAccess({ visibility: event.visibility, ownerUserId: event.owner_user_id, currentUserId: userId, participantExists });
-  return eventPayload(eventId, userId, event);
+  return eventPayload(
+    eventId,
+    userId,
+    event,
+    resolveEventViewerRole({
+      visibility: event.visibility,
+      ownerUserId: event.owner_user_id,
+      currentUserId: userId,
+      participantExists,
+    }),
+  );
 }
 
 async function publicEventPreview(eventId: string, userId: string) {

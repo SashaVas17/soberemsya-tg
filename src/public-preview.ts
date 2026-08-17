@@ -84,7 +84,9 @@ export function mockPublicEventPreview(
 ): { preview: PublicEventPreview } {
   if (event.visibility !== "public")
     throw new ApiError("Встреча не найдена или удалена.", 404);
-  const participantUserIds = event.participants.map((person) => person.userId);
+  const participantUserIds = event.participants.map((person) =>
+    "userId" in person ? person.userId : null,
+  );
   const participantCount =
     1 +
     participantUserIds.filter(

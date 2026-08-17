@@ -35,7 +35,7 @@ export type TelegramUser = {
 
 export type TimeOption = { id: string; startsAt: string; availableCount: number };
 export type PlaceOption = { id: string; title: string; area: string; estimatedBudget: number };
-export type Participant = {
+export type OrganizerParticipant = {
   id: string;
   userId: string | null;
   name: string;
@@ -47,7 +47,22 @@ export type Participant = {
   unavailableTimeOptionIds: string[];
 };
 
-export type EventData = {
+export type SocialParticipant = {
+  name: string;
+  area?: string;
+};
+
+export type OwnResponse = {
+  name: string;
+  area: string;
+  budget: number;
+  preferences: string;
+  restrictions: string;
+  availableTimeOptionIds: string[];
+  unavailableTimeOptionIds: string[];
+};
+
+type EventDataBase = {
   id: string;
   title: string;
   description: string;
@@ -59,10 +74,24 @@ export type EventData = {
   finalTimeOptionId: string | null;
   timeOptions: TimeOption[];
   placeOptions: PlaceOption[];
-  participants: Participant[];
-  canManage: boolean;
-  myResponse: Participant | null;
 };
+
+export type OrganizerEventData = EventDataBase & {
+  participants: OrganizerParticipant[];
+  canManage: true;
+  myResponse: OrganizerParticipant | null;
+};
+
+export type ParticipantEventData = EventDataBase & {
+  participants: SocialParticipant[];
+  canManage: false;
+  myResponse: OwnResponse | null;
+};
+
+export type EventData = OrganizerEventData | ParticipantEventData;
+
+// Internal organizer/mock state retains identifiers for request-management tests.
+export type Participant = OrganizerParticipant;
 
 export type PublicEventPreview = {
   id: string;

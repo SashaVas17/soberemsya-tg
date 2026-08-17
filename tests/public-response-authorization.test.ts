@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import {
   applyMockResponse,
+  type MockVotingEvent,
 } from "../src/participant-voting";
 import {
   assertEventAvailable,
@@ -9,7 +10,7 @@ import {
   authorizeParticipantResponse,
 } from "../supabase/functions/_shared/domain";
 import { errorResponse } from "../supabase/functions/_shared/http";
-import type { EventData, TelegramUser } from "../src/types";
+import type { TelegramUser } from "../src/types";
 
 const user: TelegramUser = {
   id: "user_current",
@@ -28,7 +29,7 @@ const response = {
   availableTimeOptionIds: ["time_1"],
 };
 
-function meeting(overrides: Partial<EventData> = {}): EventData {
+function meeting(overrides: Partial<MockVotingEvent> = {}): MockVotingEvent {
   return {
     id: "evt_public",
     title: "Открытая встреча",

@@ -85,9 +85,10 @@ describe("Open Meetings create mode", () => {
 
   it("maps and returns the new fields in the existing event endpoint", () => {
     const source = readFileSync("supabase/functions/telegram-api/index.ts", "utf8");
+    const payload = readFileSync("supabase/functions/_shared/event-payload.ts", "utf8");
     expect(source).toContain("visibility,max_participants");
-    expect(source).toContain("visibility: event.visibility ?? \"private\"");
-    expect(source).toContain("maxParticipants: event.max_participants ?? null");
+    expect(payload).toContain('visibility: event.visibility === "public" ? "public" : "private"');
+    expect(payload).toContain("maxParticipants: event.max_participants ?? null");
     expect(source).toContain("visibility, max_participants: maxParticipants");
   });
 });

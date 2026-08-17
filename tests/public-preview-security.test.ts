@@ -131,7 +131,7 @@ describe("full public event read authorization", () => {
       backendSource.indexOf("async function fullEventForRequest"),
       backendSource.indexOf("async function publicEventPreview"),
     );
-    expect(fullRead).toContain('.eq("event_id", eventId).eq("user_id", userId)');
+    expect(fullRead).toContain("currentParticipantExists(eventId, userId)");
     expect(fullRead).toContain("assertFullEventReadAccess");
   });
 
@@ -151,7 +151,8 @@ describe("full public event read authorization", () => {
       backendSource.indexOf("async function publicEventPreview"),
     );
     expect(fullRead.match(/loadFullEventRow/g)).toHaveLength(1);
-    expect(fullRead).toContain("eventPayload(eventId, userId, event)");
+    expect(fullRead).toContain("eventPayload(");
+    expect(fullRead).toContain("resolveEventViewerRole");
   });
 });
 

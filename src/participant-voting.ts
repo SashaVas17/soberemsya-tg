@@ -1,4 +1,4 @@
-import type { EventData, Participant, TelegramUser } from "./types";
+import type { EventData, OrganizerEventData, Participant, TelegramUser } from "./types";
 
 export type VotingDraft = {
   area: string;
@@ -10,6 +10,9 @@ export type VotingDraft = {
 
 export type SaveResponsePayload = VotingDraft;
 export type SaveSubmissionLock = { current: boolean };
+export type MockVotingEvent = Omit<OrganizerEventData, "canManage"> & {
+  canManage: boolean;
+};
 
 export function votingDraftFromEvent(event: EventData): VotingDraft {
   const own = event.myResponse;
@@ -76,7 +79,7 @@ function mockAuthorization(input: {
 }
 
 export function applyMockResponse(
-  current: EventData,
+  current: MockVotingEvent,
   currentUser: TelegramUser,
   payload: SaveResponsePayload,
 ) {

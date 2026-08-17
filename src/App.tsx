@@ -2189,8 +2189,8 @@ function Result({
         <section className="panel">
           <h2>Кто участвует</h2>
           <div className="name-list">
-            {event.participants.map((person) => (
-              <span key={person.id}>{person.name}</span>
+            {event.participants.map((person, index) => (
+              <span key={`${person.name}-${index}`}>{person.name}</span>
             ))}
           </div>
         </section>
