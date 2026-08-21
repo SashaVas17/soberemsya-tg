@@ -7,7 +7,7 @@ import {
 import { errorResponse } from "../supabase/functions/_shared/http";
 
 const migration = readFileSync(
-  "supabase/migrations/20260815200810_leave_event_participation.sql",
+  "supabase/migrations/20260815201500_leave_event_participation.sql",
   "utf8",
 ).replace(/\r\n/g, "\n");
 const apiSource = readFileSync(

@@ -12,6 +12,7 @@ import { parseCreateMeetingMode } from "../_shared/open-meetings.ts";
 import { createJoinRequestErrorToken, createJoinRequestHttpError, createJoinRequestHttpResult, type CreateJoinRequestRow } from "../_shared/join-request.ts";
 import { joinRequestDecisionErrorToken, joinRequestDecisionHttpError, joinRequestDecisionResponse, organizerJoinRequestsResponse, resolveJoinRequestDecisionRetry, type JoinRequestDecisionAction, type JoinRequestListRow, type RequesterProfileRow } from "../_shared/organizer-join-requests.ts";
 import { leaveParticipationErrorToken, leaveParticipationHttpError } from "../_shared/leave-participation.ts";
+import { removeEventParticipantErrorToken, removeEventParticipantHttpError } from "../_shared/remove-event-participant.ts";
 
 type Db = ReturnType<typeof createClient>;
 type AppUser = { id: string; telegram_user_id: string; username: string | null; first_name: string; last_name: string | null; photo_url: string | null };
@@ -23,6 +24,7 @@ type OrganizerEventRow = Pick<FullEventRow, "owner_user_id" | "visibility">;
 type JoinRequestDecisionRpcRow = { request_id: string; participant_id?: string };
 type JoinRequestStateRow = { status: string; requester_user_id: string };
 type LeaveParticipationRow = { event_id: string };
+type RemoveEventParticipantRow = { event_id: string };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = (Deno.env.get("TELEGRAM_DB_SECRET_KEY") ?? "").trim();
@@ -379,6 +381,35 @@ async function meetings(auth: AuthContext) {
   return json(await collectVisibleMeetings(ownedIds, participatingIds, mapItem));
 }
 
+function assertParticipantId(participantId: string) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(participantId))
+    throw Object.assign(new Error("Участник не найден."), { status: 404 });
+}
+
+async function removeEventParticipant(
+  eventId: string,
+  participantId: string,
+  auth: AuthContext,
+) {
+  assertParticipantId(participantId);
+  const { data, error } = await db.rpc("remove_event_participant", {
+    p_event_id: eventId,
+    p_participant_id: participantId,
+    p_actor_user_id: auth.user.id,
+  }).single<RemoveEventParticipantRow>();
+  if (error) {
+    console.error(
+      "remove_event_participant_rpc_failed",
+      error.code,
+      removeEventParticipantErrorToken(error) ?? "unknown",
+    );
+    throw removeEventParticipantHttpError(error);
+  }
+  if (data?.event_id !== eventId)
+    throw new Error("Remove participant RPC returned no event.");
+  return json({ removed: true });
+}
+
 async function publicEvents(request: Request, auth: AuthContext) {
   void auth;
   const url = new URL(request.url);
@@ -522,6 +553,7 @@ Deno.serve(async (request) => {
     if (path === "/public/events" && request.method === "GET") return await publicEvents(request, auth);
     const responseMatch = path.match(/^\/events\/([^/]+)\/response$/); if (responseMatch && request.method === "POST") return await saveResponse(request, decodeURIComponent(responseMatch[1]), auth);
     const participationMatch = path.match(/^\/events\/([^/]+)\/participation$/); if (participationMatch && request.method === "DELETE") return await leaveParticipation(decodeURIComponent(participationMatch[1]), auth);
+    const organizerParticipantMatch = path.match(/^\/events\/([^/]+)\/participants\/([^/]+)$/); if (organizerParticipantMatch && request.method === "DELETE") return await removeEventParticipant(decodeURIComponent(organizerParticipantMatch[1]), decodeURIComponent(organizerParticipantMatch[2]), auth);
     const calendarLinkMatch = path.match(/^\/events\/([^/]+)\/calendar-link$/); if (calendarLinkMatch && request.method === "POST") return await calendarLink(request, decodeURIComponent(calendarLinkMatch[1]), auth);
     const joinRequestMatch = path.match(/^\/events\/([^/]+)\/join-request$/); if (joinRequestMatch && request.method === "POST") return await createJoinRequest(decodeURIComponent(joinRequestMatch[1]), auth);
     const organizerJoinRequestsMatch = path.match(/^\/events\/([^/]+)\/join-requests$/); if (organizerJoinRequestsMatch && request.method === "GET") return await organizerJoinRequests(decodeURIComponent(organizerJoinRequestsMatch[1]), auth);
