@@ -106,6 +106,13 @@ export const api = {
           `/events/${encodeURIComponent(id)}/participation`,
           { method: "DELETE" },
         ),
+  removeParticipant: (eventId: string, participantId: string) =>
+    useMock
+      ? mockApi.removeParticipant(eventId, participantId)
+      : request<{ removed: true }>(
+          `/events/${encodeURIComponent(eventId)}/participants/${encodeURIComponent(participantId)}`,
+          { method: "DELETE" },
+        ),
   meetings: () =>
     useMock
       ? mockApi.meetings()

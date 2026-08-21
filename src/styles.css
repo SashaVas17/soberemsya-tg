@@ -546,6 +546,66 @@ textarea {
   margin-top: 10px;
   padding: 12px;
 }
+.participant-remove-action {
+  align-items: center;
+  background: color-mix(in srgb, var(--coral) 10%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--coral) 65%, var(--line));
+  border-radius: 10px;
+  color: var(--coral);
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 800;
+  justify-content: center;
+  min-height: 42px;
+  padding: 8px 12px;
+  width: 100%;
+}
+.participant-remove-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.participant-remove-backdrop {
+  align-items: center;
+  background: color-mix(in srgb, var(--color-text) 38%, transparent);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  overflow-y: auto;
+  padding: calc(18px + env(safe-area-inset-top))
+    calc(14px + env(safe-area-inset-right))
+    calc(18px + env(safe-area-inset-bottom))
+    calc(14px + env(safe-area-inset-left));
+  position: fixed;
+  z-index: 25;
+}
+.participant-remove-dialog {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 14px;
+  max-width: 430px;
+  min-width: 0;
+  padding: 20px;
+  width: min(100%, 430px);
+}
+.participant-remove-dialog h2,
+.participant-remove-dialog p {
+  margin: 0;
+}
+.participant-remove-error {
+  color: var(--coral);
+  font-weight: 750;
+}
+.participant-remove-actions {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+}
+.participant-remove-actions button {
+  min-height: 50px;
+}
 .decision-panel {
   border-color: var(--teal);
 }

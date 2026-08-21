@@ -294,6 +294,23 @@ export const mockApi = {
     };
     return { left: true as const };
   },
+  removeParticipant: async (eventId: string, participantId: string) => {
+    if (eventId !== event.id)
+      throw Object.assign(new Error("Встреча не найдена."), { status: 404 });
+    if (event.myResponse?.id === participantId)
+      throw Object.assign(new Error("Организатора нельзя исключить."), {
+        status: 403,
+      });
+    if (!event.participants.some((person) => person.id === participantId))
+      throw Object.assign(new Error("Участник не найден."), { status: 404 });
+    event = {
+      ...event,
+      participants: event.participants.filter(
+        (person) => person.id !== participantId,
+      ),
+    };
+    return { removed: true as const };
+  },
   meetings: async () => ({ owned: [listItem("owner")], participating: [] }),
   manage: async (_id: string, payload: any) => {
     if (payload.action === "update_details")

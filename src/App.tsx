@@ -81,6 +81,7 @@ import type {
   EventData,
   EventStatus,
   MeetingListItem,
+  OrganizerParticipant,
   PublicEventPreview,
   PublicMeetingFeedItem,
 } from "./types";
@@ -1739,6 +1740,9 @@ function Manage({
   const [finalTime, setFinalTime] = useState("");
   const [finalPlace, setFinalPlace] = useState("");
   const [saving, setSaving] = useState(false);
+  const [participantToRemove, setParticipantToRemove] = useState<OrganizerParticipant | null>(null);
+  const [removingParticipantId, setRemovingParticipantId] = useState<string | null>(null);
+  const [participantRemovalError, setParticipantRemovalError] = useState("");
   const actionLock = useRef(false);
   useEffect(() => {
     if (!state.event) return;
@@ -1772,6 +1776,26 @@ function Manage({
       return false;
     } finally {
       setSaving(false);
+    }
+  };
+  const removeParticipant = async () => {
+    if (!participantToRemove || removingParticipantId) return;
+    const participantId = participantToRemove.id;
+    setRemovingParticipantId(participantId);
+    setParticipantRemovalError("");
+    try {
+      const result = await api.removeParticipant(eventId, participantId);
+      if (!result.removed) throw new Error("Participant removal failed.");
+      setParticipantToRemove(null);
+      await state.load(true);
+      haptic();
+    } catch {
+      setParticipantRemovalError(
+        "Не удалось исключить участника. Попробуйте ещё раз.",
+      );
+      haptic("error");
+    } finally {
+      setRemovingParticipantId(null);
     }
   };
   if (!state.event)
@@ -2026,6 +2050,21 @@ function Manage({
                   <p>
                     <b>Ограничения:</b> {person.restrictions || "нет"}
                   </p>
+                  {event.myResponse?.id !== person.id && (
+                    <button
+                      className="participant-remove-action"
+                      disabled={removingParticipantId === person.id}
+                      onClick={() => {
+                        setParticipantRemovalError("");
+                        setParticipantToRemove(person);
+                      }}
+                      type="button"
+                    >
+                      {removingParticipantId === person.id
+                        ? "Исключаем…"
+                        : "Исключить из встречи"}
+                    </button>
+                  )}
                 </div>
               </details>
             ))
@@ -2036,6 +2075,45 @@ function Manage({
             />
           )}
         </section>
+        {participantToRemove && (
+          <div className="participant-remove-backdrop" role="presentation">
+            <section
+              aria-labelledby="participant-remove-title"
+              aria-modal="true"
+              className="participant-remove-dialog"
+              role="dialog"
+            >
+              <h2 id="participant-remove-title">Исключить участника?</h2>
+              <p>Его ответ и голоса будут удалены.</p>
+              {participantRemovalError && (
+                <p className="participant-remove-error" role="alert">
+                  {participantRemovalError}
+                </p>
+              )}
+              <div className="participant-remove-actions">
+                <button
+                  className="secondary-action"
+                  disabled={Boolean(removingParticipantId)}
+                  onClick={() => {
+                    setParticipantRemovalError("");
+                    setParticipantToRemove(null);
+                  }}
+                  type="button"
+                >
+                  Отмена
+                </button>
+                <button
+                  className="danger-button"
+                  disabled={Boolean(removingParticipantId)}
+                  onClick={() => void removeParticipant()}
+                  type="button"
+                >
+                  {removingParticipantId ? "Исключаем…" : "Исключить"}
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
         <section className="panel manage-card decision-panel">
           <h2>Окончательное решение</h2>
           <label className="field">
