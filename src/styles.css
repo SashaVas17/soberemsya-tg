@@ -1443,6 +1443,8 @@ code {
 }
 .slot-option-card .field {
   gap: 6px;
+  min-width: 0;
+  width: 100%;
 }
 .slot-option-card .field > span {
   font-size: 13px;
@@ -1495,6 +1497,26 @@ code {
 }
 .time-picker-dialog .section-row {
   align-items: center;
+  min-width: 0;
+}
+.time-picker-dialog .section-row h2 {
+  min-width: 0;
+}
+.time-picker-dialog .field {
+  min-width: 0;
+  width: 100%;
+}
+.time-picker-dialog input[type="date"],
+.time-picker-dialog input[type="time"],
+.slot-option-card input[type="date"],
+.slot-option-card input[type="time"] {
+  box-sizing: border-box;
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
 }
 .time-picker-dialog .icon-action {
   font-size: 25px;
@@ -1507,12 +1529,6 @@ code {
 }
 .time-picker-actions button {
   min-height: 50px;
-}
-.slot-option-card input[type="date"],
-.slot-option-card input[type="time"] {
-  max-width: 100%;
-  min-width: 0;
-  width: 100%;
 }
 .slot-card {
   align-items: center;

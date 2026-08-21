@@ -201,6 +201,23 @@ describe("create screen boundaries", () => {
     expect(styles).toContain("gap: 12px;");
   });
 
+  it("constrains native date and time controls in both Step 2 contexts", () => {
+    const styles = readFileSync("src/styles.css", "utf8");
+    for (const selector of [
+      ".time-picker-dialog input[type=\"date\"]",
+      ".time-picker-dialog input[type=\"time\"]",
+      ".slot-option-card input[type=\"date\"]",
+      ".slot-option-card input[type=\"time\"]",
+    ]) {
+      expect(styles).toContain(selector);
+    }
+    expect(styles).toContain(".time-picker-dialog .field {");
+    expect(styles).toContain(".slot-option-card .field {");
+    expect(styles).toContain("box-sizing: border-box;");
+    expect(styles).toContain("max-width: 100%;");
+    expect(styles).toContain("min-width: 0;");
+  });
+
   it("keeps the Step 2 back route in Telegram and removes its screen back button", () => {
     expect(createSource).toContain("previousCreateStep(current)");
     expect(createSource).toContain("{step === 3 && (");
