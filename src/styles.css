@@ -1459,6 +1459,47 @@ code {
   min-height: 48px;
   padding-inline: 16px;
 }
+.time-picker-backdrop {
+  align-items: center;
+  background: color-mix(in srgb, var(--color-text) 38%, transparent);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 18px;
+  position: fixed;
+  z-index: 20;
+}
+.time-picker-dialog {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 16px;
+  max-width: 430px;
+  padding: 20px;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  width: 100%;
+}
+.time-picker-dialog h2 {
+  font-size: 20px;
+  margin: 0;
+}
+.time-picker-dialog .section-row {
+  align-items: center;
+}
+.time-picker-dialog .icon-action {
+  font-size: 25px;
+  line-height: 1;
+}
+.time-picker-actions {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 1fr;
+}
+.time-picker-actions button {
+  min-height: 50px;
+}
 .slot-option-card input[type="date"],
 .slot-option-card input[type="time"] {
   max-width: 100%;

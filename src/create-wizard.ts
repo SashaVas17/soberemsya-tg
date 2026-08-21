@@ -75,6 +75,13 @@ export function addTimeOption(options: string[], option: string) {
   return [...options, option].sort();
 }
 
+export function createTimeOption(date: string, time: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time))
+    return null;
+  const value = new Date(`${date}T${time}:00`);
+  return Number.isNaN(value.getTime()) ? null : value.toISOString();
+}
+
 export function removeTimeOption(options: string[], option: string) {
   return options.filter((value) => value !== option);
 }

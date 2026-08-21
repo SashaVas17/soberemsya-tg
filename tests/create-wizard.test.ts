@@ -5,6 +5,7 @@ import {
   advanceCreateStep,
   createdEventPath,
   createEventPayload,
+  createTimeOption,
   previousCreateStep,
   removeTimeOption,
   submitCreateEventOnce,
@@ -53,6 +54,19 @@ describe("create meeting wizard", () => {
     const withSecond = addTimeOption([firstTime], secondTime);
     expect(withSecond).toEqual([firstTime, secondTime]);
     expect(addTimeOption(withSecond, secondTime)).toBe(withSecond);
+  });
+
+  it("creates a time option only from an explicit date and time confirmation", () => {
+    const selected = createTimeOption("2026-10-20", "19:45");
+    expect(selected).not.toBeNull();
+    const localValue = new Date(selected!);
+    expect(localValue.getFullYear()).toBe(2026);
+    expect(localValue.getMonth()).toBe(9);
+    expect(localValue.getDate()).toBe(20);
+    expect(localValue.getHours()).toBe(19);
+    expect(localValue.getMinutes()).toBe(45);
+    expect(createTimeOption("", "18:30")).toBeNull();
+    expect(createTimeOption("2026-10-20", "25:00")).toBeNull();
   });
 
   it("removes one time option without changing the others", () => {
@@ -162,7 +176,20 @@ describe("create screen boundaries", () => {
     expect(slotBuilderSource).toContain('type="date"');
     expect(slotBuilderSource).toContain('type="time"');
     expect(slotBuilderSource).toContain('className="secondary-action slot-add-action"');
+    expect(slotBuilderSource).toContain("setPickerOpen(true)");
+    expect(slotBuilderSource).toContain("onClick={confirmPicker}");
+    expect(slotBuilderSource).toContain("onClick={() => setPickerOpen(false)}");
     expect(slotBuilderSource).not.toContain('className="slot-controls"');
+  });
+
+  it("does not mutate draft time options while opening the picker", () => {
+    const addButton = slotBuilderSource.slice(
+      slotBuilderSource.indexOf('className="secondary-action slot-add-action"'),
+      slotBuilderSource.indexOf("{pickerOpen && (")
+    );
+    expect(addButton).toContain("onClick={openPicker}");
+    expect(addButton).not.toContain("onChange(");
+    expect(addButton).not.toContain("addTimeOption(");
   });
 
   it("keeps the Step 2 back route in Telegram and removes its screen back button", () => {

@@ -22,6 +22,7 @@ import {
   advanceCreateStep,
   addTimeOption,
   createdEventPath,
+  createTimeOption,
   previousCreateStep,
   removeTimeOption,
   submitCreateEventOnce,
@@ -605,11 +606,15 @@ function SlotBuilder({
   onChange: (next: string[]) => void;
 }) {
   const today = new Date();
-  const defaultDate = today.toISOString().slice(0, 10);
+  const pad = (part: number) => String(part).padStart(2, "0");
+  const defaultDate = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
   const defaultTime = "18:30";
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerDate, setPickerDate] = useState(defaultDate);
+  const [pickerTime, setPickerTime] = useState(defaultTime);
+  const [pickerError, setPickerError] = useState("");
   const slotValues = (slot: string) => {
     const value = new Date(slot);
-    const pad = (part: number) => String(part).padStart(2, "0");
     return {
       date: `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`,
       time: `${pad(value.getHours())}:${pad(value.getMinutes())}`,
@@ -618,6 +623,26 @@ function SlotBuilder({
   const change = (slot: string, nextDate: string, nextTime: string) => {
     const value = new Date(`${nextDate}T${nextTime}:00`).toISOString();
     onChange(addTimeOption(removeTimeOption(slots, slot), value));
+  };
+  const openPicker = () => {
+    setPickerDate(defaultDate);
+    setPickerTime(defaultTime);
+    setPickerError("");
+    setPickerOpen(true);
+  };
+  const confirmPicker = () => {
+    const option = createTimeOption(pickerDate, pickerTime);
+    if (!option) {
+      setPickerError("Выберите корректные дату и время.");
+      return;
+    }
+    if (slots.includes(option)) {
+      setPickerError("Этот вариант уже добавлен.");
+      return;
+    }
+    onChange(addTimeOption(slots, option));
+    setPickerOpen(false);
+    setPickerError("");
   };
   return (
     <div className="slot-builder">
@@ -660,19 +685,68 @@ function SlotBuilder({
       </div>
       <button
         className="secondary-action slot-add-action"
-        onClick={() =>
-          onChange(
-            addTimeOption(
-              slots,
-              new Date(`${defaultDate}T${defaultTime}:00`).toISOString(),
-            ),
-          )
-        }
+        onClick={openPicker}
         type="button"
       >
         <Plus size={18} />
-        Добавить вариант
+        Добавить время
       </button>
+      {pickerOpen && (
+        <div className="time-picker-backdrop" role="presentation">
+          <section
+            aria-labelledby="time-picker-title"
+            aria-modal="true"
+            className="time-picker-dialog"
+            role="dialog"
+          >
+            <div className="section-row">
+              <h2 id="time-picker-title">Новый вариант времени</h2>
+              <button
+                aria-label="Закрыть выбор времени"
+                className="icon-action"
+                onClick={() => setPickerOpen(false)}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+            <label className="field">
+              <span>Дата</span>
+              <input
+                min={defaultDate}
+                onChange={(event) => setPickerDate(event.target.value)}
+                type="date"
+                value={pickerDate}
+              />
+            </label>
+            <label className="field">
+              <span>Время</span>
+              <input
+                onChange={(event) => setPickerTime(event.target.value)}
+                type="time"
+                value={pickerTime}
+              />
+            </label>
+            {pickerError && <p className="form-error">{pickerError}</p>}
+            <div className="time-picker-actions">
+              <button
+                className="secondary-action"
+                onClick={() => setPickerOpen(false)}
+                type="button"
+              >
+                Отмена
+              </button>
+              <button
+                className="primary-action"
+                onClick={confirmPicker}
+                type="button"
+              >
+                Добавить
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
