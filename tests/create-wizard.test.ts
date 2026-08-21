@@ -192,6 +192,15 @@ describe("create screen boundaries", () => {
     expect(addButton).not.toContain("addTimeOption(");
   });
 
+  it("keeps Step 2 controls inside narrow mobile viewports", () => {
+    const styles = readFileSync("src/styles.css", "utf8");
+    expect(styles).toContain("width: min(100%, 430px)");
+    expect(styles).toContain("env(safe-area-inset-left)");
+    expect(styles).toContain("env(safe-area-inset-right)");
+    expect(styles).toContain("grid-template-columns: minmax(0, 1fr);");
+    expect(styles).toContain("gap: 12px;");
+  });
+
   it("keeps the Step 2 back route in Telegram and removes its screen back button", () => {
     expect(createSource).toContain("previousCreateStep(current)");
     expect(createSource).toContain("{step === 3 && (");
