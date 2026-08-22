@@ -97,9 +97,14 @@ describe("atomic save_event_response RPC", () => {
 describe("atomic response HTTP integration", () => {
   it("keeps Telegram authentication and the existing request fields", () => {
     expect(apiSource).toContain("const auth = await authenticate(request);");
-    expect(saveResponse).toContain('body && typeof body === "object"');
-    for (const field of ["area", "budget", "preferences", "restrictions", "availableTimeOptionIds"])
-      expect(saveResponse).toContain(`payload.${field}`);
+    expect(saveResponse).toContain(
+      "readJsonObject(request, API_JSON_BODY_LIMIT_BYTES)",
+    );
+    expect(saveResponse).toContain('textField(payload, "area"');
+    expect(saveResponse).toContain("payload.budget");
+    expect(saveResponse).toContain('textField(payload, "preferences"');
+    expect(saveResponse).toContain('textField(payload, "restrictions"');
+    expect(saveResponse).toContain('"availableTimeOptionIds"');
   });
 
   it("uses verified auth as the only RPC actor identity", () => {

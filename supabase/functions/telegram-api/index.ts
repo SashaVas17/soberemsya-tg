@@ -1,4 +1,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2.111.0";
+import {
+  API_JSON_BODY_LIMIT_BYTES,
+  readJsonObject,
+  TELEGRAM_AUTH_BODY_LIMIT_BYTES,
+} from "../_shared/bounded-json.ts";
 import { buildIcs, isCalendarTicketValid, signCalendarTicket } from "../_shared/calendar.ts";
 import { assertEventAvailable, assertFullEventReadAccess, assertOwner, parseEventStartParam, type Status } from "../_shared/domain.ts";
 import { organizerEventPayload, participantEventPayload, privateInviteEventPayload, resolveEventViewerRole, type EventViewerRole } from "../_shared/event-payload.ts";
@@ -50,6 +55,58 @@ const db = createClient(supabaseUrl, serviceKey, {
 });
 
 function id(prefix: string) { return `${prefix}_${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`; }
+
+function invalidRequest(message: string): never {
+  throw Object.assign(new Error(message), { status: 400 });
+}
+
+function textField(
+  payload: Record<string, unknown>,
+  key: string,
+  maxLength: number,
+  message: string,
+) {
+  const value = payload[key];
+  if (value === undefined || value === null) return "";
+  if (typeof value !== "string") invalidRequest(message);
+  const text = value.trim();
+  if (text.length > maxLength) invalidRequest(message);
+  return text;
+}
+
+function arrayField(
+  payload: Record<string, unknown>,
+  key: string,
+  message: string,
+) {
+  const value = payload[key];
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value) || value.length > 50) invalidRequest(message);
+  return value;
+}
+
+function stringArrayField(
+  payload: Record<string, unknown>,
+  key: string,
+  message: string,
+) {
+  const values = arrayField(payload, key, message);
+  if (values.some((value) => typeof value !== "string")) invalidRequest(message);
+  return values as string[];
+}
+
+function budgetField(value: unknown) {
+  const budget = Number(value ?? 0);
+  if (!Number.isInteger(budget) || budget < 0 || budget > 2_147_483_647)
+    invalidRequest("Укажите корректный бюджет.");
+  return budget;
+}
+
+function record(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
 
 async function authenticate(request: Request, bodyInitData?: string): Promise<AuthContext> {
   const raw = bodyInitData ?? request.headers.get("x-telegram-init-data") ?? "";
@@ -177,18 +234,40 @@ async function publicEventPreview(eventId: string, userId: string) {
 }
 
 async function createEvent(request: Request, auth: AuthContext) {
-  const payload = await request.json();
-  const title = String(payload.title ?? "").trim();
+  const payload = await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES);
+  const title = textField(payload, "title", 200, "Укажите корректное название встречи.");
+  const description = textField(payload, "description", 4_000, "Описание слишком длинное.");
   const { visibility, maxParticipants } = parseCreateMeetingMode(payload);
-  const times = [...new Set((payload.timeOptions ?? []).map(String).filter((value: string) => !Number.isNaN(Date.parse(value))))].sort() as string[];
+  const times = [...new Set(stringArrayField(
+    payload,
+    "timeOptions",
+    "Укажите не более 50 вариантов времени.",
+  ).filter((value) => !Number.isNaN(Date.parse(value))))].sort();
   if (!title) throw Object.assign(new Error("Укажите название встречи."), { status: 400 });
   if (!times.length) throw Object.assign(new Error("Добавьте хотя бы один вариант даты и времени."), { status: 400 });
+  const places = arrayField(
+    payload,
+    "placeOptions",
+    "Укажите не более 50 вариантов мест.",
+  ).flatMap((value) => {
+    const place = record(value);
+    if (!place) return [];
+    const placeTitle = textField(place, "title", 200, "Название места слишком длинное.");
+    if (!placeTitle) return [];
+    return [{
+      id: id("place"),
+      event_id: "",
+      title: placeTitle,
+      area: textField(place, "area", 200, "Район слишком длинный."),
+      estimated_budget: budgetField(place.estimatedBudget),
+    }];
+  });
   const eventId = id("evt");
-  const { error } = await db.from("events").insert({ id: eventId, admin_token: id("backup"), owner_user_id: auth.user.id, title, description: String(payload.description ?? "").trim(), budget_limit: Math.max(0, Number(payload.budgetLimit) || 0), visibility, max_participants: maxParticipants });
+  const { error } = await db.from("events").insert({ id: eventId, admin_token: id("backup"), owner_user_id: auth.user.id, title, description, budget_limit: budgetField(payload.budgetLimit), visibility, max_participants: maxParticipants });
   if (error) throw error;
   const { error: timeError } = await db.from("time_options").insert(times.map((startsAt) => ({ id: id("time"), event_id: eventId, starts_at: startsAt })));
   if (timeError) throw timeError;
-  const places = (payload.placeOptions ?? []).filter((place: { title?: string }) => place.title?.trim()).map((place: { title: string; area?: string; estimatedBudget?: number }) => ({ id: id("place"), event_id: eventId, title: place.title.trim(), area: String(place.area ?? "").trim(), estimated_budget: Math.max(0, Number(place.estimatedBudget) || 0) }));
+  for (const place of places) place.event_id = eventId;
   if (places.length) { const { error: placeError } = await db.from("place_options").insert(places); if (placeError) throw placeError; }
   return json({ event: await eventPayload(eventId, auth.user.id) }, 201);
 }
@@ -317,24 +396,22 @@ async function decideJoinRequest(
 }
 
 async function saveResponse(request: Request, eventId: string, auth: AuthContext) {
-  const body = await request.json();
-  const payload = body && typeof body === "object"
-    ? body as Record<string, unknown>
-    : {};
-  const budget = Number(payload.budget ?? 0);
-  if (!Number.isInteger(budget) || budget < 0 || budget > 2_147_483_647)
-    throw responseSaveHttpError({ code: "P0001", message: "RESPONSE_INVALID_BUDGET" });
+  const payload = await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES);
+  const budget = budgetField(payload.budget);
+  const availableTimeOptionIds = stringArrayField(
+    payload,
+    "availableTimeOptionIds",
+    "Укажите не более 50 вариантов времени.",
+  );
 
   const { error } = await db.rpc("save_event_response", {
     p_event_id: eventId,
     p_actor_user_id: auth.user.id,
-    p_area: String(payload.area ?? "").trim(),
+    p_area: textField(payload, "area", 200, "Район слишком длинный."),
     p_budget: budget,
-    p_preferences: String(payload.preferences ?? "").trim(),
-    p_restrictions: String(payload.restrictions ?? "").trim(),
-    p_available_time_option_ids: Array.isArray(payload.availableTimeOptionIds)
-      ? payload.availableTimeOptionIds.map(String)
-      : [],
+    p_preferences: textField(payload, "preferences", 4_000, "Предпочтения слишком длинные."),
+    p_restrictions: textField(payload, "restrictions", 4_000, "Ограничения слишком длинные."),
+    p_available_time_option_ids: availableTimeOptionIds,
   }).single<SaveEventResponseRow>();
   if (error) {
     console.error(
@@ -389,12 +466,12 @@ async function updateActiveOwnedEvent(
 async function manageEvent(request: Request, eventId: string, auth: AuthContext) {
   const { data: event, error } = await db.from("events").select("owner_user_id,status").eq("id", eventId).is("deleted_at", null).maybeSingle(); if (error) throw error; if (!event) throw unavailableManagedEventError(); assertOwner(event.owner_user_id, auth.user.id);
   if (request.method === "DELETE") { await updateActiveOwnedEvent(eventId, auth.user.id, { deleted_at: new Date().toISOString() }); return json({ deleted: true }); }
-  const payload = await request.json();
+  const payload = await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES);
   switch (payload.action) {
-    case "update_details": { const title = String(payload.title ?? "").trim(); if (!title) throw Object.assign(new Error("Название не может быть пустым."), { status: 400 }); await updateActiveOwnedEvent(eventId, auth.user.id, { title, description: String(payload.description ?? "").trim() }); break; }
+    case "update_details": { const title = textField(payload, "title", 200, "Название встречи слишком длинное."); if (!title) throw Object.assign(new Error("Название не может быть пустым."), { status: 400 }); await updateActiveOwnedEvent(eventId, auth.user.id, { title, description: textField(payload, "description", 4_000, "Описание слишком длинное.") }); break; }
     case "add_time": { const startsAt = String(payload.startsAt ?? ""); if (Number.isNaN(Date.parse(startsAt))) throw Object.assign(new Error("Некорректная дата."), { status: 400 }); const { error: insertError } = await db.from("time_options").insert({ id: id("time"), event_id: eventId, starts_at: startsAt }); if (insertError) throw insertError; break; }
     case "remove_time": { const optionId = String(payload.timeOptionId ?? ""); const { error: deleteError } = await db.from("time_options").delete().eq("id", optionId).eq("event_id", eventId); if (deleteError) throw deleteError; break; }
-    case "add_place": { const place = payload.place ?? {}; const title = String(place.title ?? "").trim(); if (!title) throw Object.assign(new Error("Укажите место."), { status: 400 }); const { error: insertError } = await db.from("place_options").insert({ id: id("place"), event_id: eventId, title, area: String(place.area ?? "").trim(), estimated_budget: Math.max(0, Number(place.estimatedBudget) || 0) }); if (insertError) throw insertError; break; }
+    case "add_place": { const place = record(payload.place) ?? {}; const title = textField(place, "title", 200, "Название места слишком длинное."); if (!title) throw Object.assign(new Error("Укажите место."), { status: 400 }); const { error: insertError } = await db.from("place_options").insert({ id: id("place"), event_id: eventId, title, area: textField(place, "area", 200, "Район слишком длинный."), estimated_budget: budgetField(place.estimatedBudget) }); if (insertError) throw insertError; break; }
     case "remove_place": { const { error: deleteError } = await db.from("place_options").delete().eq("id", String(payload.placeOptionId ?? "")).eq("event_id", eventId); if (deleteError) throw deleteError; break; }
     case "close": { await updateActiveOwnedEvent(eventId, auth.user.id, { status: "place_selection" }); break; }
     case "reopen": { await updateActiveOwnedEvent(eventId, auth.user.id, { status: "collecting", final_time_option_id: null, final_place_id: null }); break; }
@@ -615,7 +692,7 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
       url.searchParams,
     );
   if (path === "/telegram/auth") {
-    const body = await request.json();
+    const body = await readJsonObject(request, TELEGRAM_AUTH_BODY_LIMIT_BYTES);
     const auth = await authenticate(request, String(body.initData ?? ""));
     parseEventStartParam(auth.startParam);
     return json({

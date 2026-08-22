@@ -64,7 +64,9 @@ describe("Edge Function HTTP hardening", () => {
     expect(bot).toContain('if (request.method !== "POST")');
     expect(bot).toContain('{ allow: "POST" }');
     expect(bot).not.toContain("corsHeaders");
-    expect(bot.indexOf('if (request.method !== "POST")')).toBeLessThan(bot.indexOf("request.json()"));
+    expect(bot.indexOf('if (request.method !== "POST")')).toBeLessThan(
+      bot.indexOf("const update = await readJsonObject"),
+    );
   });
 
   it("removes wildcard CORS and leaves auth server-side", () => {
