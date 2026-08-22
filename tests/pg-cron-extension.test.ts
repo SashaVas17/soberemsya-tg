@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20260822142000_enable_pg_cron.sql",
+  "supabase/migrations/20260822111927_enable_pg_cron.sql",
   "utf8",
 ).replace(/\r\n/g, "\n");
 
