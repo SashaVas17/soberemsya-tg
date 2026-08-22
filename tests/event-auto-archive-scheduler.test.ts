@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20260822114700_schedule_event_auto_archive.sql",
+  "supabase/migrations/20260822114830_schedule_event_auto_archive.sql",
   "utf8",
 ).replace(/\r\n/g, "\n");
 
