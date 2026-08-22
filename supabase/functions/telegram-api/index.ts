@@ -367,19 +367,40 @@ async function leaveParticipation(eventId: string, auth: AuthContext) {
   return json({ left: true });
 }
 
+function unavailableManagedEventError() {
+  return Object.assign(new Error("Встреча не найдена."), { status: 404 });
+}
+
+async function updateActiveOwnedEvent(
+  eventId: string,
+  ownerUserId: string,
+  changes: Record<string, unknown>,
+) {
+  const { data, error } = await db
+    .from("events")
+    .update(changes)
+    .eq("id", eventId)
+    .eq("owner_user_id", ownerUserId)
+    .is("deleted_at", null)
+    .select("id")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw unavailableManagedEventError();
+}
+
 async function manageEvent(request: Request, eventId: string, auth: AuthContext) {
-  const { data: event, error } = await db.from("events").select("owner_user_id,status").eq("id", eventId).is("deleted_at", null).maybeSingle(); if (error) throw error; if (!event) throw Object.assign(new Error("Встреча не найдена."), { status: 404 }); assertOwner(event.owner_user_id, auth.user.id);
-  if (request.method === "DELETE") { const { error: deleteError } = await db.from("events").update({ deleted_at: new Date().toISOString() }).eq("id", eventId).eq("owner_user_id", auth.user.id); if (deleteError) throw deleteError; return json({ deleted: true }); }
+  const { data: event, error } = await db.from("events").select("owner_user_id,status").eq("id", eventId).is("deleted_at", null).maybeSingle(); if (error) throw error; if (!event) throw unavailableManagedEventError(); assertOwner(event.owner_user_id, auth.user.id);
+  if (request.method === "DELETE") { await updateActiveOwnedEvent(eventId, auth.user.id, { deleted_at: new Date().toISOString() }); return json({ deleted: true }); }
   const payload = await request.json();
   switch (payload.action) {
-    case "update_details": { const title = String(payload.title ?? "").trim(); if (!title) throw Object.assign(new Error("Название не может быть пустым."), { status: 400 }); const { error: updateError } = await db.from("events").update({ title, description: String(payload.description ?? "").trim() }).eq("id", eventId); if (updateError) throw updateError; break; }
+    case "update_details": { const title = String(payload.title ?? "").trim(); if (!title) throw Object.assign(new Error("Название не может быть пустым."), { status: 400 }); await updateActiveOwnedEvent(eventId, auth.user.id, { title, description: String(payload.description ?? "").trim() }); break; }
     case "add_time": { const startsAt = String(payload.startsAt ?? ""); if (Number.isNaN(Date.parse(startsAt))) throw Object.assign(new Error("Некорректная дата."), { status: 400 }); const { error: insertError } = await db.from("time_options").insert({ id: id("time"), event_id: eventId, starts_at: startsAt }); if (insertError) throw insertError; break; }
     case "remove_time": { const optionId = String(payload.timeOptionId ?? ""); const { error: deleteError } = await db.from("time_options").delete().eq("id", optionId).eq("event_id", eventId); if (deleteError) throw deleteError; break; }
     case "add_place": { const place = payload.place ?? {}; const title = String(place.title ?? "").trim(); if (!title) throw Object.assign(new Error("Укажите место."), { status: 400 }); const { error: insertError } = await db.from("place_options").insert({ id: id("place"), event_id: eventId, title, area: String(place.area ?? "").trim(), estimated_budget: Math.max(0, Number(place.estimatedBudget) || 0) }); if (insertError) throw insertError; break; }
     case "remove_place": { const { error: deleteError } = await db.from("place_options").delete().eq("id", String(payload.placeOptionId ?? "")).eq("event_id", eventId); if (deleteError) throw deleteError; break; }
-    case "close": { const { error: updateError } = await db.from("events").update({ status: "place_selection" }).eq("id", eventId); if (updateError) throw updateError; break; }
-    case "reopen": { const { error: updateError } = await db.from("events").update({ status: "collecting", final_time_option_id: null, final_place_id: null }).eq("id", eventId); if (updateError) throw updateError; break; }
-    case "decide": { const timeId = String(payload.finalTimeOptionId ?? ""); const placeId = String(payload.finalPlaceId ?? ""); const [{ data: time }, { data: place }] = await Promise.all([db.from("time_options").select("id").eq("id", timeId).eq("event_id", eventId).maybeSingle(), db.from("place_options").select("id").eq("id", placeId).eq("event_id", eventId).maybeSingle()]); if (!time || !place) throw Object.assign(new Error("Выберите допустимые время и место."), { status: 400 }); const { error: updateError } = await db.from("events").update({ status: "decided", final_time_option_id: timeId, final_place_id: placeId }).eq("id", eventId); if (updateError) throw updateError; break; }
+    case "close": { await updateActiveOwnedEvent(eventId, auth.user.id, { status: "place_selection" }); break; }
+    case "reopen": { await updateActiveOwnedEvent(eventId, auth.user.id, { status: "collecting", final_time_option_id: null, final_place_id: null }); break; }
+    case "decide": { const timeId = String(payload.finalTimeOptionId ?? ""); const placeId = String(payload.finalPlaceId ?? ""); const [{ data: time }, { data: place }] = await Promise.all([db.from("time_options").select("id").eq("id", timeId).eq("event_id", eventId).maybeSingle(), db.from("place_options").select("id").eq("id", placeId).eq("event_id", eventId).maybeSingle()]); if (!time || !place) throw Object.assign(new Error("Выберите допустимые время и место."), { status: 400 }); await updateActiveOwnedEvent(eventId, auth.user.id, { status: "decided", final_time_option_id: timeId, final_place_id: placeId }); break; }
     default: throw Object.assign(new Error("Неизвестное действие."), { status: 400 });
   }
   return json({ event: await eventPayload(eventId, auth.user.id) });
