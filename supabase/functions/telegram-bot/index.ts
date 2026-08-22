@@ -1,4 +1,4 @@
-import { corsHeaders, errorResponse, json } from "../_shared/http.ts";
+import { errorResponse, json } from "../_shared/http.ts";
 
 const token = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 const appUrl = Deno.env.get("TELEGRAM_MINI_APP_URL") ?? "";
@@ -10,7 +10,12 @@ async function telegram(method: string, body: unknown) {
 }
 
 Deno.serve(async (request) => {
-  if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (request.method !== "POST")
+    return json(
+      { error: "Метод не поддерживается." },
+      405,
+      { allow: "POST" },
+    );
   try {
     if (!token || !appUrl || !webhookSecret) throw new Error("Telegram bot secrets are not configured");
     if (request.headers.get("x-telegram-bot-api-secret-token") !== webhookSecret) return json({ error: "Unauthorized" }, 401);

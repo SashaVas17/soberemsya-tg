@@ -122,7 +122,7 @@ describe("organizer participant removal HTTP contract", () => {
   it("registers an authenticated event and participant scoped DELETE route", () => {
     expect(apiSource).toContain("const auth = await authenticate(request);");
     expect(apiSource).toContain("const organizerParticipantMatch");
-    expect(apiSource).toContain('organizerParticipantMatch && request.method === "DELETE"');
+    expect(apiSource).toContain('participants\\/[^/]+$/.test(path)) return ["DELETE"]');
   });
 
   it("derives the actor only from validated Telegram auth", () => {

@@ -135,9 +135,7 @@ describe("organizer request list contract", () => {
   });
 
   it("registers the owner-only GET route before the generic event route", () => {
-    expect(backendSource).toContain(
-      'organizerJoinRequestsMatch && request.method === "GET"',
-    );
+    expect(backendSource).toContain('join-requests$/.test(path)) return ["GET"]');
     expect(backendSource.indexOf("const organizerJoinRequestsMatch")).toBeLessThan(
       backendSource.indexOf("const eventMatch"),
     );
@@ -177,9 +175,7 @@ describe("decision RPC and route architecture", () => {
   it("registers approve and reject POST routes", () => {
     expect(backendSource).toContain("joinRequestDecisionMatch");
     expect(backendSource).toContain("(approve|reject)");
-    expect(backendSource).toContain(
-      'joinRequestDecisionMatch && request.method === "POST"',
-    );
+    expect(backendSource).toContain('(approve|reject)$/.test(path)) return ["POST"]');
   });
 
   it("passes only route IDs and authenticated actor to the RPC", () => {

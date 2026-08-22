@@ -151,10 +151,14 @@ describe("public meetings feed endpoint boundaries", () => {
   });
 
   it("requires Telegram authentication before route dispatch", () => {
-    expect(backendSource.indexOf("const auth = await authenticate(request);")).toBeLessThan(
-      backendSource.indexOf('path === "/public/events"'),
+    const handler = backendSource.slice(
+      backendSource.indexOf("async function handleApiRequest"),
+      backendSource.indexOf("Deno.serve"),
     );
-    expect(backendSource).toContain('path === "/public/events" && request.method === "GET"');
+    expect(handler.indexOf("const auth = await authenticate(request);")).toBeLessThan(
+      handler.indexOf('path === "/public/events"'),
+    );
+    expect(backendSource).toContain('path === "/public/events") return ["GET"]');
   });
 
   it("leaves the existing public preview route and helper in place", () => {

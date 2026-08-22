@@ -24,7 +24,8 @@ describe("Telegram Mini App architecture", () => {
 
   it("checks backend health before Telegram authentication", () => {
     expect(edgeApi).toContain('path === "/health"');
-    expect(edgeApi).toContain('status: "ok"');
+    expect(edgeApi).toContain("return json({ ok: true });");
+    expect(edgeApi).not.toContain("databaseSecretLooksValid");
     expect(edgeApi).toContain("telegram_auth_validation_failed");
   });
 

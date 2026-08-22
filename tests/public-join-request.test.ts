@@ -47,9 +47,7 @@ afterEach(() => vi.restoreAllMocks());
 describe("public join-request HTTP contract", () => {
   it("registers POST /events/:eventId/join-request", () => {
     expect(backendSource).toContain("const joinRequestMatch");
-    expect(backendSource).toContain(
-      'joinRequestMatch && request.method === "POST"',
-    );
+    expect(backendSource).toContain('join-request$/.test(path)) return ["POST"]');
   });
 
   it("calls only create_join_request with route and authenticated identity", () => {

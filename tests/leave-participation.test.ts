@@ -109,9 +109,7 @@ describe("leave participation HTTP contract", () => {
   it("registers an authenticated DELETE route", () => {
     expect(apiSource).toContain("const auth = await authenticate(request);");
     expect(apiSource).toContain("const participationMatch");
-    expect(apiSource).toContain(
-      'participationMatch && request.method === "DELETE"',
-    );
+    expect(apiSource).toContain('participation$/.test(path)) return ["DELETE"]');
   });
 
   it("uses only the validated Telegram user id and cannot accept a body override", () => {

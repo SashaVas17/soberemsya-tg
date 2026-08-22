@@ -2,7 +2,12 @@ import { createClient } from "npm:@supabase/supabase-js@2.111.0";
 import { buildIcs, isCalendarTicketValid, signCalendarTicket } from "../_shared/calendar.ts";
 import { assertEventAvailable, assertFullEventReadAccess, assertOwner, parseEventStartParam, type Status } from "../_shared/domain.ts";
 import { organizerEventPayload, participantEventPayload, privateInviteEventPayload, resolveEventViewerRole, type EventViewerRole } from "../_shared/event-payload.ts";
-import { corsHeaders, errorResponse, json } from "../_shared/http.ts";
+import {
+  browserPreflightResponse,
+  errorResponse,
+  json,
+  withBrowserCors,
+} from "../_shared/http.ts";
 import { meetingListItem } from "../_shared/meeting-list.ts";
 import { collectVisibleMeetings } from "../_shared/meetings.ts";
 import { buildPublicEventPreview } from "../_shared/public-preview.ts";
@@ -65,14 +70,7 @@ async function authenticate(request: Request, bodyInitData?: string): Promise<Au
 }
 
 async function health() {
-  const databaseSecretPresent = Boolean(serviceKey);
-  const databaseSecretLooksValid = serviceKey.startsWith("sb_secret_");
-  if (!botToken || !serviceKey || !supabaseUrl)
-    return json({ status: "error", telegramConfigured: Boolean(botToken), databaseConfigured: Boolean(serviceKey && supabaseUrl), databaseSecretPresent, databaseSecretLooksValid }, 503);
-  const { error } = await db.from("users").select("id").limit(1);
-  return error
-    ? json({ status: "error", telegramConfigured: true, databaseConfigured: false, databaseSecretPresent, databaseSecretLooksValid, databaseCode: error.code }, 503)
-    : json({ status: "ok", telegramConfigured: true, databaseConfigured: true, databaseSecretPresent, databaseSecretLooksValid });
+  return json({ ok: true });
 }
 
 async function loadFullEventRow(eventId: string) {
@@ -566,7 +564,6 @@ async function calendarDownload(eventId: string, search: URLSearchParams) {
   });
   return new Response(text, {
     headers: {
-      ...corsHeaders,
       "content-type": "text/calendar; charset=utf-8",
       "content-disposition": "attachment; filename=\"soberemsya.ics\"",
       "cache-control": "private, no-store",
@@ -574,27 +571,143 @@ async function calendarDownload(eventId: string, search: URLSearchParams) {
   });
 }
 
+function apiPath(url: URL) {
+  const segments = url.pathname.split("/").filter(Boolean);
+  const functionIndex = segments.lastIndexOf("telegram-api");
+  return `/${segments.slice(functionIndex + 1).join("/")}`;
+}
+
+function allowedMethods(path: string) {
+  if (path === "/health" || /^\/calendar\/[^/]+$/.test(path)) return ["GET"];
+  if (path === "/telegram/auth" || path === "/events") return ["POST"];
+  if (path === "/me/meetings" || path === "/public/events") return ["GET"];
+  if (/^\/events\/[^/]+\/response$/.test(path)) return ["POST"];
+  if (/^\/events\/[^/]+\/participation$/.test(path)) return ["DELETE"];
+  if (/^\/events\/[^/]+\/participants\/[^/]+$/.test(path)) return ["DELETE"];
+  if (/^\/events\/[^/]+\/calendar-link$/.test(path)) return ["POST"];
+  if (/^\/events\/[^/]+\/join-request$/.test(path)) return ["POST"];
+  if (/^\/events\/[^/]+\/join-requests$/.test(path)) return ["GET"];
+  if (/^\/events\/[^/]+\/join-requests\/[^/]+\/(approve|reject)$/.test(path)) return ["POST"];
+  if (/^\/events\/[^/]+\/manage$/.test(path)) return ["PATCH", "DELETE"];
+  if (/^\/events\/[^/]+\/preview$/.test(path)) return ["GET"];
+  if (/^\/events\/[^/]+$/.test(path)) return ["GET"];
+  return null;
+}
+
+function isBrowserApiPath(path: string) {
+  return path !== "/health" && !/^\/calendar\/[^/]+$/.test(path);
+}
+
+function methodNotAllowed(methods: string[]) {
+  return json(
+    { error: "Метод не поддерживается." },
+    405,
+    { allow: methods.join(", ") },
+  );
+}
+
+async function handleApiRequest(request: Request, url: URL, path: string) {
+  if (path === "/health") return await health();
+  const calendarMatch = path.match(/^\/calendar\/([^/]+)$/);
+  if (calendarMatch)
+    return await calendarDownload(
+      decodeURIComponent(calendarMatch[1]),
+      url.searchParams,
+    );
+  if (path === "/telegram/auth") {
+    const body = await request.json();
+    const auth = await authenticate(request, String(body.initData ?? ""));
+    parseEventStartParam(auth.startParam);
+    return json({
+      user: {
+        id: auth.user.id,
+        telegramUserId: auth.user.telegram_user_id,
+        username: auth.user.username,
+        firstName: auth.user.first_name,
+        lastName: auth.user.last_name,
+        photoUrl: auth.user.photo_url,
+      },
+      startParam: auth.startParam,
+    });
+  }
+
+  const auth = await authenticate(request);
+  if (path === "/events") return await createEvent(request, auth);
+  if (path === "/me/meetings") return await meetings(auth);
+  if (path === "/public/events") return await publicEvents(request, auth);
+  const responseMatch = path.match(/^\/events\/([^/]+)\/response$/);
+  if (responseMatch)
+    return await saveResponse(request, decodeURIComponent(responseMatch[1]), auth);
+  const participationMatch = path.match(/^\/events\/([^/]+)\/participation$/);
+  if (participationMatch)
+    return await leaveParticipation(decodeURIComponent(participationMatch[1]), auth);
+  const organizerParticipantMatch = path.match(/^\/events\/([^/]+)\/participants\/([^/]+)$/);
+  if (organizerParticipantMatch)
+    return await removeEventParticipant(
+      decodeURIComponent(organizerParticipantMatch[1]),
+      decodeURIComponent(organizerParticipantMatch[2]),
+      auth,
+    );
+  const calendarLinkMatch = path.match(/^\/events\/([^/]+)\/calendar-link$/);
+  if (calendarLinkMatch)
+    return await calendarLink(request, decodeURIComponent(calendarLinkMatch[1]), auth);
+  const joinRequestMatch = path.match(/^\/events\/([^/]+)\/join-request$/);
+  if (joinRequestMatch)
+    return await createJoinRequest(decodeURIComponent(joinRequestMatch[1]), auth);
+  const organizerJoinRequestsMatch = path.match(/^\/events\/([^/]+)\/join-requests$/);
+  if (organizerJoinRequestsMatch)
+    return await organizerJoinRequests(
+      decodeURIComponent(organizerJoinRequestsMatch[1]),
+      auth,
+    );
+  const joinRequestDecisionMatch = path.match(/^\/events\/([^/]+)\/join-requests\/([^/]+)\/(approve|reject)$/);
+  if (joinRequestDecisionMatch)
+    return await decideJoinRequest(
+      joinRequestDecisionMatch[3] as JoinRequestDecisionAction,
+      decodeURIComponent(joinRequestDecisionMatch[1]),
+      decodeURIComponent(joinRequestDecisionMatch[2]),
+      auth,
+    );
+  const manageMatch = path.match(/^\/events\/([^/]+)\/manage$/);
+  if (manageMatch)
+    return await manageEvent(request, decodeURIComponent(manageMatch[1]), auth);
+  const previewMatch = path.match(/^\/events\/([^/]+)\/preview$/);
+  if (previewMatch)
+    return json({
+      preview: await publicEventPreview(decodeURIComponent(previewMatch[1]), auth.user.id),
+    });
+  const eventMatch = path.match(/^\/events\/([^/]+)$/);
+  if (eventMatch)
+    return json({
+      event: await fullEventForRequest(decodeURIComponent(eventMatch[1]), auth.user.id),
+    });
+  return json({ error: "Маршрут не найден." }, 404);
+}
+
 Deno.serve(async (request) => {
-  if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const url = new URL(request.url);
+  const path = apiPath(url);
+  const methods = allowedMethods(path);
+  const browserApi = isBrowserApiPath(path);
+
+  if (request.method === "OPTIONS") {
+    if (!methods) {
+      const response = json({ error: "Маршрут не найден." }, 404);
+      return browserApi ? withBrowserCors(request, response) : response;
+    }
+    if (!browserApi) return methodNotAllowed(methods ?? []);
+    return browserPreflightResponse(request);
+  }
+  if (methods && !methods.includes(request.method)) {
+    const response = methodNotAllowed(methods);
+    return browserApi ? withBrowserCors(request, response) : response;
+  }
+
   try {
-    const url = new URL(request.url); const segments = url.pathname.split("/").filter(Boolean); const functionIndex = segments.lastIndexOf("telegram-api"); const path = `/${segments.slice(functionIndex + 1).join("/")}`;
-    if (path === "/health" && request.method === "GET") return await health();
-    const calendarMatch = path.match(/^\/calendar\/([^/]+)$/); if (calendarMatch && request.method === "GET") return await calendarDownload(decodeURIComponent(calendarMatch[1]), url.searchParams);
-    if (path === "/telegram/auth" && request.method === "POST") { const body = await request.json(); const auth = await authenticate(request, String(body.initData ?? "")); parseEventStartParam(auth.startParam); return json({ user: { id: auth.user.id, telegramUserId: auth.user.telegram_user_id, username: auth.user.username, firstName: auth.user.first_name, lastName: auth.user.last_name, photoUrl: auth.user.photo_url }, startParam: auth.startParam }); }
-    const auth = await authenticate(request);
-    if (path === "/events" && request.method === "POST") return await createEvent(request, auth);
-    if (path === "/me/meetings" && request.method === "GET") return await meetings(auth);
-    if (path === "/public/events" && request.method === "GET") return await publicEvents(request, auth);
-    const responseMatch = path.match(/^\/events\/([^/]+)\/response$/); if (responseMatch && request.method === "POST") return await saveResponse(request, decodeURIComponent(responseMatch[1]), auth);
-    const participationMatch = path.match(/^\/events\/([^/]+)\/participation$/); if (participationMatch && request.method === "DELETE") return await leaveParticipation(decodeURIComponent(participationMatch[1]), auth);
-    const organizerParticipantMatch = path.match(/^\/events\/([^/]+)\/participants\/([^/]+)$/); if (organizerParticipantMatch && request.method === "DELETE") return await removeEventParticipant(decodeURIComponent(organizerParticipantMatch[1]), decodeURIComponent(organizerParticipantMatch[2]), auth);
-    const calendarLinkMatch = path.match(/^\/events\/([^/]+)\/calendar-link$/); if (calendarLinkMatch && request.method === "POST") return await calendarLink(request, decodeURIComponent(calendarLinkMatch[1]), auth);
-    const joinRequestMatch = path.match(/^\/events\/([^/]+)\/join-request$/); if (joinRequestMatch && request.method === "POST") return await createJoinRequest(decodeURIComponent(joinRequestMatch[1]), auth);
-    const organizerJoinRequestsMatch = path.match(/^\/events\/([^/]+)\/join-requests$/); if (organizerJoinRequestsMatch && request.method === "GET") return await organizerJoinRequests(decodeURIComponent(organizerJoinRequestsMatch[1]), auth);
-    const joinRequestDecisionMatch = path.match(/^\/events\/([^/]+)\/join-requests\/([^/]+)\/(approve|reject)$/); if (joinRequestDecisionMatch && request.method === "POST") return await decideJoinRequest(joinRequestDecisionMatch[3] as JoinRequestDecisionAction, decodeURIComponent(joinRequestDecisionMatch[1]), decodeURIComponent(joinRequestDecisionMatch[2]), auth);
-    const manageMatch = path.match(/^\/events\/([^/]+)\/manage$/); if (manageMatch && ["PATCH", "DELETE"].includes(request.method)) return await manageEvent(request, decodeURIComponent(manageMatch[1]), auth);
-    const previewMatch = path.match(/^\/events\/([^/]+)\/preview$/); if (previewMatch && request.method === "GET") return json({ preview: await publicEventPreview(decodeURIComponent(previewMatch[1]), auth.user.id) });
-    const eventMatch = path.match(/^\/events\/([^/]+)$/); if (eventMatch && request.method === "GET") return json({ event: await fullEventForRequest(decodeURIComponent(eventMatch[1]), auth.user.id) });
-    return json({ error: "Маршрут не найден." }, 404);
-  } catch (error) { return errorResponse(error); }
+    const response = await handleApiRequest(request, url, path);
+    return browserApi ? withBrowserCors(request, response) : response;
+  } catch (error) {
+    const response = errorResponse(error);
+    return browserApi ? withBrowserCors(request, response) : response;
+  }
 });
