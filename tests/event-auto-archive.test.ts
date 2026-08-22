@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20260822113000_archive_completed_events.sql",
+  "supabase/migrations/20260822110311_archive_completed_events.sql",
   "utf8",
 ).replace(/\r\n/g, "\n");
 const apiSource = readFileSync("supabase/functions/telegram-api/index.ts", "utf8");
