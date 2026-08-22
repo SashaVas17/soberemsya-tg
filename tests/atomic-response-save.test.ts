@@ -4,7 +4,7 @@ import { responseSaveErrorToken, responseSaveHttpError } from "../supabase/funct
 import { errorResponse } from "../supabase/functions/_shared/http";
 
 const migration = readFileSync(
-  "supabase/migrations/20260822092004_atomic_save_event_response.sql",
+  "supabase/migrations/20260822101611_atomic_save_event_response.sql",
   "utf8",
 );
 const apiSource = readFileSync("supabase/functions/telegram-api/index.ts", "utf8");
