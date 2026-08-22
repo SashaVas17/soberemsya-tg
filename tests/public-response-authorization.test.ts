@@ -177,34 +177,29 @@ describe("mock response parity", () => {
 
 describe("saveResponse architecture guard", () => {
   const source = readFileSync("supabase/functions/telegram-api/index.ts", "utf8");
-  const saveResponse = source.slice(source.indexOf("async function saveResponse"), source.indexOf("async function manageEvent"));
+  const saveResponse = source.slice(source.indexOf("async function saveResponse"), source.indexOf("async function leaveParticipation"));
 
-  it("loads status, visibility and owner in the existing event query", () => {
-    expect(saveResponse).toContain('select("status,visibility,owner_user_id")');
-    expect(saveResponse.match(/db\.from\("events"\)/g)).toHaveLength(1);
+  it("delegates the complete response mutation to one RPC", () => {
+    expect(saveResponse.match(/db\.rpc\("save_event_response"/g)).toHaveLength(1);
+    expect(saveResponse).toContain("p_actor_user_id: auth.user.id");
   });
 
-  it("authorizes before options and every participant or vote write", () => {
-    const authorization = saveResponse.indexOf("authorizeParticipantResponse");
-    expect(authorization).toBeGreaterThan(saveResponse.indexOf("assertVotingOpen"));
-    for (const write of ['db.from("time_options")', 'db.from("participants").update', 'db.from("participants").insert', 'db.from("availability_votes").delete', 'db.from("availability_votes").insert'])
-      expect(authorization).toBeLessThan(saveResponse.indexOf(write));
+  it("does not keep the former multi-write participant and vote sequence", () => {
+    expect(saveResponse).not.toContain('db.from("participants")');
+    expect(saveResponse).not.toContain('db.from("availability_votes")');
+    expect(saveResponse).not.toContain('db.from("time_options")');
   });
 
   it("keeps membership authoritative and does not query join requests", () => {
-    expect(saveResponse).toContain('.eq("event_id", eventId).eq("user_id", auth.user.id)');
     expect(saveResponse).not.toContain("join_requests");
   });
 
-  it("keeps participant insertion behind the private-only authorization action", () => {
-    expect(saveResponse).toContain('authorization === "update"');
+  it("preserves the current public and private authorization model", () => {
     expect(authorizeParticipantResponse({ visibility: "private", ownerUserId: null, currentUserId: user.id, participantId: null })).toBe("insert-private");
     expect(() => authorizeParticipantResponse({ visibility: "public", ownerUserId: "owner", currentUserId: user.id, participantId: null })).toThrow();
   });
 
-  it("preserves deleted and closed-event guards before public authorization", () => {
-    expect(saveResponse.indexOf('.is("deleted_at", null)')).toBeLessThan(saveResponse.indexOf("authorizeParticipantResponse"));
-    expect(saveResponse.indexOf("assertVotingOpen")).toBeLessThan(saveResponse.indexOf("authorizeParticipantResponse"));
+  it("preserves deleted and closed-event domain rules", () => {
     expect(() => assertEventAvailable(null)).toThrow("не найдена");
     expect(() => assertVotingOpen("place_selection")).toThrow("закрыт");
     expect(() => assertVotingOpen("decided")).toThrow("закрыт");

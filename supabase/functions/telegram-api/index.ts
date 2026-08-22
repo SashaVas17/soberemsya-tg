@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.111.0";
 import { buildIcs, isCalendarTicketValid, signCalendarTicket } from "../_shared/calendar.ts";
-import { assertEventAvailable, assertFullEventReadAccess, assertOwner, assertVotingOpen, authorizeParticipantResponse, parseEventStartParam, type Status } from "../_shared/domain.ts";
+import { assertEventAvailable, assertFullEventReadAccess, assertOwner, parseEventStartParam, type Status } from "../_shared/domain.ts";
 import { organizerEventPayload, participantEventPayload, privateInviteEventPayload, resolveEventViewerRole, type EventViewerRole } from "../_shared/event-payload.ts";
 import { corsHeaders, errorResponse, json } from "../_shared/http.ts";
 import { meetingListItem } from "../_shared/meeting-list.ts";
@@ -13,6 +13,7 @@ import { createJoinRequestErrorToken, createJoinRequestHttpError, createJoinRequ
 import { joinRequestDecisionErrorToken, joinRequestDecisionHttpError, joinRequestDecisionResponse, organizerJoinRequestsResponse, resolveJoinRequestDecisionRetry, type JoinRequestDecisionAction, type JoinRequestListRow, type RequesterProfileRow } from "../_shared/organizer-join-requests.ts";
 import { leaveParticipationErrorToken, leaveParticipationHttpError } from "../_shared/leave-participation.ts";
 import { removeEventParticipantErrorToken, removeEventParticipantHttpError } from "../_shared/remove-event-participant.ts";
+import { responseSaveErrorToken, responseSaveHttpError } from "../_shared/response-save.ts";
 
 type Db = ReturnType<typeof createClient>;
 type AppUser = { id: string; telegram_user_id: string; username: string | null; first_name: string; last_name: string | null; photo_url: string | null };
@@ -25,6 +26,7 @@ type JoinRequestDecisionRpcRow = { request_id: string; participant_id?: string }
 type JoinRequestStateRow = { status: string; requester_user_id: string };
 type LeaveParticipationRow = { event_id: string };
 type RemoveEventParticipantRow = { event_id: string };
+type SaveEventResponseRow = { participant_id: string };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = (Deno.env.get("TELEGRAM_DB_SECRET_KEY") ?? "").trim();
@@ -317,22 +319,33 @@ async function decideJoinRequest(
 }
 
 async function saveResponse(request: Request, eventId: string, auth: AuthContext) {
-  const payload = await request.json();
-  const { data: event, error } = await db.from("events").select("status,visibility,owner_user_id").eq("id", eventId).is("deleted_at", null).maybeSingle();
-  if (error) throw error; if (!event) throw Object.assign(new Error("Встреча не найдена или удалена."), { status: 404 }); assertVotingOpen(event.status);
-  const { data: existing, error: existingError } = await db.from("participants").select("id").eq("event_id", eventId).eq("user_id", auth.user.id).maybeSingle(); if (existingError) throw existingError;
-  const authorization = authorizeParticipantResponse({ visibility: event.visibility, ownerUserId: event.owner_user_id, currentUserId: auth.user.id, participantId: existing?.id ?? null });
-  const { data: options, error: optionsError } = await db.from("time_options").select("id").eq("event_id", eventId); if (optionsError) throw optionsError;
-  const validIds = new Set((options ?? []).map((option) => option.id)); const availableIds = [...new Set((payload.availableTimeOptionIds ?? []).map(String))] as string[];
-  if (availableIds.some((optionId) => !validIds.has(optionId))) throw Object.assign(new Error("Один из вариантов времени больше недоступен."), { status: 400 });
-  const name = [auth.user.first_name, auth.user.last_name].filter(Boolean).join(" ");
-  const values = { name, area: String(payload.area ?? "").trim(), budget: Math.max(0, Number(payload.budget) || 0), preferences: String(payload.preferences ?? "").trim(), restrictions: String(payload.restrictions ?? "").trim() };
-  const participantId = existing?.id ?? crypto.randomUUID();
-  const participantError = authorization === "update" ? (await db.from("participants").update(values).eq("event_id", eventId).eq("user_id", auth.user.id)).error : (await db.from("participants").insert({ id: participantId, event_id: eventId, user_id: auth.user.id, edit_token: crypto.randomUUID(), ...values })).error;
-  if (participantError) throw participantError;
-  const { error: deleteError } = await db.from("availability_votes").delete().eq("participant_id", participantId); if (deleteError) throw deleteError;
-  const rows = (options ?? []).map((option) => ({ participant_id: participantId, time_option_id: option.id, is_available: availableIds.includes(option.id) }));
-  if (rows.length) { const { error: voteError } = await db.from("availability_votes").insert(rows); if (voteError) throw voteError; }
+  const body = await request.json();
+  const payload = body && typeof body === "object"
+    ? body as Record<string, unknown>
+    : {};
+  const budget = Number(payload.budget ?? 0);
+  if (!Number.isInteger(budget) || budget < 0 || budget > 2_147_483_647)
+    throw responseSaveHttpError({ code: "P0001", message: "RESPONSE_INVALID_BUDGET" });
+
+  const { error } = await db.rpc("save_event_response", {
+    p_event_id: eventId,
+    p_actor_user_id: auth.user.id,
+    p_area: String(payload.area ?? "").trim(),
+    p_budget: budget,
+    p_preferences: String(payload.preferences ?? "").trim(),
+    p_restrictions: String(payload.restrictions ?? "").trim(),
+    p_available_time_option_ids: Array.isArray(payload.availableTimeOptionIds)
+      ? payload.availableTimeOptionIds.map(String)
+      : [],
+  }).single<SaveEventResponseRow>();
+  if (error) {
+    console.error(
+      "save_event_response_rpc_failed",
+      error.code,
+      responseSaveErrorToken(error) ?? "unknown",
+    );
+    throw responseSaveHttpError(error);
+  }
   return json({ event: await eventPayload(eventId, auth.user.id) });
 }
 

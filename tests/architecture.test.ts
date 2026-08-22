@@ -9,7 +9,7 @@ const frontendApi = readFileSync("src/api.ts", "utf8");
 describe("Telegram Mini App architecture", () => {
   it("enforces one participant per event and Telegram user", () => {
     expect(migration).toContain("unique (event_id, user_id)");
-    expect(edgeApi).toMatch(/eq\("event_id", eventId\)\.eq\("user_id", auth\.user\.id\)/);
+    expect(edgeApi).toContain('db.rpc("save_event_response"');
   });
 
   it("checks organizer ownership on server mutations", () => {
