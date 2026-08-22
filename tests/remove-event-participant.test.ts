@@ -7,7 +7,7 @@ import {
 import { errorResponse } from "../supabase/functions/_shared/http";
 
 const migration = readFileSync(
-  "supabase/migrations/20260821193743_remove_event_participant.sql",
+  "supabase/migrations/20260821165200_remove_event_participant.sql",
   "utf8",
 ).replace(/\r\n/g, "\n");
 const schema = readFileSync(
