@@ -6,7 +6,7 @@ const migration = readFileSync(
   "utf8",
 );
 const hotfixMigration = readFileSync(
-  "supabase/migrations/20260825121500_fix_ensure_telegram_user_conflict.sql",
+  "supabase/migrations/20260825122438_fix_ensure_telegram_user_conflict.sql",
   "utf8",
 );
 const api = readFileSync("supabase/functions/telegram-api/index.ts", "utf8");
