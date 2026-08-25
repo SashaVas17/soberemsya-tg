@@ -5,6 +5,10 @@ const migration = readFileSync(
   "supabase/migrations/20260825120742_ensure_telegram_user.sql",
   "utf8",
 );
+const hotfixMigration = readFileSync(
+  "supabase/migrations/20260825121500_fix_ensure_telegram_user_conflict.sql",
+  "utf8",
+);
 const api = readFileSync("supabase/functions/telegram-api/index.ts", "utf8");
 const authenticate = api.slice(
   api.indexOf("async function authenticate"),
@@ -41,30 +45,67 @@ describe("ensure_telegram_user migration", () => {
     expect(migration).not.toContain("p_init_data");
   });
 
-  it("inserts once and resolves concurrent conflicts through the existing unique key", () => {
+  it("leaves the canonical migration untouched", () => {
     expect(migration).toContain("on conflict (telegram_user_id) do nothing");
-    expect(migration).toContain("where user_profile.telegram_user_id = p_telegram_user_id");
-    expect(migration).toContain("for update;");
-    expect(migration).toContain("v_user.telegram_user_id::text");
   });
 
-  it("updates only when nullable Telegram profile values actually differ", () => {
+  it("uses the named unique constraint in the replacement function", () => {
+    expect(hotfixMigration).toContain(
+      "on conflict on constraint users_telegram_user_id_key do nothing",
+    );
+    expect(hotfixMigration).not.toContain("on conflict (telegram_user_id) do nothing");
+  });
+
+  it("preserves the RPC signature, return shape, and conflict resolution", () => {
+    for (const source of [migration, hotfixMigration]) {
+      expect(source).toContain("create or replace function public.ensure_telegram_user(");
+      for (const parameter of [
+        "p_telegram_user_id bigint",
+        "p_username text",
+        "p_first_name text",
+        "p_last_name text",
+        "p_language_code text",
+        "p_photo_url text",
+      ]) expect(source).toContain(parameter);
+      expect(source).toContain("returns table (");
+      for (const field of ["id uuid", "telegram_user_id text", "username text", "first_name text", "last_name text", "photo_url text"])
+        expect(source).toContain(field);
+    }
+    expect(migration).toContain("where user_profile.telegram_user_id = p_telegram_user_id");
+    expect(hotfixMigration).toContain("where user_profile.telegram_user_id = p_telegram_user_id");
+    expect(hotfixMigration).toContain("for update;");
+    expect(hotfixMigration).toContain("v_user.telegram_user_id::text");
+  });
+
+  it("preserves conditional updates only when nullable Telegram profile values differ", () => {
     for (const field of ["username", "first_name", "last_name", "language_code", "photo_url"])
-      expect(migration).toContain(`v_user.${field} is distinct from p_${field}`);
-    const unchangedGuard = migration.slice(
-      migration.indexOf("if v_user.username is distinct from"),
-      migration.indexOf("end if;\n  end if;"),
+      expect(hotfixMigration).toContain(`v_user.${field} is distinct from p_${field}`);
+    const unchangedGuard = hotfixMigration.slice(
+      hotfixMigration.indexOf("if v_user.username is distinct from"),
+      hotfixMigration.indexOf("end if;\n  end if;"),
     );
     expect(unchangedGuard).toContain("update public.users");
     expect(unchangedGuard).toContain("updated_at = now()");
-    expect(migration).not.toContain("created_at =");
-    expect(migration).not.toContain("set telegram_user_id =");
+    expect(hotfixMigration).not.toContain("created_at =");
+    expect(hotfixMigration).not.toContain("set telegram_user_id =");
   });
 
   it("has no update statement outside the profile-change branch", () => {
-    expect(migration.match(/update public\.users/g)).toHaveLength(1);
-    expect(migration.indexOf("if v_user.username is distinct from")).toBeLessThan(
-      migration.indexOf("update public.users"),
+    expect(hotfixMigration.match(/update public\.users/g)).toHaveLength(1);
+    expect(hotfixMigration.indexOf("if v_user.username is distinct from")).toBeLessThan(
+      hotfixMigration.indexOf("update public.users"),
+    );
+  });
+
+  it("preserves SECURITY DEFINER and service-role-only grants in the replacement", () => {
+    expect(hotfixMigration).toContain("security definer");
+    expect(hotfixMigration).toContain("set search_path = pg_catalog, public");
+    for (const role of ["public", "anon", "authenticated"])
+      expect(hotfixMigration).toContain(
+        `revoke all on function public.ensure_telegram_user(bigint, text, text, text, text, text) from ${role};`,
+      );
+    expect(hotfixMigration).toContain(
+      "grant execute on function public.ensure_telegram_user(bigint, text, text, text, text, text)\n  to service_role;",
     );
   });
 });
