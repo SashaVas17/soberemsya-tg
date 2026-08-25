@@ -7,7 +7,7 @@ import {
 import { errorResponse } from "../supabase/functions/_shared/http";
 
 const migrationPath =
-  "supabase/migrations/20260825180000_atomic_event_creation.sql";
+  "supabase/migrations/20260825192358_atomic_event_creation.sql";
 const migration = readFileSync(migrationPath, "utf8");
 const api = readFileSync("supabase/functions/telegram-api/index.ts", "utf8");
 const createEvent = api.slice(
@@ -33,7 +33,7 @@ describe("atomic event creation migration", () => {
   it("adds exactly one focused migration and leaves the prior final-option migration canonical", () => {
     const migrations = readdirSync("supabase/migrations");
     expect(migrations.filter((name) => name.includes("atomic_event_creation")))
-      .toEqual(["20260825180000_atomic_event_creation.sql"]);
+      .toEqual(["20260825192358_atomic_event_creation.sql"]);
     expect(readFileSync(
       "supabase/migrations/20260825173426_protect_final_event_options.sql",
       "utf8",
