@@ -117,7 +117,7 @@ describe("final option removal error mapping", () => {
       'status: "collecting", final_time_option_id: null, final_place_id: null',
     );
     expect(manageEvent).toContain('case "decide"');
-    expect(api).toContain('db.from("events").insert');
+    expect(api).toContain('db.rpc("create_event_atomic"');
     expect(api).toContain('db.from("availability_votes")');
     expect(api).not.toContain("remove_event_time_option");
     expect(api).not.toContain("remove_event_place_option");

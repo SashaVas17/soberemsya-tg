@@ -26,6 +26,7 @@ import { removeEventParticipantErrorToken, removeEventParticipantHttpError } fro
 import { responseSaveErrorToken, responseSaveHttpError } from "../_shared/response-save.ts";
 import { optionAdditionErrorToken, optionAdditionHttpError } from "../_shared/event-option-addition.ts";
 import { finalOptionRemovalHttpError } from "../_shared/final-option-removal.ts";
+import { eventCreationErrorToken, eventCreationHttpError } from "../_shared/event-creation.ts";
 
 type Db = ReturnType<typeof createClient>;
 type AppUser = { id: string; telegram_user_id: string; username: string | null; first_name: string; last_name: string | null; photo_url: string | null };
@@ -40,6 +41,7 @@ type LeaveParticipationRow = { event_id: string };
 type RemoveEventParticipantRow = { event_id: string };
 type SaveEventResponseRow = { participant_id: string };
 type EventOptionAdditionRow = { option_id: string };
+type CreateEventRow = { event_id: string };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = (Deno.env.get("TELEGRAM_DB_SECRET_KEY") ?? "").trim();
@@ -266,19 +268,34 @@ async function createEvent(request: Request, auth: AuthContext) {
     if (!placeTitle) return [];
     return [{
       id: id("place"),
-      event_id: "",
       title: placeTitle,
       area: textField(place, "area", 200, "Район слишком длинный."),
-      estimated_budget: budgetField(place.estimatedBudget),
+      estimatedBudget: budgetField(place.estimatedBudget),
     }];
   });
   const eventId = id("evt");
-  const { error } = await db.from("events").insert({ id: eventId, admin_token: id("backup"), owner_user_id: auth.user.id, title, description, budget_limit: budgetField(payload.budgetLimit), visibility, max_participants: maxParticipants });
-  if (error) throw error;
-  const { error: timeError } = await db.from("time_options").insert(times.map((startsAt) => ({ id: id("time"), event_id: eventId, starts_at: startsAt })));
-  if (timeError) throw timeError;
-  for (const place of places) place.event_id = eventId;
-  if (places.length) { const { error: placeError } = await db.from("place_options").insert(places); if (placeError) throw placeError; }
+  const { data, error } = await db.rpc("create_event_atomic", {
+    p_event_id: eventId,
+    p_actor_user_id: auth.user.id,
+    p_admin_token: id("backup"),
+    p_title: title,
+    p_description: description,
+    p_budget_limit: budgetField(payload.budgetLimit),
+    p_visibility: visibility,
+    p_max_participants: maxParticipants,
+    p_time_options: times.map((startsAt) => ({ id: id("time"), startsAt })),
+    p_place_options: places,
+  }).single<CreateEventRow>();
+  if (error) {
+    console.error(
+      "create_event_atomic_rpc_failed",
+      error.code,
+      eventCreationErrorToken(error) ?? "unknown",
+    );
+    throw eventCreationHttpError(error);
+  }
+  if (data?.event_id !== eventId)
+    throw new Error("Create event RPC returned no event.");
   return json({ event: await eventPayload(eventId, auth.user.id) }, 201);
 }
 

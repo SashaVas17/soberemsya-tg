@@ -89,6 +89,7 @@ describe("Open Meetings create mode", () => {
     expect(source).toContain("visibility,max_participants");
     expect(payload).toContain('visibility: event.visibility === "public" ? "public" : "private"');
     expect(payload).toContain("maxParticipants: event.max_participants ?? null");
-    expect(source).toContain("visibility, max_participants: maxParticipants");
+    expect(source).toContain("p_visibility: visibility");
+    expect(source).toContain("p_max_participants: maxParticipants");
   });
 });
