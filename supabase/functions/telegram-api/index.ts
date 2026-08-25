@@ -24,6 +24,7 @@ import { joinRequestDecisionErrorToken, joinRequestDecisionHttpError, joinReques
 import { leaveParticipationErrorToken, leaveParticipationHttpError } from "../_shared/leave-participation.ts";
 import { removeEventParticipantErrorToken, removeEventParticipantHttpError } from "../_shared/remove-event-participant.ts";
 import { responseSaveErrorToken, responseSaveHttpError } from "../_shared/response-save.ts";
+import { optionAdditionErrorToken, optionAdditionHttpError } from "../_shared/event-option-addition.ts";
 
 type Db = ReturnType<typeof createClient>;
 type AppUser = { id: string; telegram_user_id: string; username: string | null; first_name: string; last_name: string | null; photo_url: string | null };
@@ -37,6 +38,7 @@ type JoinRequestStateRow = { status: string; requester_user_id: string };
 type LeaveParticipationRow = { event_id: string };
 type RemoveEventParticipantRow = { event_id: string };
 type SaveEventResponseRow = { participant_id: string };
+type EventOptionAdditionRow = { option_id: string };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = (Deno.env.get("TELEGRAM_DB_SECRET_KEY") ?? "").trim();
@@ -476,9 +478,9 @@ async function manageEvent(request: Request, eventId: string, auth: AuthContext)
   const payload = await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES);
   switch (payload.action) {
     case "update_details": { const title = textField(payload, "title", 200, "Название встречи слишком длинное."); if (!title) throw Object.assign(new Error("Название не может быть пустым."), { status: 400 }); await updateActiveOwnedEvent(eventId, auth.user.id, { title, description: textField(payload, "description", 4_000, "Описание слишком длинное.") }); break; }
-    case "add_time": { const startsAt = String(payload.startsAt ?? ""); if (Number.isNaN(Date.parse(startsAt))) throw Object.assign(new Error("Некорректная дата."), { status: 400 }); const { error: insertError } = await db.from("time_options").insert({ id: id("time"), event_id: eventId, starts_at: startsAt }); if (insertError) throw insertError; break; }
+    case "add_time": { const startsAt = String(payload.startsAt ?? ""); if (Number.isNaN(Date.parse(startsAt))) throw Object.assign(new Error("Некорректная дата."), { status: 400 }); const { error: rpcError } = await db.rpc("add_event_time_option", { p_event_id: eventId, p_actor_user_id: auth.user.id, p_option_id: id("time"), p_starts_at: startsAt }).single<EventOptionAdditionRow>(); if (rpcError) { console.error("add_event_time_option_rpc_failed", rpcError.code, optionAdditionErrorToken(rpcError) ?? "unknown"); throw optionAdditionHttpError(rpcError); } break; }
     case "remove_time": { const optionId = String(payload.timeOptionId ?? ""); const { error: deleteError } = await db.from("time_options").delete().eq("id", optionId).eq("event_id", eventId); if (deleteError) throw deleteError; break; }
-    case "add_place": { const place = record(payload.place) ?? {}; const title = textField(place, "title", 200, "Название места слишком длинное."); if (!title) throw Object.assign(new Error("Укажите место."), { status: 400 }); const { error: insertError } = await db.from("place_options").insert({ id: id("place"), event_id: eventId, title, area: textField(place, "area", 200, "Район слишком длинный."), estimated_budget: budgetField(place.estimatedBudget) }); if (insertError) throw insertError; break; }
+    case "add_place": { const place = record(payload.place) ?? {}; const title = textField(place, "title", 200, "Название места слишком длинное."); if (!title) throw Object.assign(new Error("Укажите место."), { status: 400 }); const { error: rpcError } = await db.rpc("add_event_place_option", { p_event_id: eventId, p_actor_user_id: auth.user.id, p_option_id: id("place"), p_title: title, p_area: textField(place, "area", 200, "Район слишком длинный."), p_estimated_budget: budgetField(place.estimatedBudget) }).single<EventOptionAdditionRow>(); if (rpcError) { console.error("add_event_place_option_rpc_failed", rpcError.code, optionAdditionErrorToken(rpcError) ?? "unknown"); throw optionAdditionHttpError(rpcError); } break; }
     case "remove_place": { const { error: deleteError } = await db.from("place_options").delete().eq("id", String(payload.placeOptionId ?? "")).eq("event_id", eventId); if (deleteError) throw deleteError; break; }
     case "close": { await updateActiveOwnedEvent(eventId, auth.user.id, { status: "place_selection" }); break; }
     case "reopen": { await updateActiveOwnedEvent(eventId, auth.user.id, { status: "collecting", final_time_option_id: null, final_place_id: null }); break; }
