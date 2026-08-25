@@ -7,7 +7,7 @@ import {
 import { errorResponse } from "../supabase/functions/_shared/http";
 
 const migrationPath =
-  "supabase/migrations/20260825123000_limit_event_option_additions.sql";
+  "supabase/migrations/20260825170533_limit_event_option_additions.sql";
 const migration = readFileSync(migrationPath, "utf8");
 const api = readFileSync("supabase/functions/telegram-api/index.ts", "utf8");
 const manageEvent = api.slice(
@@ -62,7 +62,7 @@ describe("transactional event option cap migrations", () => {
   it("adds exactly one focused migration without changing the canonical hotfix migration", () => {
     const migrations = readdirSync("supabase/migrations");
     expect(migrations.filter((name) => name.includes("limit_event_option_additions")))
-      .toEqual(["20260825123000_limit_event_option_additions.sql"]);
+      .toEqual(["20260825170533_limit_event_option_additions.sql"]);
     expect(readFileSync(
       "supabase/migrations/20260825122438_fix_ensure_telegram_user_conflict.sql",
       "utf8",
