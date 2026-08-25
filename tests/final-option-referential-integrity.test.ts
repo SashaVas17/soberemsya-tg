@@ -4,7 +4,7 @@ import { finalOptionRemovalHttpError } from "../supabase/functions/_shared/final
 import { errorResponse } from "../supabase/functions/_shared/http";
 
 const migrationPath =
-  "supabase/migrations/20260825203000_protect_final_event_options.sql";
+  "supabase/migrations/20260825173426_protect_final_event_options.sql";
 const migration = readFileSync(migrationPath, "utf8").replace(/\r\n/g, "\n");
 const api = readFileSync("supabase/functions/telegram-api/index.ts", "utf8");
 const manageEvent = api.slice(
@@ -24,7 +24,7 @@ describe("final event option referential integrity migration", () => {
   it("adds exactly one new migration without modifying the option-cap migration", () => {
     const migrations = readdirSync("supabase/migrations");
     expect(migrations.filter((name) => name.includes("protect_final_event_options")))
-      .toEqual(["20260825203000_protect_final_event_options.sql"]);
+      .toEqual(["20260825173426_protect_final_event_options.sql"]);
     expect(readFileSync(
       "supabase/migrations/20260825170533_limit_event_option_additions.sql",
       "utf8",
