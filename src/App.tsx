@@ -1740,10 +1740,18 @@ function Manage({
   const [finalTime, setFinalTime] = useState("");
   const [finalPlace, setFinalPlace] = useState("");
   const [saving, setSaving] = useState(false);
+  const [timeRemovalError, setTimeRemovalError] = useState("");
+  const [placeRemovalError, setPlaceRemovalError] = useState("");
   const [participantToRemove, setParticipantToRemove] = useState<OrganizerParticipant | null>(null);
   const [removingParticipantId, setRemovingParticipantId] = useState<string | null>(null);
   const [participantRemovalError, setParticipantRemovalError] = useState("");
   const actionLock = useRef(false);
+  useEffect(() => {
+    if (state.lastUpdated) {
+      setTimeRemovalError("");
+      setPlaceRemovalError("");
+    }
+  }, [state.lastUpdated]);
   useEffect(() => {
     if (!state.event) return;
     setTitle(state.event.title);
@@ -1755,8 +1763,10 @@ function Manage({
     state.event?.finalPlaceId,
     state.event?.finalTimeOptionId,
   ]);
-  const mutate = async (payload: unknown) => {
+  const mutate = async (payload: unknown, removalKind?: "time" | "place") => {
     if (actionLock.current) return false;
+    if (removalKind === "time") setTimeRemovalError("");
+    if (removalKind === "place") setPlaceRemovalError("");
     setSaving(true);
     try {
       const result = await runActionOnce(actionLock, () =>
@@ -1764,14 +1774,17 @@ function Manage({
       );
       if (!result) return false;
       state.setEvent(result.event);
+      if (removalKind === "time") setTimeRemovalError("");
+      if (removalKind === "place") setPlaceRemovalError("");
       haptic();
       return true;
     } catch (reason) {
-      state.setError(
-        reason instanceof Error
-          ? reason.message
-          : "Не удалось изменить встречу.",
-      );
+      const message = reason instanceof Error
+        ? reason.message
+        : "Не удалось изменить встречу.";
+      if (removalKind === "time") setTimeRemovalError(message);
+      else if (removalKind === "place") setPlaceRemovalError(message);
+      else state.setError(message);
       haptic("error");
       return false;
     } finally {
@@ -1909,6 +1922,7 @@ function Manage({
                       slot.id,
                       slot.availableCount > 0,
                     ),
+                    "time",
                   );
                 }}
                 title="Удалить время"
@@ -1942,6 +1956,7 @@ function Manage({
             </button>
           </div>
         </section>
+        <ErrorNote message={timeRemovalError} />
         <section className="panel manage-card manage-places-card">
           <h2><MapPin size={24} /> Места</h2>
           {event.placeOptions.map((item) => (
@@ -1955,7 +1970,7 @@ function Manage({
               <button
                 className="icon-action danger"
                 onClick={() =>
-                  void mutate(managePayloads.removePlace(item.id))
+                  void mutate(managePayloads.removePlace(item.id), "place")
                 }
                 title="Удалить место"
                 type="button"
@@ -2013,6 +2028,7 @@ function Manage({
             </button>
           </div>
         </section>
+        <ErrorNote message={placeRemovalError} />
         <section className="panel manage-card manage-participants-card">
           <h2><Users size={24} /> Ответы участников</h2>
           {event.participants.length ? (
