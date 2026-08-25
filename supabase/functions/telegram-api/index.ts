@@ -118,9 +118,16 @@ async function authenticate(request: Request, bodyInitData?: string): Promise<Au
     throw Object.assign(new Error("Не удалось подтвердить данные Telegram. Откройте Mini App заново."), { status: 401 });
   }
   const profile = validated.user;
-  const { data, error } = await db.from("users").upsert({ telegram_user_id: String(profile.id), username: profile.username ?? null, first_name: profile.first_name, last_name: profile.last_name ?? null, language_code: profile.language_code ?? null, photo_url: profile.photo_url ?? null, updated_at: new Date().toISOString() }, { onConflict: "telegram_user_id" }).select("id,telegram_user_id,username,first_name,last_name,photo_url").single<AppUser>();
+  const { data, error } = await db.rpc("ensure_telegram_user", {
+    p_telegram_user_id: profile.id,
+    p_username: profile.username ?? null,
+    p_first_name: profile.first_name,
+    p_last_name: profile.last_name ?? null,
+    p_language_code: profile.language_code ?? null,
+    p_photo_url: profile.photo_url ?? null,
+  }).single<AppUser>();
   if (error) {
-    console.error("telegram_user_upsert_failed", error.code);
+    console.error("telegram_user_ensure_failed", error.code);
     throw Object.assign(new Error("Не удалось сохранить пользователя Telegram."), { status: 503 });
   }
   return { user: data, startParam: validated.startParam };
