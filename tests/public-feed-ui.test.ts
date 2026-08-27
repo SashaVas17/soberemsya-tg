@@ -96,6 +96,7 @@ describe("public feed frontend contract", () => {
   it("uses the existing event/public-preview flow for card clicks", () => {
     expect(appSource).toContain("navigate(`/event/${item.id}`)");
     expect(appSource).toContain("publicEventPreview(eventId)");
+    expect(appSource).toContain('<span className="meeting-card-action">Подробнее</span>');
   });
 
   it("does not alter the existing meeting navigation contract", () => {

@@ -102,6 +102,12 @@ describe("meeting list architecture", () => {
     expect(tokens).toContain("--color-surface");
   });
 
+  it("keeps role-specific meeting destinations while exposing a compact action", () => {
+    expect(appSource).toContain('showAction');
+    expect(appSource).toContain('item.role === "owner" ? "Управлять" : "Открыть"');
+    expect(stylesSource).toContain(".meeting-card-action");
+  });
+
   it("keeps the public feed route and removes its former Home card", () => {
     expect(appSource).toContain('path === "/open"');
     expect(appSource).toContain('<BottomNavigation currentPath="/open"');

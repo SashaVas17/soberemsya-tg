@@ -518,6 +518,7 @@ function PublicMeetings({ navigate }: { navigate: Navigate }) {
                 : "Бюджет не указан"}
             </span>
           </div>
+          <span className="meeting-card-action">Подробнее</span>
         </button>
       ))}
     </div>
@@ -581,11 +582,13 @@ function MeetingGroup({
   navigate,
   title,
   emptyText = "Здесь пока ничего нет.",
+  showAction = false,
 }: {
   items: MeetingListItem[];
   navigate: Navigate;
   title?: string;
   emptyText?: string;
+  showAction?: boolean;
 }) {
   return (
     <div className="meeting-group">
@@ -622,6 +625,11 @@ function MeetingGroup({
                   {plural(card.responseCount, "ответил", "ответили", "ответили")}
                 </span>
               </div>
+              {showAction && (
+                <span className="meeting-card-action">
+                  {item.role === "owner" ? "Управлять" : "Открыть"}
+                </span>
+              )}
             </button>
           );
         })
@@ -1746,6 +1754,7 @@ function MyEvents({ navigate }: { navigate: Navigate }) {
             }
             items={selectedItems}
             navigate={navigate}
+            showAction
           />
         )}
       </section>
