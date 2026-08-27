@@ -1,5 +1,6 @@
 :root {
-  --color-bg: #f5fafd;
+  --color-bg: #f7f9fa;
+  --color-header-bg: #f5fafd;
   --color-surface: #ffffff;
   --color-surface-secondary: #eff4f7;
   --color-surface-elevated: #ffffff;
@@ -60,6 +61,7 @@
 
 :root[data-theme="dark"] {
   --color-bg: #0f1513;
+  --color-header-bg: #0f1513;
   --color-surface: #1b211f;
   --color-surface-secondary: #171d1b;
   --color-surface-elevated: #252b29;

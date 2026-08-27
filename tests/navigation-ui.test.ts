@@ -120,7 +120,8 @@ describe("meeting list architecture", () => {
 
   it("uses the Stitch semantic palette without replacing dynamic Home data", () => {
     const tokens = readFileSync("src/design-tokens.css", "utf8");
-    expect(tokens).toContain("--color-bg: #f5fafd");
+    expect(tokens).toContain("--color-bg: #f7f9fa");
+    expect(tokens).toContain("--color-header-bg: #f5fafd");
     expect(tokens).toContain("--color-primary: #006b5d");
     expect(tokens).toContain("--color-bg: #0f1513");
     expect(tokens).toContain("--color-primary: #63dac4");
