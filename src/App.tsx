@@ -1740,7 +1740,7 @@ function LeaveMeetingAction({
   return (
     <div className="leave-meeting-action">
       <button
-        className="danger-button"
+        className="quiet-danger-action"
         disabled={leaving}
         onClick={() => void leave()}
         type="button"

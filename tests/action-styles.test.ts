@@ -40,6 +40,8 @@ describe("Telegram action styling", () => {
       }
     }
     expect(stylesSource).toContain(".danger-button {");
+    expect(stylesSource).toContain(".quiet-danger-action {");
+    expect(stylesSource).toContain("--action-danger-quiet-fg");
     expect(stylesSource).toContain("color: var(--action-danger-fg)");
     expect(stylesSource).toContain(".primary-action:disabled,");
     expect(stylesSource).toContain("background: var(--action-disabled-bg)");
@@ -53,5 +55,31 @@ describe("Telegram action styling", () => {
     expect(buttonBlock("Календарь iPhone")).toContain('className="secondary-action calendar-action"');
     expect(appSource).toContain("googleCalendarUrl(details)");
     expect(appSource).toContain("api.calendarLink(event.id)");
+  });
+
+  it("keeps lower-severity rejection and leaving actions distinct from event deletion", () => {
+    expect(readFileSync("src/OrganizerJoinRequests.tsx", "utf8")).toContain(
+      'className="quiet-danger-action"',
+    );
+    expect(appSource.slice(appSource.indexOf("function LeaveMeetingAction"))).toContain(
+      'className="quiet-danger-action"',
+    );
+    expect(buttonBlock("Удалить встречу")).toContain(
+      'className="danger-button"',
+    );
+  });
+
+  it("keeps the Result share action full width and calendar actions as a neutral pair", () => {
+    expect(stylesSource).toContain(".result-actions > .share-result-action,");
+    expect(stylesSource).toContain("grid-template-columns: repeat(2, minmax(0, 1fr));");
+    expect(buttonBlock("Поделиться результатом")).toContain(
+      'className="primary-action share-result-action"',
+    );
+    expect(buttonBlock("Google Calendar")).toContain(
+      'className="secondary-action calendar-action"',
+    );
+    expect(buttonBlock("Календарь iPhone")).toContain(
+      'className="secondary-action calendar-action"',
+    );
   });
 });

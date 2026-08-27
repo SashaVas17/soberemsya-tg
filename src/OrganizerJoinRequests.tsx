@@ -150,7 +150,7 @@ export function OrganizerJoinRequests({
                     {acting ? "Обработка…" : "Одобрить"}
                   </button>
                   <button
-                    className="secondary-action"
+                    className="quiet-danger-action"
                     disabled={acting}
                     onClick={() => void act(request.requestId, "reject")}
                     type="button"

@@ -39,6 +39,9 @@
   --action-danger-bg: #fff1ee;
   --action-danger-fg: var(--color-error);
   --action-danger-border: var(--color-error);
+  --action-danger-quiet-bg: transparent;
+  --action-danger-quiet-fg: var(--color-error);
+  --action-danger-quiet-border: color-mix(in srgb, var(--color-error) 42%, var(--color-border));
   --action-disabled-bg: var(--color-surface-secondary);
   --action-disabled-fg: var(--color-text-secondary);
   --action-disabled-border: var(--color-border);
@@ -110,6 +113,9 @@
   --action-danger-bg: #3d1f1c;
   --action-danger-fg: var(--color-error);
   --action-danger-border: var(--color-error);
+  --action-danger-quiet-bg: transparent;
+  --action-danger-quiet-fg: var(--color-error);
+  --action-danger-quiet-border: color-mix(in srgb, var(--color-error) 48%, var(--color-border));
   --action-disabled-bg: var(--color-surface-secondary);
   --action-disabled-fg: var(--color-text-secondary);
   --action-disabled-border: var(--color-border);

@@ -121,7 +121,8 @@ h1 {
 }
 .primary-action,
 .secondary-action,
-.danger-button {
+.danger-button,
+.quiet-danger-action {
   align-items: center;
   border: 0;
   border-radius: 12px;
@@ -149,6 +150,11 @@ h1 {
   border: 1px solid var(--action-danger-border);
   color: var(--action-danger-fg);
 }
+.quiet-danger-action {
+  background: var(--action-danger-quiet-bg);
+  border: 1px solid var(--action-danger-quiet-border);
+  color: var(--action-danger-quiet-fg);
+}
 .leave-meeting-action {
   border-top: 1px solid color-mix(in srgb, var(--coral) 30%, transparent);
   display: grid;
@@ -162,7 +168,8 @@ button:disabled {
 }
 .primary-action:disabled,
 .secondary-action:disabled,
-.danger-button:disabled {
+.danger-button:disabled,
+.quiet-danger-action:disabled {
   background: var(--action-disabled-bg);
   border-color: var(--action-disabled-border);
   box-shadow: none;
@@ -844,9 +851,9 @@ textarea {
   gap: 7px;
 }
 .name-list span {
-  background: #dff1ee;
-  border-radius: 6px;
-  color: #0d5a53;
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-md);
+  color: var(--color-on-primary-soft);
   font-weight: 800;
   padding: 7px 9px;
 }
@@ -1323,8 +1330,8 @@ code {
   color: var(--color-on-primary-soft);
 }
 .status-badge.place_selection {
-  background: color-mix(in srgb, var(--color-warning) 22%, var(--color-surface));
-  color: var(--color-text);
+  background: var(--color-surface-secondary);
+  color: var(--color-text-secondary);
 }
 .status-badge.cancelled {
   background: color-mix(in srgb, var(--color-error-container) 32%, var(--color-surface));
@@ -2734,10 +2741,25 @@ code {
 .result-actions {
   display: grid;
   gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.result-actions > .share-result-action,
+.result-actions > .form-error,
+.result-actions > .leave-meeting-action,
+.result-actions > .result-home-action {
+  grid-column: 1 / -1;
 }
 .result-actions > button {
-  min-height: 60px;
+  min-height: 54px;
   width: 100%;
+}
+.result-actions > .share-result-action {
+  min-height: 60px;
+}
+.result-actions > .calendar-action {
+  min-width: 0;
+  padding-left: 10px;
+  padding-right: 10px;
 }
 .result-home-action {
   color: var(--color-text-secondary);
