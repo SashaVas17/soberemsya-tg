@@ -837,13 +837,14 @@ function CreateEvent({
   const [hasParticipantLimit, setHasParticipantLimit] = useState(false);
   const [maxParticipantsInput, setMaxParticipantsInput] = useState("6");
   const [timeOptions, setTimeOptions] = useState<string[]>([]);
-  const [places, setPlaces] = useState<EditablePlaceDraft[]>([
-    { title: "", area: "", estimatedBudget: "30" },
-  ]);
+  const [places, setPlaces] = useState<EditablePlaceDraft[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const submitLock = useRef(false);
   const budgetLimit = nonNegativeIntegerFromInput(budgetLimitInput);
+  const hasValidTimeOption = timeOptions.some(
+    (option) => !Number.isNaN(Date.parse(option)),
+  );
   const maxParticipants = hasParticipantLimit
     ? requiredNonNegativeIntegerFromInput(maxParticipantsInput)
     : null;
@@ -956,7 +957,7 @@ function CreateEvent({
               }}
               type="button"
             >
-              <strong>По приглашению</strong>
+              <span className="visibility-option-title"><strong>По приглашению</strong><span className="visibility-option-mark" aria-hidden="true"><Check size={16} /></span></span>
               <span>Встречу увидят только те, кому вы отправите ссылку</span>
             </button>
             <button
@@ -971,7 +972,7 @@ function CreateEvent({
               }}
               type="button"
             >
-              <strong>Открытая встреча</strong>
+              <span className="visibility-option-title"><strong>Открытая встреча</strong><span className="visibility-option-mark" aria-hidden="true"><Check size={16} /></span></span>
               <span>Пользователи «Соберёмся» смогут найти встречу и отправить заявку</span>
             </button>
           </fieldset>
@@ -1015,6 +1016,18 @@ function CreateEvent({
           )}
         </section>}
         {step === 2 && <section className="wizard-time-panel">
+          <div className="section-row create-section-heading">
+            <div>
+              <h2>Варианты времени</h2>
+              <p>Добавьте хотя бы один вариант, чтобы участники могли выбрать удобное время.</p>
+            </div>
+            <Clock3 aria-hidden="true" size={24} />
+          </div>
+          {!hasValidTimeOption && (
+            <p className="create-inline-hint" role="status">
+              Добавьте хотя бы один вариант даты и времени, чтобы продолжить.
+            </p>
+          )}
           <SlotBuilder
             slots={timeOptions}
             onChange={(nextOptions) => {
@@ -1025,8 +1038,15 @@ function CreateEvent({
         </section>}
         {step === 3 && <section className="panel wizard-panel">
           <div className="section-row">
-            <h2>Места</h2>
+            <div>
+              <h2>Места</h2>
+              <p className="create-section-helper">Места необязательны. Добавьте варианты, если участникам нужно выбрать локацию.</p>
+            </div>
+            <MapPin aria-hidden="true" size={24} />
           </div>
+          {!places.length && (
+            <p className="create-empty-options">Пока нет добавленных мест.</p>
+          )}
           {places.map((place, index) => (
             <div className="place-draft" key={index}>
               <label className="field">
@@ -1062,7 +1082,7 @@ function CreateEvent({
                 />
               </label>
               <label className="field">
-                <span>До, BYN</span>
+                <span>Бюджет этого места, BYN</span>
                 <input
                   min="0"
                   inputMode="numeric"
@@ -1084,7 +1104,7 @@ function CreateEvent({
                   }
                 />
               </label>
-              {places.length > 1 && (
+              {places.length > 0 && (
                 <button
                   className="icon-action danger"
                   onClick={() =>
@@ -1112,7 +1132,8 @@ function CreateEvent({
             Добавить место
           </button>
           <label className="field budget-field">
-            <span>Общий бюджет, BYN</span>
+            <span>Общий бюджет встречи, BYN</span>
+            <small>Общий ориентир для всей встречи. Бюджет места выше задаётся отдельно.</small>
             <input
               inputMode="numeric"
               onChange={(event) =>
@@ -1132,7 +1153,11 @@ function CreateEvent({
               Назад
             </button>
           )}
-          <button className="secondary-action" disabled={saving} type="submit">
+          <button
+            className="primary-action"
+            disabled={saving || (step === 2 && !hasValidTimeOption)}
+            type="submit"
+          >
             {step < 3 ? "Продолжить" : saving ? "Создаём…" : "Создать встречу"}
           </button>
         </div>

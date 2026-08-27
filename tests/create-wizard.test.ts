@@ -228,4 +228,19 @@ describe("create screen boundaries", () => {
     expect(createSource).toContain('step < 3 ? "Продолжить"');
     expect(createEventPayload(draft()).timeOptions).toEqual([firstTime]);
   });
+
+  it("blocks Step 2 progression until a valid time exists", () => {
+    expect(createSource).toContain("hasValidTimeOption");
+    expect(createSource).toContain("Добавьте хотя бы один вариант даты и времени, чтобы продолжить.");
+    expect(createSource).toContain("disabled={saving || (step === 2 && !hasValidTimeOption)}");
+  });
+
+  it("keeps optional places behind an explicit add action", () => {
+    expect(createSource).toContain("useState<EditablePlaceDraft[]>([])");
+    expect(createSource).toContain('className="add-place-action"');
+    expect(createSource).toContain("Места необязательны.");
+    expect(createSource).toContain("Бюджет этого места, BYN");
+    expect(createSource).toContain("Общий бюджет встречи, BYN");
+    expect(createSource).toContain("places.length > 0");
+  });
 });

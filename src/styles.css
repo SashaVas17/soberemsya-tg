@@ -1690,8 +1690,75 @@ code {
   margin: 0;
 }
 .create-wizard .wizard-time-panel {
+  background: var(--color-surface);
+  border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+  border-radius: var(--radius-xl);
   display: grid;
-  gap: 12px;
+  gap: 16px;
+  padding: 30px;
+}
+.visibility-option-title {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+.visibility-option-title > strong {
+  color: var(--color-text);
+}
+.visibility-option-mark {
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  color: transparent;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+.visibility-option.selected .visibility-option-mark {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.create-section-heading {
+  align-items: start;
+}
+.create-section-heading > svg {
+  color: var(--color-brand);
+  flex: 0 0 auto;
+}
+.create-section-heading h2 {
+  color: var(--color-text);
+  font-size: 22px;
+  margin: 0;
+}
+.create-section-heading p,
+.create-section-helper {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.45;
+  margin: 6px 0 0;
+}
+.create-inline-hint {
+  background: var(--color-primary-soft);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+  border-radius: var(--radius-md);
+  color: var(--color-on-primary-soft);
+  font-size: 14px;
+  line-height: 1.4;
+  margin: 0;
+  padding: 11px 13px;
+}
+.create-empty-options {
+  background: var(--color-surface-secondary);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.4;
+  margin: 0;
+  padding: 14px;
 }
 .slot-option-card {
   align-items: end;
@@ -1719,6 +1786,7 @@ code {
 }
 .slot-option-card .icon-action {
   min-height: 50px;
+  min-width: 50px;
 }
 .slot-add-action {
   justify-self: start;
@@ -1829,7 +1897,7 @@ code {
   background: var(--color-surface-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(92px, 0.5fr) 42px;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(92px, 0.5fr) 50px;
   padding: 18px;
 }
 .create-wizard .place-draft:nth-child(2) {
@@ -1858,6 +1926,14 @@ code {
 .budget-field input {
   background: var(--color-surface);
   max-width: 260px;
+}
+.budget-field small {
+  color: var(--color-text-secondary);
+  display: block;
+  font-size: 13px;
+  line-height: 1.4;
+  margin-top: 6px;
+  max-width: 520px;
 }
 .create-wizard .wizard-actions {
   align-items: stretch;
@@ -1893,8 +1969,11 @@ code {
   .create-wizard .wizard-panel {
     padding: 20px;
   }
+  .create-wizard .wizard-time-panel {
+    padding: 20px;
+  }
   .slot-option-card {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 42px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 50px;
   }
   .create-wizard .place-draft {
     grid-template-columns: minmax(0, 1fr) 42px;
@@ -1943,6 +2022,10 @@ code {
     grid-template-columns: minmax(0, 1fr);
     padding: 10px;
   }
+  .create-wizard .wizard-time-panel {
+    border-radius: 20px;
+    padding: 16px;
+  }
   .slot-option-card .icon-action {
     grid-column: auto;
     justify-self: end;
@@ -1966,7 +2049,7 @@ code {
 
 @media (max-width: 359px) {
   .slot-option-card {
-    grid-template-columns: minmax(0, 1fr) 42px;
+    grid-template-columns: minmax(0, 1fr) 50px;
   }
   .slot-option-card .field {
     grid-column: 1 / -1;
