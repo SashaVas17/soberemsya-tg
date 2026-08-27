@@ -138,6 +138,7 @@ h1 {
   color: var(--color-on-telegram);
   box-shadow: 0 14px 30px color-mix(in srgb, var(--color-telegram) 25%, transparent);
 }
+
 .secondary-action {
   background: color-mix(in srgb, var(--yellow) 25%, var(--paper));
   color: var(--ink);
@@ -2469,5 +2470,209 @@ code {
   .state-icon {
     height: 50px;
     width: 50px;
+  }
+}
+
+/* Keep the Phase 1 shell and Home treatment last so legacy screen rules remain
+   available without overriding the shared foundation. */
+.home-create-card > span.home-create-cta {
+  display: inline-flex;
+}
+
+.topbar {
+  align-items: center;
+  background: var(--color-bg);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  height: calc(64px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) max(var(--page-gutter), env(safe-area-inset-left)) 0;
+}
+
+.topbar-home {
+  display: flex;
+  justify-content: space-between;
+}
+
+.topbar-action {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  height: 44px;
+  justify-content: center;
+  padding: 0;
+  width: 44px;
+}
+
+.topbar-action:hover,
+.topbar-action:focus-visible {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.topbar-title {
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  overflow: hidden;
+  padding: 0 8px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-home .wordmark {
+  flex: 0 1 auto;
+}
+
+.theme-toggle {
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-primary);
+}
+
+.theme-toggle:hover,
+.theme-toggle:focus-visible {
+  background: var(--color-primary-soft);
+}
+
+.home-page {
+  background: var(--color-bg);
+  max-width: 1200px;
+  padding: var(--space-lg) var(--page-gutter) 40px;
+}
+
+.home-greeting {
+  font-family: inherit;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 36px;
+}
+
+.home-action-grid {
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+}
+
+.home-create-card {
+  align-items: flex-start;
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text);
+  gap: var(--space-sm);
+  min-height: 190px;
+  padding: var(--space-md);
+}
+
+.home-create-card:hover {
+  border-color: var(--color-primary-strong);
+}
+
+.home-action-icon {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  height: 48px;
+  width: 48px;
+}
+
+.home-create-copy {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.home-create-card strong {
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.home-create-card small {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 20px;
+  opacity: 1;
+}
+
+.home-create-cta {
+  align-items: center;
+  background: var(--color-primary-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-on-primary-strong);
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 600;
+  gap: var(--space-xs);
+  line-height: 20px;
+  margin-top: auto;
+  min-height: 44px;
+  padding: 0 16px;
+}
+
+.home-meetings-shortcut {
+  border-color: var(--color-border);
+  border-radius: var(--radius-lg);
+  min-height: 112px;
+}
+
+.home-meetings-shortcut:hover {
+  border-color: var(--color-primary-strong);
+}
+
+.home-section-heading {
+  margin: var(--space-xl) 0 var(--space-md);
+}
+
+.home-section-heading h2 {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
+}
+
+.home-section-heading button {
+  min-height: 44px;
+}
+
+.meeting-card {
+  border-color: var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+}
+
+.meeting-card:hover {
+  border-color: var(--color-primary-strong);
+}
+
+.meeting-card-meta {
+  color: var(--color-text-muted);
+}
+
+.bottom-navigation {
+  background: var(--color-nav-bg);
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent);
+  box-shadow: 0 -8px 24px rgb(24 32 36 / 5%);
+}
+
+.bottom-navigation-item {
+  color: var(--color-nav-inactive);
+  min-height: 58px;
+}
+
+.bottom-navigation-item.selected {
+  background: var(--color-primary-soft);
+  color: var(--color-nav-active);
+}
+
+@media (max-width: 560px) {
+  .home-page {
+    padding-top: var(--space-lg);
+  }
+
+  .home-create-card {
+    min-height: 190px;
   }
 }

@@ -109,4 +109,32 @@ describe("meeting list architecture", () => {
     expect(stylesSource).not.toContain(".home-open-meetings");
     expect(stylesSource).toContain("grid-template-columns: repeat(3, minmax(0, 1fr));");
   });
+
+  it("keeps one shared component tree for both Home themes", () => {
+    expect(appSource).toContain('variant="home"');
+    expect(appSource).toContain('resolvedTheme === "dark" ? <Sun');
+    expect(appSource).toContain(': <Moon');
+    expect(appSource).not.toContain("LightHome");
+    expect(appSource).not.toContain("DarkHome");
+  });
+
+  it("uses the Stitch semantic palette without replacing dynamic Home data", () => {
+    const tokens = readFileSync("src/design-tokens.css", "utf8");
+    expect(tokens).toContain("--color-bg: #f5fafd");
+    expect(tokens).toContain("--color-primary: #006b5d");
+    expect(tokens).toContain("--color-bg: #0f1513");
+    expect(tokens).toContain("--color-primary: #63dac4");
+    expect(appSource).toContain("user.firstName");
+    expect(appSource).toContain("meetingCount ?? \"—\"");
+    expect(appSource).toContain("<MeetingGroup");
+    expect(appSource).not.toContain("Поездка в горы");
+  });
+
+  it("keeps the approved root and nested top-bar boundaries", () => {
+    expect(appSource).toContain('title="Соберёмся" variant="root"');
+    expect(appSource).toContain('title="Управление встречей" variant="nested"');
+    expect(stylesSource).toContain(".topbar-action");
+    expect(stylesSource).toContain(".topbar-title");
+    expect(stylesSource).toContain("min-height: 44px;");
+  });
 });

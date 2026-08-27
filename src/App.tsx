@@ -5,6 +5,8 @@ import {
   Check,
   CircleAlert,
   Clock3,
+  ArrowLeft,
+  House,
   MapPin,
   Moon,
   Plus,
@@ -199,35 +201,61 @@ function Header({
   navigate,
   resolvedTheme,
   toggleTheme,
+  title = "Соберёмся",
+  variant,
 }: {
   navigate: Navigate;
   resolvedTheme?: ResolvedTheme;
   toggleTheme?: () => void;
+  title?: string;
+  variant?: "home" | "root" | "nested";
 }) {
-  return (
-    <header className="topbar">
-      <button className="wordmark" onClick={() => navigate("/")} type="button">
-        Соберёмся
-      </button>
-      {resolvedTheme && toggleTheme && (
-        <button
-          aria-label={
-            resolvedTheme === "dark"
-              ? "Включить светлую тему"
-              : "Включить тёмную тему"
-          }
-          className="theme-toggle"
-          onClick={toggleTheme}
-          title={
-            resolvedTheme === "dark"
-              ? "Светлая тема"
-              : "Тёмная тема"
-          }
-          type="button"
-        >
-          {resolvedTheme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+  const isHome = variant === "home" || Boolean(resolvedTheme && toggleTheme);
+  if (isHome) {
+    return (
+      <header className="topbar topbar-home">
+        <button className="wordmark" onClick={() => navigate("/")} type="button">
+          Соберёмся
         </button>
-      )}
+        {resolvedTheme && toggleTheme && (
+          <button
+            aria-label={
+              resolvedTheme === "dark"
+                ? "Включить светлую тему"
+                : "Включить тёмную тему"
+            }
+            className="theme-toggle"
+            onClick={toggleTheme}
+            title={resolvedTheme === "dark" ? "Светлая тема" : "Тёмная тема"}
+            type="button"
+          >
+            {resolvedTheme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+        )}
+      </header>
+    );
+  }
+  return (
+    <header className={`topbar topbar-${variant ?? "nested"}`}>
+      <button
+        aria-label="Назад"
+        className="topbar-action"
+        onClick={() => navigate("/")}
+        title="Назад"
+        type="button"
+      >
+        <ArrowLeft aria-hidden="true" size={20} />
+      </button>
+      <span className="topbar-title">{title}</span>
+      <button
+        aria-label="На главную"
+        className="topbar-action"
+        onClick={() => navigate("/")}
+        title="На главную"
+        type="button"
+      >
+        <House aria-hidden="true" size={20} />
+      </button>
     </header>
   );
 }
@@ -368,6 +396,7 @@ function Home({
         navigate={navigate}
         resolvedTheme={resolvedTheme}
         toggleTheme={toggleTheme}
+        variant="home"
       />
       <section className="home-page">
         <h1 className="home-greeting">Привет, {user.firstName} 👋</h1>
@@ -378,9 +407,13 @@ function Home({
             type="button"
           >
             <span className="home-action-icon"><Plus size={28} /></span>
-            <span>
+            <span className="home-create-copy">
               <strong>Создать встречу</strong>
               <small>Организуйте новое событие с друзьями</small>
+            </span>
+            <span className="home-create-cta">
+              <Plus aria-hidden="true" size={18} />
+              Начать
             </span>
           </button>
           <button
@@ -492,7 +525,7 @@ function PublicMeetings({ navigate }: { navigate: Navigate }) {
 
   return (
     <main className="screen-with-bottom-navigation">
-      <Header navigate={navigate} />
+      <Header navigate={navigate} title="Соберёмся" variant="root" />
       <section className="public-meetings-page">
         <div className="page-intro public-meetings-intro">
           <h1>Открытые встречи</h1>
@@ -836,7 +869,7 @@ function CreateEvent({
   }, [budgetLimit, description, hasParticipantLimit, maxParticipants, maxParticipantsInput, navigate, onCreated, places, saving, timeOptions, title, visibility]);
   return (
     <main className="create-screen">
-      <Header navigate={navigate} />
+      <Header navigate={navigate} title="Создание встречи" variant="nested" />
       <section className="create-intro">
         <p className="create-step-label">Шаг {step} из 3</p>
         <h1>{step === 1 ? "Что планируем?" : step === 2 ? "Когда встречаемся?" : "Где и сколько?"}</h1>
@@ -1197,7 +1230,7 @@ function Created({
   const link = miniAppLink(eventId);
   return (
     <main className="created-screen">
-      <Header navigate={navigate} />
+      <Header navigate={navigate} title="Встреча создана" variant="nested" />
       <section className="created-page">
         <span className="created-success-icon"><Check size={52} strokeWidth={2.4} /></span>
         <div className="created-copy">
@@ -1250,7 +1283,7 @@ function PublicPreviewScreen({
   );
   return (
     <main className="public-preview-screen">
-      <Header navigate={navigate} />
+      <Header navigate={navigate} title="Открытая встреча" variant="nested" />
       <section className="public-preview-page">
         <div className="public-preview-heading">
           <div className="event-meta">
@@ -1436,7 +1469,7 @@ function ParticipantEvent({
       );
     return (
       <main className="voting-screen">
-        <Header navigate={navigate} />
+        <Header navigate={navigate} title="Встреча" variant="nested" />
         {state.error ? (
           <RetryState
             message={state.error}
@@ -1455,7 +1488,7 @@ function ParticipantEvent({
   if (saved)
     return (
       <main className="voting-screen voting-saved-screen">
-        <Header navigate={navigate} />
+        <Header navigate={navigate} title="Встреча" variant="nested" />
         <section className="voting-saved-page">
           <span className="voting-saved-icon"><Check size={44} /></span>
           <p className="create-step-label">Ваш ответ сохранён</p>
@@ -1486,7 +1519,7 @@ function ParticipantEvent({
     );
   return (
     <main className="voting-screen">
-      <Header navigate={navigate} />
+      <Header navigate={navigate} title="Встреча" variant="nested" />
       <section className="voting-intro">
         <p className="create-step-label">Вас приглашают</p>
         <h1>{event.title}</h1>
@@ -1673,7 +1706,7 @@ function MyEvents({ navigate }: { navigate: Navigate }) {
     selectedRole === "owner" ? (data?.owned ?? []) : (data?.participating ?? []);
   return (
     <main className="screen-with-bottom-navigation">
-      <Header navigate={navigate} />
+      <Header navigate={navigate} title="Соберёмся" variant="root" />
       <section className="my-meetings-page">
         <h1>Мои встречи</h1>
         <div aria-label="Тип встреч" className="meeting-segments" role="tablist">
@@ -1814,7 +1847,7 @@ function Manage({
   if (!state.event)
     return (
       <main className="manage-screen">
-        <Header navigate={navigate} />
+        <Header navigate={navigate} title="Управление встречей" variant="nested" />
         {state.error ? (
           <RetryState
             message={state.error}
@@ -1830,7 +1863,7 @@ function Manage({
   if (!event.canManage)
     return (
       <main className="manage-screen">
-        <Header navigate={navigate} />
+        <Header navigate={navigate} title="Управление встречей" variant="nested" />
         <RetryState
           message="Управлять встречей может только её организатор."
           title="Нет доступа"
@@ -1839,7 +1872,7 @@ function Manage({
     );
   return (
     <main className="manage-screen">
-      <Header navigate={navigate} />
+      <Header navigate={navigate} title="Управление встречей" variant="nested" />
       <section className="manage-intro">
         <p className="create-step-label">Управление встречей</p>
         <h1>{event.title}</h1>
@@ -2243,7 +2276,7 @@ function Result({
   if (!event)
     return (
       <main>
-        <Header navigate={navigate} />
+        <Header navigate={navigate} title="Итог встречи" variant="nested" />
         {state.error ? (
           <RetryState
             message={state.error}
@@ -2292,7 +2325,7 @@ function Result({
   };
   return (
     <main className="result-screen">
-      <Header navigate={navigate} />
+      <Header navigate={navigate} title="Итог встречи" variant="nested" />
       <section className="result-page">
         {!initial && (
           <Refresh
