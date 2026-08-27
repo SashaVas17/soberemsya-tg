@@ -111,7 +111,7 @@ h1 {
   align-items: center;
   background: transparent;
   border: 0;
-  color: var(--teal-dark);
+  color: var(--action-tertiary-fg);
   cursor: pointer;
   display: inline-flex;
   font-weight: 850;
@@ -134,19 +134,20 @@ h1 {
   font-weight: 800;
 }
 .primary-action {
-  background: var(--color-telegram);
-  color: var(--color-on-telegram);
-  box-shadow: 0 14px 30px color-mix(in srgb, var(--color-telegram) 25%, transparent);
+  background: var(--action-primary-bg);
+  color: var(--action-primary-fg);
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--action-primary-bg) 25%, transparent);
 }
 
 .secondary-action {
-  background: color-mix(in srgb, var(--yellow) 25%, var(--paper));
-  color: var(--ink);
+  background: var(--action-secondary-bg);
+  border: 1px solid var(--action-secondary-border);
+  color: var(--action-secondary-fg);
 }
 .danger-button {
-  background: color-mix(in srgb, var(--coral) 12%, var(--paper));
-  border: 1px solid var(--coral);
-  color: var(--coral);
+  background: var(--action-danger-bg);
+  border: 1px solid var(--action-danger-border);
+  color: var(--action-danger-fg);
 }
 .leave-meeting-action {
   border-top: 1px solid color-mix(in srgb, var(--coral) 30%, transparent);
@@ -162,10 +163,10 @@ button:disabled {
 .primary-action:disabled,
 .secondary-action:disabled,
 .danger-button:disabled {
-  background: var(--color-surface-secondary);
-  border-color: var(--color-border);
+  background: var(--action-disabled-bg);
+  border-color: var(--action-disabled-border);
   box-shadow: none;
-  color: var(--color-text-secondary);
+  color: var(--action-disabled-fg);
 }
 .home-preview,
 .result-hero {

@@ -2224,7 +2224,7 @@ function Manage({
         </section>
         <div className="action-row manage-actions">
           <button
-            className="primary-action"
+            className="secondary-action"
             onClick={() => shareEvent(event.id)}
             type="button"
           >

@@ -89,7 +89,7 @@ describe("Google Calendar link", () => {
     expect(resultSource).not.toContain("setCalendarError(error");
   });
 
-  it("keeps result sharing blue and calendar actions neutral", () => {
+  it("keeps result sharing primary and calendar actions neutral", () => {
     const stylesSource = readFileSync("src/styles.css", "utf8");
     const calendarActionClasses = resultSource.match(/className="secondary-action calendar-action"/g) ?? [];
 
@@ -97,8 +97,8 @@ describe("Google Calendar link", () => {
     expect(resultSource).toContain('className="primary-action share-result-action"');
     expect(resultSource).not.toContain('className="primary-action calendar-action"');
     expect(stylesSource).toContain(".primary-action {");
-    expect(stylesSource).toContain("background: var(--color-telegram)");
-    expect(stylesSource).toContain("color: var(--color-on-telegram)");
+    expect(stylesSource).toContain("background: var(--action-primary-bg)");
+    expect(stylesSource).toContain("color: var(--action-primary-fg)");
   });
 });
 

@@ -30,6 +30,18 @@
   --color-nav-bg: #ffffff;
   --color-nav-inactive: #6d7a76;
   --color-nav-active: #006b5d;
+  --action-primary-bg: var(--color-primary-strong);
+  --action-primary-fg: var(--color-on-primary-strong);
+  --action-secondary-bg: var(--color-surface-secondary);
+  --action-secondary-fg: var(--color-text);
+  --action-secondary-border: var(--color-border);
+  --action-tertiary-fg: var(--color-primary);
+  --action-danger-bg: #fff1ee;
+  --action-danger-fg: var(--color-error);
+  --action-danger-border: var(--color-error);
+  --action-disabled-bg: var(--color-surface-secondary);
+  --action-disabled-fg: var(--color-text-secondary);
+  --action-disabled-border: var(--color-border);
   --shadow-surface: 0 10px 30px rgb(24 32 36 / 5%);
 
   --space-xs: 4px;
@@ -89,6 +101,18 @@
   --color-nav-bg: #0f1513;
   --color-nav-inactive: #86948f;
   --color-nav-active: #63dac4;
+  --action-primary-bg: var(--color-primary-strong);
+  --action-primary-fg: var(--color-on-primary-strong);
+  --action-secondary-bg: var(--color-surface-elevated);
+  --action-secondary-fg: var(--color-text);
+  --action-secondary-border: var(--color-border);
+  --action-tertiary-fg: var(--color-primary);
+  --action-danger-bg: #3d1f1c;
+  --action-danger-fg: var(--color-error);
+  --action-danger-border: var(--color-error);
+  --action-disabled-bg: var(--color-surface-secondary);
+  --action-disabled-fg: var(--color-text-secondary);
+  --action-disabled-border: var(--color-border);
   --shadow-surface: 0 12px 28px rgb(0 0 0 / 15%);
 
   color-scheme: dark;

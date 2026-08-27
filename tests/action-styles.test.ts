@@ -11,13 +11,16 @@ describe("Telegram action styling", () => {
     return appSource.slice(buttonIndex, labelIndex);
   };
 
-  it("assigns Telegram blue only to the three primary sharing actions", () => {
+  it("uses the shared semantic action tokens for primary and secondary actions", () => {
     expect(stylesSource).toContain(".primary-action {");
-    expect(stylesSource).toContain("background: var(--color-telegram)");
-    expect(stylesSource).toContain("color: var(--color-on-telegram)");
+    expect(stylesSource).toContain("background: var(--action-primary-bg)");
+    expect(stylesSource).toContain("color: var(--action-primary-fg)");
+    expect(stylesSource).toContain("background: var(--action-secondary-bg)");
+    expect(stylesSource).toContain("border: 1px solid var(--action-secondary-border)");
     expect(buttonBlock("Поделиться результатом")).toContain('className="primary-action share-result-action"');
-    expect(buttonBlock("Отправить в чат")).toContain('className="primary-action"');
+    expect(buttonBlock("Отправить в чат")).toContain('className="secondary-action"');
     expect(buttonBlock("Поделиться в Telegram")).toContain('className="primary-action"');
+    expect(stylesSource).not.toContain("background: var(--color-telegram)");
   });
 
   it("keeps secondary actions neutral and destructive actions red", () => {
@@ -33,10 +36,10 @@ describe("Telegram action styling", () => {
       expect(buttonBlock(label)).not.toContain("primary-action");
     }
     expect(stylesSource).toContain(".danger-button {");
-    expect(stylesSource).toContain("color: var(--coral)");
+    expect(stylesSource).toContain("color: var(--action-danger-fg)");
     expect(stylesSource).toContain(".primary-action:disabled,");
-    expect(stylesSource).toContain("background: var(--color-surface-secondary)");
-    expect(stylesSource).toContain("color: var(--color-text-secondary)");
+    expect(stylesSource).toContain("background: var(--action-disabled-bg)");
+    expect(stylesSource).toContain("color: var(--action-disabled-fg)");
     expect(buttonBlock("Принять решение")).toContain("disabled={!finalTime || !finalPlace || saving}");
     expect(buttonBlock("Удалить встречу")).toContain('className="danger-button"');
   });
