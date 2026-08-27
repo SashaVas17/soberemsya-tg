@@ -166,7 +166,7 @@ describe("Phase D screen boundaries", () => {
 
   it("keeps decided events on the existing Result component", () => {
     expect(votingSource).toContain(
-      "return <Result eventId={eventId} navigate={navigate} initial={event} />",
+      "return <Result eventId={eventId} navigate={navigate} onBack={onBack} initial={event} />",
     );
   });
 

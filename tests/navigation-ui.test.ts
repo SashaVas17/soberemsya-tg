@@ -145,3 +145,21 @@ describe("meeting list architecture", () => {
     expect(stylesSource).toContain("min-height: 44px;");
   });
 });
+
+describe("in-app back navigation", () => {
+  const appSource = readFileSync("src/App.tsx", "utf8");
+
+  it("keeps Back separate from Home and uses a safe internal history stack", () => {
+    expect(appSource).toContain("const historyStack = useRef([initialPath.current]);");
+    expect(appSource).toContain("const goBack = useCallback(() => {");
+    expect(appSource).toContain('navigate("/", true);');
+    expect(appSource).toContain('onClick={onBack ?? (() => navigate("/"))}');
+    expect(appSource).toContain("useTelegramBack(path, goBack, backOverride)");
+  });
+
+  it("passes the same safe Back action to nested screens", () => {
+    expect(appSource).toContain("onBack={backOverride ?? goBack}");
+    expect(appSource).toContain("onBack={goBack}");
+    expect(appSource).not.toContain("onClick={() => window.history.back()}");
+  });
+});

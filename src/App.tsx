@@ -105,13 +105,28 @@ function usePath() {
     const value = window.location.hash.slice(1);
     return value.startsWith("/") ? value : "/";
   };
-  const [path, setPath] = useState(readPath);
+  const initialPath = useRef(readPath());
+  const historyStack = useRef([initialPath.current]);
+  const currentPath = useRef(initialPath.current);
+  const [path, setPath] = useState(initialPath.current);
   useEffect(() => {
-    const onHashChange = () => setPath(readPath());
+    const onHashChange = () => {
+      const next = readPath();
+      if (next === currentPath.current) return;
+      const previousIndex = historyStack.current.lastIndexOf(next);
+      if (previousIndex >= 0) historyStack.current.splice(previousIndex + 1);
+      else historyStack.current.push(next);
+      currentPath.current = next;
+      setPath(next);
+    };
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
   const navigate = useCallback<Navigate>((next, replace = false) => {
+    if (next === currentPath.current && !replace) return;
+    if (replace) historyStack.current[historyStack.current.length - 1] = next;
+    else historyStack.current.push(next);
+    currentPath.current = next;
     const target = `#${next}`;
     if (replace)
       window.history.replaceState({}, "", `${window.location.pathname}${window.location.search}${target}`);
@@ -119,12 +134,20 @@ function usePath() {
     setPath(next);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
-  return { path, navigate };
+  const goBack = useCallback(() => {
+    if (historyStack.current.length <= 1) {
+      navigate("/", true);
+      return;
+    }
+    historyStack.current.pop();
+    navigate(historyStack.current[historyStack.current.length - 1], true);
+  }, [navigate]);
+  return { path, navigate, goBack };
 }
 
 function useTelegramBack(
   path: string,
-  navigate: Navigate,
+  goBack: () => void,
   override: (() => void) | null,
 ) {
   useEffect(() => {
@@ -135,7 +158,7 @@ function useTelegramBack(
         override();
         return;
       }
-      navigate("/");
+      goBack();
     };
     if (path === "/") button.hide();
     else {
@@ -143,7 +166,7 @@ function useTelegramBack(
       button.onClick(back);
     }
     return () => button.offClick(back);
-  }, [navigate, override, path]);
+  }, [goBack, override, path]);
 }
 
 function useMainButton(
@@ -199,12 +222,14 @@ function useAppTheme() {
 
 function Header({
   navigate,
+  onBack,
   resolvedTheme,
   toggleTheme,
   title = "Соберёмся",
   variant,
 }: {
   navigate: Navigate;
+  onBack?: () => void;
   resolvedTheme?: ResolvedTheme;
   toggleTheme?: () => void;
   title?: string;
@@ -240,7 +265,7 @@ function Header({
       <button
         aria-label="Назад"
         className="topbar-action"
-        onClick={() => navigate("/")}
+        onClick={onBack ?? (() => navigate("/"))}
         title="Назад"
         type="button"
       >
@@ -451,7 +476,7 @@ function Home({
   );
 }
 
-function PublicMeetings({ navigate }: { navigate: Navigate }) {
+function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBack: () => void }) {
   const [items, setItems] = useState<PublicMeetingFeedItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -526,7 +551,7 @@ function PublicMeetings({ navigate }: { navigate: Navigate }) {
 
   return (
     <main className="screen-with-bottom-navigation">
-      <Header navigate={navigate} title="Соберёмся" variant="root" />
+      <Header navigate={navigate} onBack={onBack} title="Соберёмся" variant="root" />
       <section className="public-meetings-page">
         <div className="page-intro public-meetings-intro">
           <h1>Открытые встречи</h1>
@@ -795,10 +820,12 @@ function SlotBuilder({
 
 function CreateEvent({
   navigate,
+  onBack,
   setBackOverride,
   onCreated,
 }: {
   navigate: Navigate;
+  onBack: () => void;
   setBackOverride: (value: (() => void) | null) => void;
   onCreated: (event: EventData) => void;
 }) {
@@ -877,7 +904,7 @@ function CreateEvent({
   }, [budgetLimit, description, hasParticipantLimit, maxParticipants, maxParticipantsInput, navigate, onCreated, places, saving, timeOptions, title, visibility]);
   return (
     <main className="create-screen">
-      <Header navigate={navigate} title="Создание встречи" variant="nested" />
+      <Header navigate={navigate} onBack={onBack} title="Создание встречи" variant="nested" />
       <section className="create-intro">
         <p className="create-step-label">Шаг {step} из 3</p>
         <h1>{step === 1 ? "Что планируем?" : step === 2 ? "Когда встречаемся?" : "Где и сколько?"}</h1>
@@ -1230,15 +1257,17 @@ function Created({
   eventId,
   navigate,
   event,
+  onBack,
 }: {
   eventId: string;
   navigate: Navigate;
   event: EventData | null;
+  onBack: () => void;
 }) {
   const link = miniAppLink(eventId);
   return (
     <main className="created-screen">
-      <Header navigate={navigate} title="Встреча создана" variant="nested" />
+      <Header navigate={navigate} onBack={onBack} title="Встреча создана" variant="nested" />
       <section className="created-page">
         <span className="created-success-icon"><Check size={52} strokeWidth={2.4} /></span>
         <div className="created-copy">
@@ -1276,12 +1305,14 @@ function PublicPreviewScreen({
   error,
   joining,
   navigate,
+  onBack,
   onJoin,
   preview,
 }: {
   error: string;
   joining: boolean;
   navigate: Navigate;
+  onBack: () => void;
   onJoin: () => void;
   preview: PublicEventPreview;
 }) {
@@ -1291,7 +1322,7 @@ function PublicPreviewScreen({
   );
   return (
     <main className="public-preview-screen">
-      <Header navigate={navigate} title="Открытая встреча" variant="nested" />
+      <Header navigate={navigate} onBack={onBack} title="Открытая встреча" variant="nested" />
       <section className="public-preview-page">
         <div className="public-preview-heading">
           <div className="event-meta">
@@ -1351,9 +1382,11 @@ function PublicPreviewScreen({
 function ParticipantEvent({
   eventId,
   navigate,
+  onBack,
 }: {
   eventId: string;
   navigate: Navigate;
+  onBack: () => void;
 }) {
   const state = useParticipantEvent(eventId);
   const [area, setArea] = useState("");
@@ -1471,13 +1504,14 @@ function ParticipantEvent({
           error={state.error}
           joining={joining}
           navigate={navigate}
+          onBack={onBack}
           onJoin={() => void submitJoinRequest()}
           preview={state.preview}
         />
       );
     return (
       <main className="voting-screen">
-        <Header navigate={navigate} title="Встреча" variant="nested" />
+        <Header navigate={navigate} onBack={onBack} title="Встреча" variant="nested" />
         {state.error ? (
           <RetryState
             message={state.error}
@@ -1492,11 +1526,11 @@ function ParticipantEvent({
   }
   const event = state.event;
   if (event.status !== "collecting")
-    return <Result eventId={eventId} navigate={navigate} initial={event} />;
+    return <Result eventId={eventId} navigate={navigate} onBack={onBack} initial={event} />;
   if (saved)
     return (
       <main className="voting-screen voting-saved-screen">
-        <Header navigate={navigate} title="Встреча" variant="nested" />
+        <Header navigate={navigate} onBack={onBack} title="Встреча" variant="nested" />
         <section className="voting-saved-page">
           <span className="voting-saved-icon"><Check size={44} /></span>
           <p className="create-step-label">Ваш ответ сохранён</p>
@@ -1527,7 +1561,7 @@ function ParticipantEvent({
     );
   return (
     <main className="voting-screen">
-      <Header navigate={navigate} title="Встреча" variant="nested" />
+      <Header navigate={navigate} onBack={onBack} title="Встреча" variant="nested" />
       <section className="voting-intro">
         <p className="create-step-label">Вас приглашают</p>
         <h1>{event.title}</h1>
@@ -1685,7 +1719,7 @@ function LeaveMeetingAction({
   );
 }
 
-function MyEvents({ navigate }: { navigate: Navigate }) {
+function MyEvents({ navigate, onBack }: { navigate: Navigate; onBack: () => void }) {
   const [data, setData] = useState<{
     owned: MeetingListItem[];
     participating: MeetingListItem[];
@@ -1714,7 +1748,7 @@ function MyEvents({ navigate }: { navigate: Navigate }) {
     selectedRole === "owner" ? (data?.owned ?? []) : (data?.participating ?? []);
   return (
     <main className="screen-with-bottom-navigation">
-      <Header navigate={navigate} title="Соберёмся" variant="root" />
+      <Header navigate={navigate} onBack={onBack} title="Соберёмся" variant="root" />
       <section className="my-meetings-page">
         <h1>Мои встречи</h1>
         <div aria-label="Тип встреч" className="meeting-segments" role="tablist">
@@ -1766,9 +1800,11 @@ function MyEvents({ navigate }: { navigate: Navigate }) {
 function Manage({
   eventId,
   navigate,
+  onBack,
 }: {
   eventId: string;
   navigate: Navigate;
+  onBack: () => void;
 }) {
   const state = useEvent(eventId);
   const [title, setTitle] = useState("");
@@ -1856,7 +1892,7 @@ function Manage({
   if (!state.event)
     return (
       <main className="manage-screen">
-        <Header navigate={navigate} title="Управление встречей" variant="nested" />
+        <Header navigate={navigate} onBack={onBack} title="Управление встречей" variant="nested" />
         {state.error ? (
           <RetryState
             message={state.error}
@@ -1872,7 +1908,7 @@ function Manage({
   if (!event.canManage)
     return (
       <main className="manage-screen">
-        <Header navigate={navigate} title="Управление встречей" variant="nested" />
+        <Header navigate={navigate} onBack={onBack} title="Управление встречей" variant="nested" />
         <RetryState
           message="Управлять встречей может только её организатор."
           title="Нет доступа"
@@ -1881,7 +1917,7 @@ function Manage({
     );
   return (
     <main className="manage-screen">
-      <Header navigate={navigate} title="Управление встречей" variant="nested" />
+      <Header navigate={navigate} onBack={onBack} title="Управление встречей" variant="nested" />
       <section className="manage-intro">
         <p className="create-step-label">Управление встречей</p>
         <h1>{event.title}</h1>
@@ -2272,10 +2308,12 @@ function Manage({
 function Result({
   eventId,
   navigate,
+  onBack,
   initial = null,
 }: {
   eventId: string;
   navigate: Navigate;
+  onBack: () => void;
   initial?: EventData | null;
 }) {
   const state = useEvent(eventId);
@@ -2285,7 +2323,7 @@ function Result({
   if (!event)
     return (
       <main>
-        <Header navigate={navigate} title="Итог встречи" variant="nested" />
+        <Header navigate={navigate} onBack={onBack} title="Итог встречи" variant="nested" />
         {state.error ? (
           <RetryState
             message={state.error}
@@ -2334,7 +2372,7 @@ function Result({
   };
   return (
     <main className="result-screen">
-      <Header navigate={navigate} title="Итог встречи" variant="nested" />
+      <Header navigate={navigate} onBack={onBack} title="Итог встречи" variant="nested" />
       <section className="result-page">
         {!initial && (
           <Refresh
@@ -2466,14 +2504,14 @@ function shareResult(eventId: string) {
 }
 
 export default function App() {
-  const { path, navigate } = usePath();
+  const { path, navigate, goBack } = usePath();
   const { resolvedTheme, toggleTheme } = useAppTheme();
   const [auth, setAuth] = useState<AuthResult | null>(null);
   const [error, setError] = useState("");
   const [outside, setOutside] = useState(false);
   const [backOverride, setBackOverride] = useState<(() => void) | null>(null);
   const [createdEvent, setCreatedEvent] = useState<EventData | null>(null);
-  useTelegramBack(path, navigate, backOverride);
+  useTelegramBack(path, goBack, backOverride);
   useEffect(() => {
     const app = initializeTelegram();
     const mock = import.meta.env.VITE_USE_MOCK_TELEGRAM === "true";
@@ -2526,23 +2564,24 @@ export default function App() {
   const match = (pattern: RegExp) => path.match(pattern)?.[1];
   const created = match(/^\/created\/([^/]+)$/);
   if (created)
-    return <Created event={createdEvent?.id === created ? createdEvent : null} eventId={created} navigate={navigate} />;
+    return <Created event={createdEvent?.id === created ? createdEvent : null} eventId={created} navigate={navigate} onBack={backOverride ?? goBack} />;
   const manage = match(/^\/manage\/([^/]+)$/);
-  if (manage) return <Manage eventId={manage} navigate={navigate} />;
+  if (manage) return <Manage eventId={manage} navigate={navigate} onBack={backOverride ?? goBack} />;
   const result = match(/^\/result\/([^/]+)$/);
-  if (result) return <Result eventId={result} navigate={navigate} />;
+  if (result) return <Result eventId={result} navigate={navigate} onBack={backOverride ?? goBack} />;
   const event = match(/^\/event\/([^/]+)$/);
-  if (event) return <ParticipantEvent eventId={event} navigate={navigate} />;
+  if (event) return <ParticipantEvent eventId={event} navigate={navigate} onBack={backOverride ?? goBack} />;
   if (path === "/create")
     return (
       <CreateEvent
         navigate={navigate}
+        onBack={backOverride ?? goBack}
         onCreated={setCreatedEvent}
         setBackOverride={setBackOverride}
       />
     );
-  if (path === "/open") return <PublicMeetings navigate={navigate} />;
-  if (path === "/my-events") return <MyEvents navigate={navigate} />;
+  if (path === "/open") return <PublicMeetings navigate={navigate} onBack={goBack} />;
+  if (path === "/my-events") return <MyEvents navigate={navigate} onBack={goBack} />;
   return (
     <Home
       navigate={navigate}
