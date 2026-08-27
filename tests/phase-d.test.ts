@@ -40,6 +40,7 @@ const responseDraft: VotingDraft = {
   preferences: "Тихий стол",
   restrictions: "Без орехов",
   availableTimeOptionIds: ["time_1", "time_2"],
+  selectedPlaceOptionIds: [],
 };
 
 describe("Meeting Created", () => {
@@ -73,6 +74,31 @@ describe("Participant Voting", () => {
     ]);
   });
 
+  it("loads and serializes only the viewer's selected place option ids", () => {
+    const withPlaceSelection: EventData = {
+      ...event,
+      placeOptions: [
+        { id: "place_1", title: "Кафе", area: "Немига", estimatedBudget: 30 },
+      ],
+      myResponse: {
+        name: "Александр",
+        area: "Немига",
+        budget: 35,
+        preferences: "",
+        restrictions: "",
+        availableTimeOptionIds: ["time_1"],
+        unavailableTimeOptionIds: ["time_2"],
+        selectedPlaceOptionIds: ["place_1"],
+      },
+    };
+
+    expect(votingDraftFromEvent(withPlaceSelection).selectedPlaceOptionIds).toEqual([
+      "place_1",
+    ]);
+    expect(saveResponsePayload({ ...responseDraft, selectedPlaceOptionIds: [] }))
+      .toMatchObject({ selectedPlaceOptionIds: [] });
+  });
+
   it("selects and unselects a time option", () => {
     expect(toggleTimeOption([], "time_1")).toEqual(["time_1"]);
     expect(toggleTimeOption(["time_1"], "time_1")).toEqual([]);
@@ -101,6 +127,7 @@ describe("Participant Voting", () => {
       preferences: "Тихий стол",
       restrictions: "Без орехов",
       availableTimeOptionIds: ["time_1", "time_2"],
+      selectedPlaceOptionIds: [],
     });
   });
 

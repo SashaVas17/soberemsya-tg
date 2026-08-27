@@ -1,5 +1,5 @@
 import { apiErrorFromBody } from "./api-error";
-import type { AuthResult, EventData, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PublicEventPreview, PublicMeetingFeedItem } from "./types";
+import type { AuthResult, EventData, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PlaceOption, PublicEventPreview, PublicMeetingFeedItem } from "./types";
 import { mockApi } from "./mock-api";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "") ?? "";
@@ -98,6 +98,23 @@ export const api = {
       : request<{ event: EventData }>(
           `/events/${encodeURIComponent(id)}/response`,
           { method: "POST", body: JSON.stringify(payload) },
+        ),
+  proposeTimeOption: (id: string, startsAt: string) =>
+    useMock
+      ? mockApi.proposeTimeOption(id, startsAt)
+      : request<{ event: EventData }>(
+          `/events/${encodeURIComponent(id)}/time-options/proposals`,
+          { method: "POST", body: JSON.stringify({ startsAt }) },
+        ),
+  proposePlaceOption: (
+    id: string,
+    place: Pick<PlaceOption, "title" | "area" | "estimatedBudget">,
+  ) =>
+    useMock
+      ? mockApi.proposePlaceOption(id, place)
+      : request<{ event: EventData }>(
+          `/events/${encodeURIComponent(id)}/place-options/proposals`,
+          { method: "POST", body: JSON.stringify({ place }) },
         ),
   leaveParticipation: (id: string) =>
     useMock

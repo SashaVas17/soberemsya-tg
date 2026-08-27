@@ -45,6 +45,12 @@
   --action-disabled-bg: var(--color-surface-secondary);
   --action-disabled-fg: var(--color-text-secondary);
   --action-disabled-border: var(--color-border);
+  --selection-indicator-bg: var(--color-surface-secondary);
+  --selection-indicator-border: var(--color-border);
+  --selection-indicator-fg: var(--color-text-muted);
+  --selection-indicator-selected-bg: var(--color-primary-soft);
+  --selection-indicator-selected-border: var(--color-primary);
+  --selection-indicator-selected-fg: var(--color-on-primary-soft);
   --shadow-surface: 0 10px 30px rgb(24 32 36 / 5%);
 
   --space-xs: 4px;
@@ -119,6 +125,12 @@
   --action-disabled-bg: var(--color-surface-secondary);
   --action-disabled-fg: var(--color-text-secondary);
   --action-disabled-border: var(--color-border);
+  --selection-indicator-bg: var(--color-surface-secondary);
+  --selection-indicator-border: var(--color-border);
+  --selection-indicator-fg: var(--color-text-muted);
+  --selection-indicator-selected-bg: var(--color-primary-soft);
+  --selection-indicator-selected-border: var(--color-primary);
+  --selection-indicator-selected-fg: var(--color-on-primary-soft);
   --shadow-surface: 0 12px 28px rgb(0 0 0 / 15%);
 
   color-scheme: dark;

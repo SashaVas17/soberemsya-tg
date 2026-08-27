@@ -93,6 +93,9 @@ const auth: AuthResult = {
   startParam: null,
 };
 const clone = <T>(value: T): T => structuredClone(value);
+const cloneEventResponse = () => ({
+  event: clone(event) as unknown as import("./types").EventData,
+});
 let joinRequestStatus: "none" | "pending" | "rejected" = "none";
 let organizerRequests: MockOrganizerJoinRequestRecord[] = [];
 let organizerRequesterProfiles: MockOrganizerRequesterProfile[] = [];
@@ -159,6 +162,18 @@ const listItem = (role: "owner" | "participant"): MeetingListItem => ({
       : null,
   createdAt: new Date().toISOString(),
 });
+
+function assertMockParticipantProposalAllowed(eventId: string) {
+  if (eventId !== event.id)
+    throw Object.assign(new Error("Встреча не найдена."), { status: 404 });
+  if (event.canManage || event.status !== "collecting")
+    throw Object.assign(new Error("Сейчас нельзя предложить вариант."), { status: 409 });
+  if (event.visibility === "public" && currentPublicRole() !== "approved")
+    throw Object.assign(
+      new Error("Предлагать варианты могут только участники встречи."),
+      { status: 403 },
+    );
+}
 
 export const mockApi = {
   auth: async () => clone(auth),
@@ -265,11 +280,36 @@ export const mockApi = {
       participants: [],
       myResponse: null,
     };
-    return { event: clone(event) };
+    return cloneEventResponse();
   },
   saveResponse: async (_id: string, payload: any) => {
     event = applyMockResponse(event, auth.user, payload);
-    return { event: clone(event) };
+    return cloneEventResponse();
+  },
+  proposeTimeOption: async (eventId: string, startsAt: string) => {
+    assertMockParticipantProposalAllowed(eventId);
+    event = {
+      ...event,
+      timeOptions: [
+        ...event.timeOptions,
+        { id: `time_${Date.now()}`, startsAt, availableCount: 0 },
+      ],
+    };
+    return cloneEventResponse();
+  },
+  proposePlaceOption: async (
+    eventId: string,
+    place: { title: string; area: string; estimatedBudget: number },
+  ) => {
+    assertMockParticipantProposalAllowed(eventId);
+    event = {
+      ...event,
+      placeOptions: [
+        ...event.placeOptions,
+        { id: `place_${Date.now()}`, ...place },
+      ],
+    };
+    return cloneEventResponse();
   },
   leaveParticipation: async (id: string) => {
     if (id !== event.id)
@@ -328,7 +368,7 @@ export const mockApi = {
         finalTimeOptionId: payload.finalTimeOptionId,
         finalPlaceId: payload.finalPlaceId,
       };
-    return { event: clone(event) };
+    return cloneEventResponse();
   },
   remove: async () => {
     eventDeleted = true;

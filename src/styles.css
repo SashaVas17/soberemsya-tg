@@ -714,7 +714,7 @@ textarea {
   background: color-mix(in srgb, var(--teal) 14%, var(--paper));
   border-color: var(--teal);
 }
-.availability-card span {
+.availability-card > span:not(.availability-check) {
   align-items: center;
   color: var(--muted);
   display: flex;
@@ -2220,18 +2220,19 @@ code {
 }
 .availability-check {
   align-items: center;
-  background: var(--color-surface-secondary);
-  border: 2px solid var(--color-border);
-  border-radius: 6px;
-  color: var(--color-on-primary);
+  background: var(--selection-indicator-bg);
+  border: 2px solid var(--selection-indicator-border);
+  border-radius: var(--radius-full);
+  color: var(--selection-indicator-fg);
   display: inline-flex;
   height: 30px;
   justify-content: center;
   width: 30px;
 }
 .availability-card.available .availability-check {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
+  background: var(--selection-indicator-selected-bg);
+  border-color: var(--selection-indicator-selected-border);
+  color: var(--selection-indicator-selected-fg);
 }
 .voting-form .availability-card strong {
   font-size: 17px;
@@ -2242,6 +2243,43 @@ code {
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
+}
+.participant-options-empty {
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+.participant-option-proposal {
+  margin-top: 16px;
+}
+.participant-place-proposal {
+  border-top: 1px solid var(--color-border);
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+}
+.participant-place-proposal .field {
+  gap: 8px;
+}
+.participant-place-proposal .field > span {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+.participant-place-proposal input {
+  background: var(--color-surface-secondary);
+  border-color: var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text);
+  font-size: 16px;
+  padding: 14px 16px;
+}
+.participant-proposal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.participant-proposal-actions > button {
+  flex: 1 1 150px;
 }
 .voting-details-panel .field {
   gap: 9px;

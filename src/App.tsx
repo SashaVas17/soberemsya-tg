@@ -56,6 +56,7 @@ import {
 } from "./join-request";
 import {
   saveResponseOnce,
+  toggleOption,
   toggleTimeOption,
   votingDraftFromEvent,
   type VotingDraft,
@@ -957,7 +958,7 @@ function CreateEvent({
               }}
               type="button"
             >
-              <span className="visibility-option-title"><strong>По приглашению</strong><span className="visibility-option-mark" aria-hidden="true"><Check size={16} /></span></span>
+              <span className="visibility-option-title"><strong>По приглашению</strong><span className="visibility-option-mark" aria-hidden="true">{visibility === "private" && <Check size={16} />}</span></span>
               <span>Встречу увидят только те, кому вы отправите ссылку</span>
             </button>
             <button
@@ -972,7 +973,7 @@ function CreateEvent({
               }}
               type="button"
             >
-              <span className="visibility-option-title"><strong>Открытая встреча</strong><span className="visibility-option-mark" aria-hidden="true"><Check size={16} /></span></span>
+              <span className="visibility-option-title"><strong>Открытая встреча</strong><span className="visibility-option-mark" aria-hidden="true">{visibility === "public" && <Check size={16} />}</span></span>
               <span>Пользователи «Соберёмся» смогут найти встречу и отправить заявку</span>
             </button>
           </fieldset>
@@ -1404,6 +1405,164 @@ function PublicPreviewScreen({
   );
 }
 
+function localProposalDefaults() {
+  const today = new Date();
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return {
+    date: `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`,
+    time: "18:30",
+  };
+}
+
+function ParticipantTimeProposal({
+  eventId,
+  onProposed,
+}: {
+  eventId: string;
+  onProposed: (event: EventData) => void;
+}) {
+  const defaults = localProposalDefaults();
+  const [open, setOpen] = useState(false);
+  const [date, setDate] = useState(defaults.date);
+  const [time, setTime] = useState(defaults.time);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const openProposal = () => {
+    const next = localProposalDefaults();
+    setDate(next.date);
+    setTime(next.time);
+    setError("");
+    setOpen(true);
+  };
+  const submit = async () => {
+    const startsAt = createTimeOption(date, time);
+    if (!startsAt) {
+      setError("Выберите корректные дату и время.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const result = await api.proposeTimeOption(eventId, startsAt);
+      onProposed(result.event);
+      setOpen(false);
+      haptic();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Не удалось предложить время.");
+      haptic("error");
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <div className="participant-option-proposal">
+      <button className="secondary-action" onClick={openProposal} type="button">
+        <Plus size={18} />
+        Предложить время
+      </button>
+      {open && (
+        <div className="time-picker-backdrop" role="presentation">
+          <section aria-labelledby="participant-time-proposal-title" aria-modal="true" className="time-picker-dialog" role="dialog">
+            <div className="section-row">
+              <h2 id="participant-time-proposal-title">Предложить время</h2>
+              <button aria-label="Закрыть предложение времени" className="icon-action" disabled={saving} onClick={() => setOpen(false)} type="button">×</button>
+            </div>
+            <label className="field">
+              <span>Дата</span>
+              <input min={defaults.date} onChange={(event) => setDate(event.target.value)} type="date" value={date} />
+            </label>
+            <label className="field">
+              <span>Время</span>
+              <input onChange={(event) => setTime(event.target.value)} type="time" value={time} />
+            </label>
+            <ErrorNote message={error} />
+            <div className="time-picker-actions">
+              <button className="secondary-action" disabled={saving} onClick={() => setOpen(false)} type="button">Отмена</button>
+              <button className="primary-action" disabled={saving} onClick={() => void submit()} type="button">{saving ? "Добавляем…" : "Предложить"}</button>
+            </div>
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ParticipantPlaceProposal({
+  eventId,
+  eventBudget,
+  onProposed,
+}: {
+  eventId: string;
+  eventBudget: number;
+  onProposed: (event: EventData) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [area, setArea] = useState("");
+  const [budgetInput, setBudgetInput] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const openProposal = () => {
+    setTitle("");
+    setArea("");
+    setBudgetInput(eventBudget > 0 ? String(eventBudget) : "");
+    setError("");
+    setOpen(true);
+  };
+  const submit = async () => {
+    if (!title.trim()) {
+      setError("Укажите место.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const result = await api.proposePlaceOption(eventId, {
+        title: title.trim(),
+        area: area.trim(),
+        estimatedBudget: nonNegativeIntegerFromInput(budgetInput),
+      });
+      onProposed(result.event);
+      setOpen(false);
+      haptic();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Не удалось предложить место.");
+      haptic("error");
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <div className="participant-option-proposal">
+      <button className="secondary-action" onClick={openProposal} type="button">
+        <Plus size={18} />
+        Предложить место
+      </button>
+      {open && (
+        <div className="participant-place-proposal">
+          <label className="field">
+            <span>Место</span>
+            <input onChange={(event) => setTitle(event.target.value)} placeholder="Название места" value={title} />
+          </label>
+          <label className="field">
+            <span>Район или метро</span>
+            <input onChange={(event) => setArea(event.target.value)} placeholder="Район, метро или ориентир" value={area} />
+          </label>
+          <label className="field">
+            <span>Бюджет этого места, BYN</span>
+            <input inputMode="numeric" onChange={(event) => setBudgetInput(normalizeNumericInput(event.target.value))} pattern="[0-9]*" placeholder="Например, 30" type="text" value={budgetInput} />
+          </label>
+          <ErrorNote message={error} />
+          <div className="participant-proposal-actions">
+            <button className="secondary-action" disabled={saving} onClick={() => setOpen(false)} type="button">Отмена</button>
+            <button className="primary-action" disabled={saving || !title.trim()} onClick={() => void submit()} type="button">{saving ? "Добавляем…" : "Предложить"}</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ParticipantEvent({
   eventId,
   navigate,
@@ -1419,6 +1578,7 @@ function ParticipantEvent({
   const [preferences, setPreferences] = useState("");
   const [restrictions, setRestrictions] = useState("");
   const [available, setAvailable] = useState<string[]>([]);
+  const [selectedPlaces, setSelectedPlaces] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [joining, setJoining] = useState(false);
@@ -1434,7 +1594,8 @@ function ParticipantEvent({
     setPreferences(draft.preferences);
     setRestrictions(draft.restrictions);
     setAvailable(draft.availableTimeOptionIds);
-  }, [state.event?.id]);
+    setSelectedPlaces(draft.selectedPlaceOptionIds);
+  }, [state.event]);
   useEffect(() => {
     if (
       state.preview?.joinRequestStatus !== "approved" ||
@@ -1483,6 +1644,7 @@ function ParticipantEvent({
       preferences,
       restrictions,
       availableTimeOptionIds: available,
+      selectedPlaceOptionIds: selectedPlaces,
     };
     setSaving(true);
     try {
@@ -1513,6 +1675,7 @@ function ParticipantEvent({
     eventId,
     preferences,
     restrictions,
+    selectedPlaces,
     saving,
     state,
   ]);
@@ -1550,6 +1713,7 @@ function ParticipantEvent({
     );
   }
   const event = state.event;
+  const canProposeOptions = !event.canManage && event.status === "collecting";
   if (event.status !== "collecting")
     return <Result eventId={eventId} navigate={navigate} onBack={onBack} initial={event} />;
   if (saved)
@@ -1636,6 +1800,51 @@ function ParticipantEvent({
               );
             })}
           </div>
+          {canProposeOptions && (
+            <ParticipantTimeProposal
+              eventId={eventId}
+              onProposed={(nextEvent) => state.setEvent(nextEvent)}
+            />
+          )}
+        </section>
+        <section className="panel voting-place-panel">
+          <h2>Выберите подходящие места</h2>
+          <p className="panel-hint">Можно выбрать несколько вариантов.</p>
+          {event.placeOptions.length ? (
+            <div className="availability-grid">
+              {event.placeOptions.map((place) => {
+                const selected = selectedPlaces.includes(place.id);
+                const details = [
+                  place.area,
+                  place.estimatedBudget > 0 ? `до ${place.estimatedBudget} BYN` : "",
+                ].filter(Boolean).join(" · ");
+                return (
+                  <button
+                    aria-pressed={selected}
+                    className={`availability-card ${selected ? "available" : ""}`}
+                    key={place.id}
+                    onClick={() => setSelectedPlaces(toggleOption(selectedPlaces, place.id))}
+                    type="button"
+                  >
+                    <span className="availability-check">
+                      {selected && <Check size={18} strokeWidth={3} />}
+                    </span>
+                    <strong>{place.title}</strong>
+                    <span className="availability-state">{details || "Без ориентира"}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="participant-options-empty">Пока нет предложенных мест.</p>
+          )}
+          {canProposeOptions && (
+            <ParticipantPlaceProposal
+              eventBudget={event.budgetLimit}
+              eventId={eventId}
+              onProposed={(nextEvent) => state.setEvent(nextEvent)}
+            />
+          )}
         </section>
         <section className="panel voting-details-panel">
           <h2>Ваши пожелания</h2>

@@ -6,6 +6,7 @@ export type VotingDraft = {
   preferences: string;
   restrictions: string;
   availableTimeOptionIds: string[];
+  selectedPlaceOptionIds: string[];
 };
 
 export type SaveResponsePayload = VotingDraft;
@@ -23,14 +24,20 @@ export function votingDraftFromEvent(event: EventData): VotingDraft {
     restrictions: own?.restrictions ?? "",
     availableTimeOptionIds:
       own?.availableTimeOptionIds ?? event.timeOptions.map((item) => item.id),
+    selectedPlaceOptionIds:
+      own && "selectedPlaceOptionIds" in own
+        ? own.selectedPlaceOptionIds ?? []
+        : [],
   };
 }
 
-export function toggleTimeOption(selected: string[], optionId: string) {
+export function toggleOption(selected: string[], optionId: string) {
   return selected.includes(optionId)
     ? selected.filter((id) => id !== optionId)
     : [...selected, optionId];
 }
+
+export const toggleTimeOption = toggleOption;
 
 export function saveResponsePayload(draft: VotingDraft): SaveResponsePayload {
   return {
@@ -39,6 +46,7 @@ export function saveResponsePayload(draft: VotingDraft): SaveResponsePayload {
     preferences: draft.preferences,
     restrictions: draft.restrictions,
     availableTimeOptionIds: draft.availableTimeOptionIds,
+    selectedPlaceOptionIds: draft.selectedPlaceOptionIds,
   };
 }
 
@@ -91,7 +99,7 @@ export function applyMockResponse(
     isOwner: current.canManage,
     participantId: existing?.id ?? null,
   });
-  const participant: Participant = {
+  const participant: Participant & { selectedPlaceOptionIds: string[] } = {
     id: existing?.id ?? "person_me",
     userId: currentUser.id,
     name: currentUser.firstName,
@@ -103,6 +111,7 @@ export function applyMockResponse(
     unavailableTimeOptionIds: current.timeOptions
       .filter((time) => !payload.availableTimeOptionIds.includes(time.id))
       .map((time) => time.id),
+    selectedPlaceOptionIds: payload.selectedPlaceOptionIds,
   };
   const participants =
     authorization === "update"

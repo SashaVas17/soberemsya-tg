@@ -27,6 +27,7 @@ const response = {
   preferences: "Тихое место",
   restrictions: "",
   availableTimeOptionIds: ["time_1"],
+  selectedPlaceOptionIds: [],
 };
 
 function meeting(overrides: Partial<MockVotingEvent> = {}): MockVotingEvent {

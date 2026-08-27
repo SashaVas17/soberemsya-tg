@@ -60,6 +60,7 @@ export type OwnResponse = {
   restrictions: string;
   availableTimeOptionIds: string[];
   unavailableTimeOptionIds: string[];
+  selectedPlaceOptionIds?: string[];
 };
 
 type EventDataBase = {
