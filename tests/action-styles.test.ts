@@ -32,8 +32,12 @@ describe("Telegram action styling", () => {
       "Google Calendar",
       "Календарь iPhone",
     ]) {
-      expect(buttonBlock(label)).toContain('className="secondary-action');
-      expect(buttonBlock(label)).not.toContain("primary-action");
+      if (label === "Принять решение") {
+        expect(buttonBlock(label)).toContain('className="primary-action"');
+      } else {
+        expect(buttonBlock(label)).toContain('className="secondary-action');
+        expect(buttonBlock(label)).not.toContain("primary-action");
+      }
     }
     expect(stylesSource).toContain(".danger-button {");
     expect(stylesSource).toContain("color: var(--action-danger-fg)");

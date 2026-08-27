@@ -1389,7 +1389,7 @@ function PublicPreviewScreen({
           </div>
           {requestView.actionLabel && (
             <button
-              className="secondary-action"
+              className="primary-action public-preview-join-action"
               disabled={joining}
               onClick={onJoin}
               type="button"
@@ -1591,9 +1591,17 @@ function ParticipantEvent({
         <p className="create-step-label">Вас приглашают</p>
         <h1>{event.title}</h1>
         {event.description && <p>{event.description}</p>}
-        <div className="event-meta">
+      <div className="event-meta">
           <StatusBadge status={event.status} />
           <span>{plural(event.participants.length, "ответ", "ответа", "ответов")}</span>
+        </div>
+        <div className="participant-next-action">
+          <strong>{event.myResponse ? "Ваш ответ сохранён" : "Нужно ответить"}</strong>
+          <span>
+            {event.myResponse
+              ? "Вы можете изменить его, если ваши планы поменялись."
+              : "Выберите подходящие даты и заполните пожелания ниже."}
+          </span>
         </div>
       </section>
       <form
@@ -1674,7 +1682,7 @@ function ParticipantEvent({
         </section>
         <ErrorNote message={state.error} />
         <button
-          className="secondary-action form-submit"
+          className="primary-action form-submit"
           disabled={saving}
           type="submit"
         >
@@ -1930,6 +1938,16 @@ function Manage({
       </main>
     );
   const event = state.event;
+  const missingDecisionOptions = [
+    event.timeOptions.length ? "" : "время",
+    event.placeOptions.length ? "" : "место",
+  ].filter(Boolean);
+  const decisionHint =
+    event.status === "decided"
+      ? "Итог выбран. При необходимости встречу можно возобновить."
+      : missingDecisionOptions.length
+        ? `Добавьте варианты: ${missingDecisionOptions.join(" и ")}, затем выберите итог.`
+        : "Выберите итоговое время и место, когда будете готовы принять решение.";
   if (!event.canManage)
     return (
       <main className="manage-screen">
@@ -1966,6 +1984,16 @@ function Manage({
           lastUpdated={state.lastUpdated}
           onClick={() => void state.load()}
         />
+        <section className="manage-next-action" aria-labelledby="manage-next-action-title">
+          <div>
+            <p className="manage-section-kicker">Следующий шаг</p>
+            <h2 id="manage-next-action-title">
+              {event.status === "decided" ? "Решение принято" : "Подготовьте итог встречи"}
+            </h2>
+            <p>{decisionHint}</p>
+          </div>
+          <StatusBadge status={event.status} />
+        </section>
         {event.visibility === "public" && event.canManage && (
           <OrganizerJoinRequests
             eventId={event.id}
@@ -1973,7 +2001,7 @@ function Manage({
           />
         )}
         <section className="panel manage-card manage-details-card">
-          <h2>Описание</h2>
+          <h2><span>Описание</span><small>Основная информация о встрече</small></h2>
           <label className="field">
             <span>Название</span>
             <input
@@ -2001,7 +2029,7 @@ function Manage({
           </button>
         </section>
         <section className="panel manage-card manage-time-card">
-          <h2><CalendarDays size={24} /> Время</h2>
+          <h2><CalendarDays size={24} /><span>Время<small>Варианты, за которые могут голосовать участники</small></span></h2>
           {event.timeOptions.map((slot) => (
             <div className="slot-card" key={slot.id}>
               <div>
@@ -2011,6 +2039,7 @@ function Manage({
                 </span>
               </div>
               <button
+                aria-label="Удалить вариант времени"
                 className="icon-action danger"
                 onClick={async () => {
                   if (
@@ -2061,7 +2090,10 @@ function Manage({
         </section>
         <ErrorNote message={timeRemovalError} />
         <section className="panel manage-card manage-places-card">
-          <h2><MapPin size={24} /> Места</h2>
+          <h2><MapPin size={24} /><span>Места<small>Варианты локации и ориентир по бюджету</small></span></h2>
+          {!event.placeOptions.length && (
+            <p className="manage-empty-options">Мест пока нет. Добавьте вариант, если участникам нужно выбрать локацию.</p>
+          )}
           {event.placeOptions.map((item) => (
             <div className="slot-card" key={item.id}>
               <div>
@@ -2071,6 +2103,7 @@ function Manage({
                 </span>
               </div>
               <button
+                aria-label="Удалить вариант места"
                 className="icon-action danger"
                 onClick={() =>
                   void mutate(managePayloads.removePlace(item.id), "place")
@@ -2133,7 +2166,7 @@ function Manage({
         </section>
         <ErrorNote message={placeRemovalError} />
         <section className="panel manage-card manage-participants-card">
-          <h2><Users size={24} /> Ответы участников</h2>
+          <h2><Users size={24} /><span>Ответы участников<small>Разверните строку, чтобы посмотреть ответ и действия</small></span></h2>
           {event.participants.length ? (
             event.participants.map((person) => (
               <details className="participant-answer" key={person.id}>
@@ -2234,7 +2267,8 @@ function Manage({
           </div>
         )}
         <section className="panel manage-card decision-panel">
-          <h2>Окончательное решение</h2>
+          <h2><Check size={24} /> <span>Окончательное решение<small>{event.status === "decided" ? "Итог встречи" : "Выберите финальные варианты"}</small></span></h2>
+          <p className="decision-hint">{decisionHint}</p>
           <label className="field">
             <span>Время</span>
             <select
@@ -2264,7 +2298,7 @@ function Manage({
             </select>
           </label>
           <button
-            className="secondary-action"
+            className="primary-action"
             disabled={!finalTime || !finalPlace || saving}
             onClick={() =>
               void mutate(managePayloads.decide(finalTime, finalPlace))
@@ -2293,36 +2327,43 @@ function Manage({
           )}
         </section>
         <div className="action-row manage-actions">
-          <button
-            className="secondary-action"
-            onClick={() => shareEvent(event.id)}
-            type="button"
-          >
-            <Send size={18} />
-            Отправить в чат
-          </button>
-          <button
-            className="secondary-action"
-            onClick={() => navigate(`/result/${event.id}`)}
-            type="button"
-          >
-            Открыть результат
-          </button>
-          <button
-            className="danger-button"
-            onClick={async () => {
-              if (confirm("Удалить встречу?")) {
-                const removed = await runActionOnce(actionLock, () =>
-                  api.remove(event.id),
-                );
-                if (removed) navigate("/my-events", true);
-              }
-            }}
-            type="button"
-          >
-            <Trash2 size={18} />
-            Удалить встречу
-          </button>
+          <div className="manage-secondary-actions">
+            <p className="manage-section-kicker">Дополнительно</p>
+            <button
+              className="secondary-action"
+              onClick={() => shareEvent(event.id)}
+              type="button"
+            >
+              <Send size={18} />
+              Отправить в чат
+            </button>
+            <button
+              className="secondary-action"
+              onClick={() => navigate(`/result/${event.id}`)}
+              type="button"
+            >
+              Открыть результат
+            </button>
+          </div>
+          <div className="manage-danger-zone">
+            <p className="manage-section-kicker">Удаление</p>
+            <p>Удаление встречи необратимо для всех участников.</p>
+            <button
+              className="danger-button"
+              onClick={async () => {
+                if (confirm("Удалить встречу?")) {
+                  const removed = await runActionOnce(actionLock, () =>
+                    api.remove(event.id),
+                  );
+                  if (removed) navigate("/my-events", true);
+                }
+              }}
+              type="button"
+            >
+              <Trash2 size={18} />
+              Удалить встречу
+            </button>
+          </div>
         </div>
         <ErrorNote message={state.error} />
       </section>
