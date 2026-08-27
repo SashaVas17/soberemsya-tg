@@ -49,6 +49,10 @@ function source(currentUserId: string): EventPayloadSource {
       { participant_id: "participant_owner", time_option_id: "time_1", is_available: true },
       { participant_id: "participant_member", time_option_id: "time_1", is_available: false },
     ],
+    placeVotes: [
+      { participant_id: "participant_owner", place_option_id: "place_1" },
+      { participant_id: "participant_member", place_option_id: "place_1" },
+    ],
     currentUserId,
   };
 }
@@ -107,6 +111,7 @@ describe("role-scoped event payloads", () => {
       restrictions: "Без лактозы",
       availableTimeOptionIds: [],
       unavailableTimeOptionIds: ["time_1"],
+      selectedPlaceOptionIds: ["place_1"],
     });
     expectNoKeys(payload.participants, [
       "id",

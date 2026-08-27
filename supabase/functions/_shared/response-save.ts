@@ -6,6 +6,7 @@ const responseSaveTokens = new Set([
   "PUBLIC_JOIN_REQUIRED",
   "PUBLIC_OWNER_CANNOT_RESPOND",
   "TIME_OPTION_UNAVAILABLE",
+  "PLACE_OPTION_UNAVAILABLE",
   "RESPONSE_INVALID_BUDGET",
   "RESPONSE_ACTOR_UNAVAILABLE",
 ]);
@@ -40,6 +41,11 @@ export function responseSaveHttpError(error: unknown) {
     case "TIME_OPTION_UNAVAILABLE":
       return Object.assign(
         new Error("Один из вариантов времени больше недоступен."),
+        { status: 400 },
+      );
+    case "PLACE_OPTION_UNAVAILABLE":
+      return Object.assign(
+        new Error("Один из вариантов места больше недоступен."),
         { status: 400 },
       );
     case "RESPONSE_INVALID_BUDGET":

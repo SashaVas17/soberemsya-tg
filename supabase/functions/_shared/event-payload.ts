@@ -38,12 +38,18 @@ export type PayloadVote = {
   is_available: boolean;
 };
 
+export type PayloadPlaceVote = {
+  participant_id: string;
+  place_option_id: string;
+};
+
 export type EventPayloadSource = {
   event: PayloadEvent;
   times: PayloadTime[];
   places: PayloadPlace[];
   participants: PayloadParticipant[];
   votes: PayloadVote[];
+  placeVotes: PayloadPlaceVote[];
   currentUserId: string;
 };
 
@@ -59,7 +65,9 @@ type DetailedParticipant = {
   unavailableTimeOptionIds: string[];
 };
 
-type OwnResponse = Omit<DetailedParticipant, "id" | "userId">;
+type OwnResponse = Omit<DetailedParticipant, "id" | "userId"> & {
+  selectedPlaceOptionIds: string[];
+};
 
 function voteState(votes: PayloadVote[]) {
   const available = new Map<string, string[]>();
@@ -126,7 +134,12 @@ function ownResponse(source: EventPayloadSource): OwnResponse | null {
   );
   if (!person) return null;
   const { id: _id, userId: _userId, ...response } = person;
-  return response;
+  return {
+    ...response,
+    selectedPlaceOptionIds: source.placeVotes
+      .filter((vote) => vote.participant_id === person.id)
+      .map((vote) => vote.place_option_id),
+  };
 }
 
 export function resolveEventViewerRole(input: {

@@ -25,6 +25,7 @@ import { leaveParticipationErrorToken, leaveParticipationHttpError } from "../_s
 import { removeEventParticipantErrorToken, removeEventParticipantHttpError } from "../_shared/remove-event-participant.ts";
 import { responseSaveErrorToken, responseSaveHttpError } from "../_shared/response-save.ts";
 import { optionAdditionErrorToken, optionAdditionHttpError } from "../_shared/event-option-addition.ts";
+import { participantOptionProposalErrorToken, participantOptionProposalHttpError } from "../_shared/participant-option-proposal.ts";
 import { finalOptionRemovalHttpError } from "../_shared/final-option-removal.ts";
 import { eventCreationErrorToken, eventCreationHttpError } from "../_shared/event-creation.ts";
 
@@ -41,6 +42,7 @@ type LeaveParticipationRow = { event_id: string };
 type RemoveEventParticipantRow = { event_id: string };
 type SaveEventResponseRow = { participant_id: string };
 type EventOptionAdditionRow = { option_id: string };
+type EventOptionProposalRow = { option_id: string };
 type CreateEventRow = { event_id: string };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
@@ -174,8 +176,13 @@ async function eventPayload(
   ]);
   if (timeError || placeError || peopleError) throw timeError ?? placeError ?? peopleError;
   const participantIds = (people ?? []).map((person) => person.id);
-  const { data: votes, error: voteError } = participantIds.length ? await db.from("availability_votes").select("participant_id,time_option_id,is_available").in("participant_id", participantIds) : { data: [], error: null };
-  if (voteError) throw voteError;
+  const [{ data: votes, error: voteError }, { data: placeVotes, error: placeVoteError }] = participantIds.length
+    ? await Promise.all([
+      db.from("availability_votes").select("participant_id,time_option_id,is_available").in("participant_id", participantIds),
+      db.from("place_votes").select("participant_id,place_option_id").in("participant_id", participantIds),
+    ])
+    : [{ data: [], error: null }, { data: [], error: null }];
+  if (voteError || placeVoteError) throw voteError ?? placeVoteError;
   const role = viewerRole ?? resolveEventViewerRole({
     visibility: event.visibility,
     ownerUserId: event.owner_user_id,
@@ -188,6 +195,7 @@ async function eventPayload(
     places: places ?? [],
     participants: people ?? [],
     votes: votes ?? [],
+    placeVotes: placeVotes ?? [],
     currentUserId: userId,
   };
   if (role === "owner") return organizerEventPayload(source);
@@ -430,6 +438,13 @@ async function saveResponse(request: Request, eventId: string, auth: AuthContext
     "availableTimeOptionIds",
     "Укажите не более 50 вариантов времени.",
   );
+  const selectedPlaceOptionIds = Object.hasOwn(payload, "selectedPlaceOptionIds")
+    ? stringArrayField(
+      payload,
+      "selectedPlaceOptionIds",
+      "Укажите не более 50 вариантов мест.",
+    )
+    : null;
 
   const { error } = await db.rpc("save_event_response", {
     p_event_id: eventId,
@@ -439,6 +454,7 @@ async function saveResponse(request: Request, eventId: string, auth: AuthContext
     p_preferences: textField(payload, "preferences", 4_000, "Предпочтения слишком длинные."),
     p_restrictions: textField(payload, "restrictions", 4_000, "Ограничения слишком длинные."),
     p_available_time_option_ids: availableTimeOptionIds,
+    p_selected_place_option_ids: selectedPlaceOptionIds,
   }).single<SaveEventResponseRow>();
   if (error) {
     console.error(
@@ -447,6 +463,51 @@ async function saveResponse(request: Request, eventId: string, auth: AuthContext
       responseSaveErrorToken(error) ?? "unknown",
     );
     throw responseSaveHttpError(error);
+  }
+  return json({ event: await eventPayload(eventId, auth.user.id) });
+}
+
+async function proposeTimeOption(request: Request, eventId: string, auth: AuthContext) {
+  const payload = await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES);
+  const startsAt = String(payload.startsAt ?? "");
+  if (!startsAt || Number.isNaN(Date.parse(startsAt))) invalidRequest("Некорректная дата.");
+  const { error } = await db.rpc("propose_event_time_option", {
+    p_event_id: eventId,
+    p_actor_user_id: auth.user.id,
+    p_option_id: id("time"),
+    p_starts_at: startsAt,
+  }).single<EventOptionProposalRow>();
+  if (error) {
+    console.error(
+      "propose_event_time_option_rpc_failed",
+      error.code,
+      participantOptionProposalErrorToken(error) ?? "unknown",
+    );
+    throw participantOptionProposalHttpError(error);
+  }
+  return json({ event: await eventPayload(eventId, auth.user.id) });
+}
+
+async function proposePlaceOption(request: Request, eventId: string, auth: AuthContext) {
+  const payload = await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES);
+  const place = record(payload.place) ?? {};
+  const title = textField(place, "title", 200, "Название места слишком длинное.");
+  if (!title) invalidRequest("Укажите место.");
+  const { error } = await db.rpc("propose_event_place_option", {
+    p_event_id: eventId,
+    p_actor_user_id: auth.user.id,
+    p_option_id: id("place"),
+    p_title: title,
+    p_area: textField(place, "area", 200, "Район слишком длинный."),
+    p_estimated_budget: budgetField(place.estimatedBudget),
+  }).single<EventOptionProposalRow>();
+  if (error) {
+    console.error(
+      "propose_event_place_option_rpc_failed",
+      error.code,
+      participantOptionProposalErrorToken(error) ?? "unknown",
+    );
+    throw participantOptionProposalHttpError(error);
   }
   return json({ event: await eventPayload(eventId, auth.user.id) });
 }
@@ -686,6 +747,7 @@ function allowedMethods(path: string) {
   if (path === "/telegram/auth" || path === "/events") return ["POST"];
   if (path === "/me/meetings" || path === "/public/events") return ["GET"];
   if (/^\/events\/[^/]+\/response$/.test(path)) return ["POST"];
+  if (/^\/events\/[^/]+\/(time-options|place-options)\/proposals$/.test(path)) return ["POST"];
   if (/^\/events\/[^/]+\/participation$/.test(path)) return ["DELETE"];
   if (/^\/events\/[^/]+\/participants\/[^/]+$/.test(path)) return ["DELETE"];
   if (/^\/events\/[^/]+\/calendar-link$/.test(path)) return ["POST"];
@@ -742,6 +804,12 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
   const responseMatch = path.match(/^\/events\/([^/]+)\/response$/);
   if (responseMatch)
     return await saveResponse(request, decodeURIComponent(responseMatch[1]), auth);
+  const timeProposalMatch = path.match(/^\/events\/([^/]+)\/time-options\/proposals$/);
+  if (timeProposalMatch)
+    return await proposeTimeOption(request, decodeURIComponent(timeProposalMatch[1]), auth);
+  const placeProposalMatch = path.match(/^\/events\/([^/]+)\/place-options\/proposals$/);
+  if (placeProposalMatch)
+    return await proposePlaceOption(request, decodeURIComponent(placeProposalMatch[1]), auth);
   const participationMatch = path.match(/^\/events\/([^/]+)\/participation$/);
   if (participationMatch)
     return await leaveParticipation(decodeURIComponent(participationMatch[1]), auth);

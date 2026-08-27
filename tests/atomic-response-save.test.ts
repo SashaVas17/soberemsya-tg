@@ -4,7 +4,7 @@ import { responseSaveErrorToken, responseSaveHttpError } from "../supabase/funct
 import { errorResponse } from "../supabase/functions/_shared/http";
 
 const migration = readFileSync(
-  "supabase/migrations/20260822101611_atomic_save_event_response.sql",
+  "supabase/migrations/20260827204941_participant_option_proposals.sql",
   "utf8",
 );
 const apiSource = readFileSync("supabase/functions/telegram-api/index.ts", "utf8");
@@ -20,10 +20,10 @@ describe("atomic save_event_response RPC", () => {
   });
 
   it("limits execution to service_role", () => {
-    expect(migration).toContain("revoke all on function public.save_event_response(text, uuid, text, integer, text, text, text[]) from public");
-    expect(migration).toContain("revoke all on function public.save_event_response(text, uuid, text, integer, text, text, text[]) from anon");
-    expect(migration).toContain("revoke all on function public.save_event_response(text, uuid, text, integer, text, text, text[]) from authenticated");
-    expect(migration).toContain("grant execute on function public.save_event_response(text, uuid, text, integer, text, text, text[])\n  to service_role");
+    expect(migration).toContain("revoke all on function public.save_event_response(text, uuid, text, integer, text, text, text[], text[]) from public");
+    expect(migration).toContain("revoke all on function public.save_event_response(text, uuid, text, integer, text, text, text[], text[]) from anon");
+    expect(migration).toContain("revoke all on function public.save_event_response(text, uuid, text, integer, text, text, text[], text[])\n  from authenticated");
+    expect(migration).toContain("grant execute on function public.save_event_response(text, uuid, text, integer, text, text, text[], text[])\n  to service_role");
   });
 
   it("rejects a missing actor, unavailable event and closed response collection", () => {
@@ -88,9 +88,17 @@ describe("atomic save_event_response RPC", () => {
     expect(migration).toContain("option.id = any(v_available_time_option_ids)");
   });
 
-  it("does not mutate place votes", () => {
-    expect(migration).not.toContain("place_votes");
-    expect(saveResponse).not.toContain("placeOptionIds");
+  it("replaces place votes only when the additive place field is explicitly supplied", () => {
+    expect(migration).toContain("p_selected_place_option_ids text[] default null");
+    expect(migration).toContain("array_agg(distinct supplied.place_option_id)");
+    expect(migration).toContain("option.event_id = p_event_id");
+    expect(migration).toContain("PLACE_OPTION_UNAVAILABLE");
+    expect(migration).toContain("if p_selected_place_option_ids is not null then");
+    expect(migration).toContain("delete from public.place_votes as vote");
+    expect(migration).toContain("where vote.participant_id = v_participant_id");
+    expect(migration).toContain("insert into public.place_votes (participant_id, place_option_id)");
+    expect(saveResponse).toContain('Object.hasOwn(payload, "selectedPlaceOptionIds")');
+    expect(saveResponse).toContain("p_selected_place_option_ids: selectedPlaceOptionIds");
   });
 });
 
@@ -105,6 +113,7 @@ describe("atomic response HTTP integration", () => {
     expect(saveResponse).toContain('textField(payload, "preferences"');
     expect(saveResponse).toContain('textField(payload, "restrictions"');
     expect(saveResponse).toContain('"availableTimeOptionIds"');
+    expect(saveResponse).toContain('"selectedPlaceOptionIds"');
   });
 
   it("uses verified auth as the only RPC actor identity", () => {
@@ -128,6 +137,7 @@ describe("atomic response HTTP integration", () => {
       ["PUBLIC_JOIN_REQUIRED", 403],
       ["PUBLIC_OWNER_CANNOT_RESPOND", 403],
       ["TIME_OPTION_UNAVAILABLE", 400],
+      ["PLACE_OPTION_UNAVAILABLE", 400],
       ["RESPONSE_INVALID_BUDGET", 400],
     ] as const;
     for (const [token, status] of cases) {
