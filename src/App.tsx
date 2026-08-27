@@ -17,6 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import { api } from "./api";
+import { mergeMeetingItems } from "./my-meetings";
 import { hasApiErrorCode } from "./api-error";
 import { BottomNavigation } from "./BottomNavigation";
 import { googleCalendarUrl } from "./calendar";
@@ -1962,32 +1963,81 @@ function LeaveMeetingAction({
 }
 
 function MyEvents({ navigate, onBack }: { navigate: Navigate; onBack: () => void }) {
-  const [data, setData] = useState<{
-    owned: MeetingListItem[];
-    participating: MeetingListItem[];
-  } | null>(null);
-  const [error, setError] = useState("");
+  type MeetingPageState = {
+    items: MeetingListItem[];
+    nextCursor: string | null;
+    initialized: boolean;
+    loading: boolean;
+    loadingMore: boolean;
+    error: string;
+  };
+  const emptyPage = (): MeetingPageState => ({
+    items: [],
+    nextCursor: null,
+    initialized: false,
+    loading: false,
+    loadingMore: false,
+    error: "",
+  });
+  const [pages, setPages] = useState<Record<MeetingListItem["role"], MeetingPageState>>({
+    owner: emptyPage(),
+    participant: emptyPage(),
+  });
   const [selectedRole, setSelectedRole] = useState<MeetingListItem["role"]>(
     "owner",
   );
-  const load = useCallback(() => {
-    setError("");
-    return api
-      .meetings()
-      .then(setData)
-      .catch((reason) =>
-        setError(
-          reason instanceof Error
-            ? reason.message
-            : "Не удалось загрузить встречи.",
-        ),
-      );
+  const load = useCallback(async (role: MeetingListItem["role"], cursor?: string) => {
+    const loadingMore = Boolean(cursor);
+    setPages((current) => ({
+      ...current,
+      [role]: {
+        ...current[role],
+        loading: !loadingMore,
+        loadingMore,
+        error: "",
+      },
+    }));
+    try {
+      const result = await api.meetingsPage(role, cursor);
+      setPages((current) => ({
+        ...current,
+        [role]: {
+          ...current[role],
+          items: loadingMore
+            ? mergeMeetingItems(current[role].items, result.items)
+            : mergeMeetingItems([], result.items),
+          nextCursor: result.nextCursor,
+          initialized: true,
+          loading: false,
+          loadingMore: false,
+          error: "",
+        },
+      }));
+    } catch (reason) {
+      setPages((current) => ({
+        ...current,
+        [role]: {
+          ...current[role],
+          initialized: current[role].initialized,
+          loading: false,
+          loadingMore: false,
+          error:
+            reason instanceof Error
+              ? reason.message
+              : "Не удалось загрузить встречи.",
+        },
+      }));
+    }
   }, []);
   useEffect(() => {
-    void load();
+    void load("owner");
   }, [load]);
-  const selectedItems =
-    selectedRole === "owner" ? (data?.owned ?? []) : (data?.participating ?? []);
+  const selectedPage = pages[selectedRole];
+  const selectRole = (role: MeetingListItem["role"]) => {
+    setSelectedRole(role);
+    if (!pages[role].initialized && !pages[role].loading)
+      void load(role);
+  };
   return (
     <main className="screen-with-bottom-navigation">
       <Header navigate={navigate} onBack={onBack} title="Соберёмся" variant="root" />
@@ -1997,7 +2047,7 @@ function MyEvents({ navigate, onBack }: { navigate: Navigate; onBack: () => void
           <button
             aria-selected={selectedRole === "owner"}
             className={selectedRole === "owner" ? "selected" : ""}
-            onClick={() => setSelectedRole("owner")}
+            onClick={() => selectRole("owner")}
             role="tab"
             type="button"
           >
@@ -2006,32 +2056,54 @@ function MyEvents({ navigate, onBack }: { navigate: Navigate; onBack: () => void
           <button
             aria-selected={selectedRole === "participant"}
             className={selectedRole === "participant" ? "selected" : ""}
-            onClick={() => setSelectedRole("participant")}
+            onClick={() => selectRole("participant")}
             role="tab"
             type="button"
           >
             Участвую
           </button>
         </div>
-        {!data && !error && <Loading />}
-        {error && (
+        {selectedPage.loading && !selectedPage.items.length && <Loading />}
+        {selectedPage.error && !selectedPage.items.length && (
           <RetryState
-            message={error}
-            onRetry={() => void load()}
+            message={selectedPage.error}
+            onRetry={() => void load(selectedRole)}
             title="Не удалось загрузить список"
           />
         )}
-        {data && (
+        {selectedPage.initialized && (
           <MeetingGroup
             emptyText={
               selectedRole === "owner"
                 ? "Создайте встречу и пригласите участников."
                 : "Здесь появятся встречи, в которых вы участвуете."
             }
-            items={selectedItems}
+            items={selectedPage.items}
             navigate={navigate}
             showAction
           />
+        )}
+        {selectedPage.error && selectedPage.items.length > 0 && (
+          <div className="my-meetings-pagination-error" role="alert">
+            <span>{selectedPage.error}</span>
+            <button
+              className="secondary-action compact-action"
+              onClick={() => void load(selectedRole, selectedPage.nextCursor ?? undefined)}
+              type="button"
+            >
+              Повторить
+            </button>
+          </div>
+        )}
+        {selectedPage.nextCursor && !selectedPage.error && (
+          <button
+            className="secondary-action my-meetings-load-more"
+            disabled={selectedPage.loadingMore}
+            onClick={() => void load(selectedRole, selectedPage.nextCursor!)}
+            type="button"
+          >
+            {selectedPage.loadingMore ? "Загружаем…" : "Загрузить ещё"}
+          </button>
         )}
       </section>
       <BottomNavigation currentPath="/my-events" navigate={navigate} />

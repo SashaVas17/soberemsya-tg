@@ -15,6 +15,13 @@ import {
 } from "../_shared/http.ts";
 import { meetingListItem } from "../_shared/meeting-list.ts";
 import { collectVisibleMeetings } from "../_shared/meetings.ts";
+import {
+  encodeMyMeetingsCursor,
+  parseMyMeetingsCursor,
+  parseMyMeetingsLimit,
+  parseMyMeetingsRole,
+  type MyMeetingsRole,
+} from "../_shared/my-meetings-page.ts";
 import { buildPublicEventPreview } from "../_shared/public-preview.ts";
 import { buildPublicFeedItem, encodePublicFeedCursor, parsePublicFeedCursor, parsePublicFeedLimit, type PublicFeedEvent } from "../_shared/public-feed.ts";
 import { validateTelegramInitData } from "../_shared/telegram.ts";
@@ -35,6 +42,7 @@ type AuthContext = { user: AppUser; startParam: string | null };
 type FullEventRow = { id: string; owner_user_id: string | null; title: string; description: string; budget_limit: number; visibility: string | null; max_participants: number | null; status: Status; final_place_id: string | null; final_time_option_id: string | null; created_at: string; deleted_at: string | null };
 type PreviewEventRow = Pick<FullEventRow, "id" | "owner_user_id" | "title" | "description" | "budget_limit" | "visibility" | "max_participants" | "status" | "deleted_at">;
 type PublicFeedEventRow = Pick<FullEventRow, "id" | "owner_user_id" | "title" | "description" | "budget_limit" | "max_participants" | "status" | "created_at">;
+type MyMeetingsEventRow = Pick<FullEventRow, "id" | "title" | "status" | "final_place_id" | "final_time_option_id" | "created_at">;
 type OrganizerEventRow = Pick<FullEventRow, "owner_user_id" | "visibility">;
 type JoinRequestDecisionRpcRow = { request_id: string; participant_id?: string };
 type JoinRequestStateRow = { status: string; requester_user_id: string };
@@ -578,6 +586,138 @@ async function meetings(auth: AuthContext) {
   return json(await collectVisibleMeetings(ownedIds, participatingIds, mapItem));
 }
 
+async function meetingListPage(
+  request: Request,
+  auth: AuthContext,
+) {
+  const url = new URL(request.url);
+  const role = parseMyMeetingsRole(url.searchParams.get("role"));
+  const limit = parseMyMeetingsLimit(url.searchParams.get("limit"));
+  const cursor = parseMyMeetingsCursor(url.searchParams.get("cursor"));
+  const cursorFilter = cursor
+    ? `created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`
+    : null;
+  const result = role === "owner"
+    ? await (cursorFilter
+      ? db
+        .from("events")
+        .select("id,title,status,final_place_id,final_time_option_id,created_at")
+        .eq("owner_user_id", auth.user.id)
+        .is("deleted_at", null)
+        .or(cursorFilter)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(limit + 1)
+      : db
+        .from("events")
+        .select("id,title,status,final_place_id,final_time_option_id,created_at")
+        .eq("owner_user_id", auth.user.id)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(limit + 1))
+    : await (cursorFilter
+      ? db
+        .from("events")
+        .select("id,title,status,final_place_id,final_time_option_id,created_at,participants!inner(user_id)")
+        .eq("participants.user_id", auth.user.id)
+        .is("deleted_at", null)
+        .or(
+          `and(${cursorFilter},or(owner_user_id.neq.${auth.user.id},owner_user_id.is.null))`,
+        )
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(limit + 1)
+      : db
+        .from("events")
+        .select("id,title,status,final_place_id,final_time_option_id,created_at,participants!inner(user_id)")
+        .eq("participants.user_id", auth.user.id)
+        .is("deleted_at", null)
+        .or(`owner_user_id.neq.${auth.user.id},owner_user_id.is.null`)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(limit + 1));
+  const { data, error } = result;
+  if (error) throw error;
+  const rows = (data ?? []) as MyMeetingsEventRow[];
+  const page = rows.slice(0, limit);
+  const eventIds = page.map((event) => event.id);
+  const hasNextPage = rows.length > limit;
+  if (!eventIds.length) return json({ items: [], nextCursor: null });
+
+  const [{ data: times, error: timeError }, { data: places, error: placeError }, { data: people, error: peopleError }] =
+    await Promise.all([
+      db.from("time_options").select("id,event_id,starts_at").in("event_id", eventIds),
+      db.from("place_options").select("id,event_id,title").in("event_id", eventIds),
+      db.from("participants").select("id,event_id").in("event_id", eventIds),
+    ]);
+  if (timeError || placeError || peopleError) throw timeError ?? placeError ?? peopleError;
+
+  const timeRows = times ?? [];
+  const timeIds = timeRows.map((time) => time.id);
+  const { data: votes, error: voteError } = timeIds.length
+    ? await db.from("availability_votes").select("time_option_id,is_available").in("time_option_id", timeIds)
+    : { data: [], error: null };
+  if (voteError) throw voteError;
+
+  const availableCounts = new Map<string, number>();
+  for (const vote of votes ?? []) {
+    if (vote.is_available)
+      availableCounts.set(
+        vote.time_option_id,
+        (availableCounts.get(vote.time_option_id) ?? 0) + 1,
+      );
+  }
+  const timesByEvent = new Map<string, Array<{ id: string; startsAt: string; availableCount: number }>>();
+  for (const time of timeRows) {
+    timesByEvent.set(time.event_id, [
+      ...(timesByEvent.get(time.event_id) ?? []),
+      {
+        id: time.id,
+        startsAt: time.starts_at,
+        availableCount: availableCounts.get(time.id) ?? 0,
+      },
+    ]);
+  }
+  const placesByEvent = new Map<string, Array<{ id: string; title: string }>>();
+  for (const place of places ?? []) {
+    placesByEvent.set(place.event_id, [
+      ...(placesByEvent.get(place.event_id) ?? []),
+      { id: place.id, title: place.title },
+    ]);
+  }
+  const participantsByEvent = new Map<string, unknown[]>();
+  for (const person of people ?? []) {
+    participantsByEvent.set(person.event_id, [
+      ...(participantsByEvent.get(person.event_id) ?? []),
+      person.id,
+    ]);
+  }
+  const lastEvent = page.at(-1);
+  return json({
+    items: page.map((event) =>
+      meetingListItem(
+        {
+          id: event.id,
+          title: event.title,
+          status: event.status,
+          finalPlaceId: event.final_place_id,
+          finalTimeOptionId: event.final_time_option_id,
+          timeOptions: timesByEvent.get(event.id) ?? [],
+          placeOptions: placesByEvent.get(event.id) ?? [],
+          participants: participantsByEvent.get(event.id) ?? [],
+          createdAt: event.created_at,
+        },
+        role,
+      ),
+    ),
+    nextCursor:
+      hasNextPage && lastEvent
+        ? encodeMyMeetingsCursor({ createdAt: lastEvent.created_at, id: lastEvent.id })
+        : null,
+  });
+}
+
 function assertParticipantId(participantId: string) {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(participantId))
     throw Object.assign(new Error("Участник не найден."), { status: 404 });
@@ -745,7 +885,7 @@ function apiPath(url: URL) {
 function allowedMethods(path: string) {
   if (path === "/health" || /^\/calendar\/[^/]+$/.test(path)) return ["GET"];
   if (path === "/telegram/auth" || path === "/events") return ["POST"];
-  if (path === "/me/meetings" || path === "/public/events") return ["GET"];
+  if (path === "/me/meetings" || path === "/me/meetings/page" || path === "/public/events") return ["GET"];
   if (/^\/events\/[^/]+\/response$/.test(path)) return ["POST"];
   if (/^\/events\/[^/]+\/(time-options|place-options)\/proposals$/.test(path)) return ["POST"];
   if (/^\/events\/[^/]+\/participation$/.test(path)) return ["DELETE"];
@@ -800,6 +940,7 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
   const auth = await authenticate(request);
   if (path === "/events") return await createEvent(request, auth);
   if (path === "/me/meetings") return await meetings(auth);
+  if (path === "/me/meetings/page") return await meetingListPage(request, auth);
   if (path === "/public/events") return await publicEvents(request, auth);
   const responseMatch = path.match(/^\/events\/([^/]+)\/response$/);
   if (responseMatch)

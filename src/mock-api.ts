@@ -163,6 +163,13 @@ const listItem = (role: "owner" | "participant"): MeetingListItem => ({
   createdAt: new Date().toISOString(),
 });
 
+const mockOwnedMeetingPages = Array.from({ length: 13 }, (_, index) => ({
+  ...listItem("owner"),
+  id: `mock_owner_meeting_${index + 1}`,
+  title: index === 0 ? event.title : `Тестовая встреча ${index + 1}`,
+  createdAt: new Date(Date.now() - index * 60_000).toISOString(),
+}));
+
 function assertMockParticipantProposalAllowed(eventId: string) {
   if (eventId !== event.id)
     throw Object.assign(new Error("Встреча не найдена."), { status: 404 });
@@ -352,6 +359,12 @@ export const mockApi = {
     return { removed: true as const };
   },
   meetings: async () => ({ owned: [listItem("owner")], participating: [] }),
+  meetingsPage: async (role: "owner" | "participant", cursor?: string) => {
+    if (role === "participant") return { items: [], nextCursor: null };
+    return cursor === "mock-owner-page-2"
+      ? { items: mockOwnedMeetingPages.slice(12), nextCursor: null }
+      : { items: mockOwnedMeetingPages.slice(0, 12), nextCursor: "mock-owner-page-2" };
+  },
   manage: async (_id: string, payload: any) => {
     if (payload.action === "update_details")
       event = {

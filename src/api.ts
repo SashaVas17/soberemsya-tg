@@ -136,6 +136,12 @@ export const api = {
       : request<{ owned: MeetingListItem[]; participating: MeetingListItem[] }>(
           "/me/meetings",
         ),
+  meetingsPage: (role: MeetingListItem["role"], cursor?: string) =>
+    useMock
+      ? mockApi.meetingsPage(role, cursor)
+      : request<{ items: MeetingListItem[]; nextCursor: string | null }>(
+          `/me/meetings/page?role=${encodeURIComponent(role)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
+        ),
   manage: (id: string, payload: unknown) =>
     useMock
       ? mockApi.manage(id, payload)

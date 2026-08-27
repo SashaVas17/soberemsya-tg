@@ -1396,6 +1396,21 @@ code {
   justify-content: space-between;
   margin-top: 16px;
 }
+
+.my-meetings-load-more {
+  margin-top: 16px;
+  width: 100%;
+}
+
+.my-meetings-pagination-error {
+  align-items: center;
+  color: var(--color-error);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  margin-top: 16px;
+}
 .meeting-segments {
   background: var(--color-surface-elevated);
   border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
