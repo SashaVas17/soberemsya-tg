@@ -9,18 +9,26 @@ import {
 } from "../supabase/functions/_shared/event-creation";
 import { errorResponse } from "../supabase/functions/_shared/http";
 
-const migrationName = "20261004090000_create_event_idempotency.sql";
-const migration = readFileSync(`supabase/migrations/${migrationName}`, "utf8")
-  .replace(/\r\n/g, "\n");
+const migrationNames = [
+  "20261004134628_create_event_idempotency_table.sql",
+  "20261004135940_create_event_idempotent_rpc.sql",
+  "20261004135954_purge_event_creation_requests.sql",
+];
+const [tableMigration, rpcMigration, purgeMigration] = migrationNames.map((name) =>
+  readFileSync(`supabase/migrations/${name}`, "utf8").replace(/\r\n/g, "\n"));
 const api = readFileSync("supabase/functions/telegram-api/index.ts", "utf8")
   .replace(/\r\n/g, "\n");
 const createEvent = api.slice(
   api.indexOf("async function createEvent"),
   api.indexOf("async function createJoinRequest"),
 );
-const rpc = migration.slice(
-  migration.indexOf("create or replace function public.create_event_idempotent"),
-  migration.indexOf("revoke all on function public.create_event_idempotent"),
+const rpc = rpcMigration.slice(
+  rpcMigration.indexOf("create or replace function public.create_event_idempotent"),
+  rpcMigration.indexOf("revoke all on function"),
+);
+const helper = rpcMigration.slice(
+  rpcMigration.indexOf("create or replace function public.release_deleted_event_creation_key"),
+  rpcMigration.indexOf("create or replace function public.create_event_idempotent"),
 );
 const signature =
   "public.create_event_idempotent(uuid, text, text, uuid, text, text, text, integer, text, integer, jsonb, jsonb)";
@@ -35,47 +43,39 @@ const fingerprint: EventCreationFingerprint = {
   places: [{ title: "Парк", area: "Центр", estimatedBudget: 20 }],
 };
 
-describe("create-event idempotency migration", () => {
-  it("adds one migration after the atomic creation migration", () => {
+describe("create-event idempotency migrations", () => {
+  it("adds three focused migrations after the atomic creation migration", () => {
     const migrations = readdirSync("supabase/migrations").sort();
-    expect(migrations.filter((name) => name.includes("create_event_idempotency")))
-      .toEqual([migrationName]);
-    expect(migrations.indexOf(migrationName))
-      .toBeGreaterThan(migrations.indexOf("20260825192358_atomic_event_creation.sql"));
+    const added = migrations.filter((name) => name > "20260827204941_participant_option_proposals.sql");
+    expect(added).toEqual(migrationNames);
   });
 
   it("scopes keys per owner and ties each key to its event", () => {
-    expect(migration).toContain("primary key (owner_user_id, client_request_id)");
-    expect(migration).toContain("references public.users(id) on delete cascade");
-    expect(migration).toContain("references public.events(id) on delete cascade\n    deferrable initially deferred");
-    expect(migration).toContain("check (request_hash ~ '^[0-9a-f]{64}$')");
+    expect(tableMigration).toContain("primary key (owner_user_id, client_request_id)");
+    expect(tableMigration).toContain("references public.users(id) on delete cascade");
+    expect(tableMigration).toContain("references public.events(id) on delete cascade\n    deferrable initially deferred");
+    expect(tableMigration).toContain("check (request_hash ~ '^[0-9a-f]{64}$')");
   });
 
   it("locks the key table away from browser roles", () => {
-    expect(migration).toContain("alter table public.event_creation_requests enable row level security;");
+    expect(tableMigration).toContain("alter table public.event_creation_requests enable row level security;");
     for (const role of ["public", "anon", "authenticated"])
-      expect(migration).toContain(`revoke all privileges on table public.event_creation_requests from ${role};`);
+      expect(tableMigration).toContain(`revoke all privileges on table public.event_creation_requests from ${role};`);
   });
 
-  it("defines a hardened service-role-only RPC that reuses atomic creation", () => {
-    expect(rpc).toContain("security definer");
-    expect(rpc).toContain("set search_path = pg_catalog, public");
+  it("defines hardened RPCs callable only by service_role, revoked in the same migration", () => {
+    for (const body of [rpc, helper]) {
+      expect(body).toContain("security definer set search_path = pg_catalog, public");
+    }
     expect(rpc).toContain("returns table (event_id text, replayed boolean)");
-    for (const role of ["public", "anon", "authenticated"])
-      expect(migration).toContain(`revoke all on function ${signature} from ${role};`);
-    expect(migration).toContain(`grant execute on function ${signature}\n  to service_role;`);
+    expect(rpcMigration).toContain(`revoke all on function ${signature} from public, anon, authenticated;`);
+    expect(rpcMigration).toContain(`grant execute on function ${signature} to service_role;`);
+    expect(rpcMigration).toContain(
+      "revoke all on function public.release_deleted_event_creation_key(uuid, uuid) from public, anon, authenticated;",
+    );
+    expect(rpcMigration).not.toContain("grant execute on function public.release_deleted_event_creation_key");
     expect(rpc).toContain("from public.create_event_atomic(");
     expect(rpc).not.toContain("insert into public.events");
-  });
-
-  it("claims the key before creating and replays or rejects on conflict", () => {
-    const claim = rpc.indexOf("insert into public.event_creation_requests");
-    expect(claim).toBeGreaterThan(-1);
-    expect(rpc).toContain("on conflict on constraint event_creation_requests_pkey do nothing");
-    expect(claim).toBeLessThan(rpc.indexOf("from public.create_event_atomic("));
-    expect(rpc).toContain("return query select v_existing_event_id, true;");
-    expect(rpc).toContain("message = 'CREATE_EVENT_IDEMPOTENCY_CONFLICT'");
-    expect(rpc).toContain("return query select v_event_id, false;");
   });
 
   it("validates the actor before claiming a key", () => {
@@ -85,16 +85,27 @@ describe("create-event idempotency migration", () => {
   });
 
   it("releases a key whose event was soft-deleted before claiming", () => {
-    const release = rpc.indexOf("delete from public.event_creation_requests as request");
+    const release = rpc.indexOf("perform public.release_deleted_event_creation_key(p_actor_user_id, p_client_request_id);");
     expect(release).toBeGreaterThan(-1);
     expect(release).toBeLessThan(rpc.indexOf("insert into public.event_creation_requests"));
-    expect(rpc).toContain("and event.deleted_at is not null;");
+    expect(helper).toContain("and e.id = r.event_id and e.deleted_at is not null;");
+  });
+
+  it("claims the key before creating and replays or rejects on conflict", () => {
+    const claim = rpc.indexOf("insert into public.event_creation_requests");
+    expect(rpc).toContain("on conflict on constraint event_creation_requests_pkey do nothing");
+    expect(claim).toBeLessThan(rpc.indexOf("from public.create_event_atomic("));
+    expect(rpc).toContain("return query select v_existing, true;");
+    expect(rpc).toContain("message = 'CREATE_EVENT_IDEMPOTENCY_CONFLICT'");
+    expect(rpc).toContain("return query select v_event_id, false;");
   });
 
   it("purges keys after 30 days on a daily schedule", () => {
-    expect(migration).toContain("where created_at < now() - interval '30 days'");
-    expect(migration).toContain("'purge-event-creation-requests-daily'");
-    expect(migration).toContain("'SELECT public.purge_event_creation_requests();'");
+    expect(purgeMigration).toContain("where created_at < now() - interval '30 days'");
+    expect(purgeMigration).toContain("'purge-event-creation-requests-daily'");
+    expect(purgeMigration).toContain("'SELECT public.purge_event_creation_requests();'");
+    for (const role of ["public", "anon", "authenticated"])
+      expect(purgeMigration).toContain(`revoke all on function public.purge_event_creation_requests() from ${role};`);
   });
 });
 
