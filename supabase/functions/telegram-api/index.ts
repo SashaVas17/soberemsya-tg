@@ -24,7 +24,8 @@ import {
 } from "../_shared/my-meetings-page.ts";
 import { buildPublicEventPreview } from "../_shared/public-preview.ts";
 import { buildPublicFeedItem, encodePublicFeedCursor, parsePublicFeedCursor, parsePublicFeedLimit, type PublicFeedEvent } from "../_shared/public-feed.ts";
-import { validateTelegramInitData } from "../_shared/telegram.ts";
+import { applicationError } from "../_shared/errors.ts";
+import { TELEGRAM_INIT_DATA_EXPIRED, validateTelegramInitData } from "../_shared/telegram.ts";
 import { parseCreateMeetingMode } from "../_shared/open-meetings.ts";
 import { createJoinRequestErrorToken, createJoinRequestHttpError, createJoinRequestHttpResult, type CreateJoinRequestRow } from "../_shared/join-request.ts";
 import { joinRequestDecisionErrorToken, joinRequestDecisionHttpError, joinRequestDecisionResponse, organizerJoinRequestsResponse, resolveJoinRequestDecisionRetry, type JoinRequestDecisionAction, type JoinRequestListRow, type RequesterProfileRow } from "../_shared/organizer-join-requests.ts";
@@ -136,7 +137,11 @@ async function authenticate(request: Request, bodyInitData?: string): Promise<Au
     validated = await validateTelegramInitData(raw, botToken, { maxAgeSeconds: 3600 });
   } catch (error) {
     console.error("telegram_auth_validation_failed", error instanceof Error ? error.message : "unknown");
-    throw Object.assign(new Error("Не удалось подтвердить данные Telegram. Откройте Mini App заново."), { status: 401 });
+    const message = "Не удалось подтвердить данные Telegram. Откройте Mini App заново.";
+    // Only a correctly signed but stale initData is fixed by reopening the app.
+    if (error instanceof Error && error.message === TELEGRAM_INIT_DATA_EXPIRED)
+      throw applicationError("TELEGRAM_SESSION_EXPIRED", 401, message);
+    throw Object.assign(new Error(message), { status: 401 });
   }
   const profile = validated.user;
   const { data, error } = await db.rpc("ensure_telegram_user", {
@@ -309,45 +314,35 @@ async function createEvent(request: Request, auth: AuthContext) {
     p_time_options: times.map((startsAt) => ({ id: id("time"), startsAt })),
     p_place_options: places,
   };
-  let eventId: string | undefined;
-  let replayed = false;
-  if (clientRequestId) {
-    const { data, error } = await db.rpc("create_event_idempotent", {
-      p_client_request_id: clientRequestId,
-      p_request_hash: await eventCreationRequestHash({
-        title,
-        description,
-        budgetLimit,
-        visibility,
-        maxParticipants,
-        startsAt: times,
-        places,
-      }),
-      ...rpcArgs,
-    }).single<CreateEventIdempotentRow>();
-    if (error) {
-      console.error(
-        "create_event_idempotent_rpc_failed",
-        error.code,
-        eventCreationErrorToken(error) ?? "unknown",
-      );
-      throw eventCreationHttpError(error);
-    }
-    eventId = data?.event_id;
-    replayed = data?.replayed === true;
-  } else {
-    const { data, error } = await db.rpc("create_event_atomic", rpcArgs)
-      .single<CreateEventRow>();
-    if (error) {
-      console.error(
-        "create_event_atomic_rpc_failed",
-        error.code,
-        eventCreationErrorToken(error) ?? "unknown",
-      );
-      throw eventCreationHttpError(error);
-    }
-    eventId = data?.event_id;
+  const rpcName = clientRequestId ? "create_event_idempotent" : "create_event_atomic";
+  const { data, error } = await db.rpc(
+    rpcName,
+    clientRequestId
+      ? {
+        p_client_request_id: clientRequestId,
+        p_request_hash: await eventCreationRequestHash({
+          title,
+          description,
+          budgetLimit,
+          visibility,
+          maxParticipants,
+          startsAt: times,
+          places,
+        }),
+        ...rpcArgs,
+      }
+      : rpcArgs,
+  ).single<CreateEventIdempotentRow | CreateEventRow>();
+  if (error) {
+    console.error(
+      `${rpcName}_rpc_failed`,
+      error.code,
+      eventCreationErrorToken(error) ?? "unknown",
+    );
+    throw eventCreationHttpError(error);
   }
+  const eventId = data?.event_id;
+  const replayed = !!data && "replayed" in data && data.replayed === true;
   if (!eventId || (!replayed && eventId !== rpcArgs.p_event_id))
     throw new Error("Create event RPC returned no event.");
   return json({ event: await eventPayload(eventId, auth.user.id) }, replayed ? 200 : 201);

@@ -1,3 +1,5 @@
+import { bytesToHex } from "./telegram.ts";
+
 const eventCreationTokens = new Set([
   "CREATE_EVENT_ACTOR_INVALID",
   "CREATE_EVENT_INPUT_INVALID",
@@ -44,7 +46,7 @@ export async function eventCreationRequestHash(input: EventCreationFingerprint) 
     input.places.map((place) => [place.title, place.area, place.estimatedBudget]),
   ]);
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return bytesToHex(digest);
 }
 
 export function eventCreationErrorToken(error: unknown) {

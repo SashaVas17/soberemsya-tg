@@ -10,8 +10,10 @@ import {
 import { errorResponse } from "../supabase/functions/_shared/http";
 
 const migrationName = "20261004090000_create_event_idempotency.sql";
-const migration = readFileSync(`supabase/migrations/${migrationName}`, "utf8");
-const api = readFileSync("supabase/functions/telegram-api/index.ts", "utf8");
+const migration = readFileSync(`supabase/migrations/${migrationName}`, "utf8")
+  .replace(/\r\n/g, "\n");
+const api = readFileSync("supabase/functions/telegram-api/index.ts", "utf8")
+  .replace(/\r\n/g, "\n");
 const createEvent = api.slice(
   api.indexOf("async function createEvent"),
   api.indexOf("async function createJoinRequest"),
@@ -76,6 +78,19 @@ describe("create-event idempotency migration", () => {
     expect(rpc).toContain("return query select v_event_id, false;");
   });
 
+  it("validates the actor before claiming a key", () => {
+    const actorCheck = rpc.indexOf("message = 'CREATE_EVENT_ACTOR_INVALID'");
+    expect(actorCheck).toBeGreaterThan(-1);
+    expect(actorCheck).toBeLessThan(rpc.indexOf("insert into public.event_creation_requests"));
+  });
+
+  it("releases a key whose event was soft-deleted before claiming", () => {
+    const release = rpc.indexOf("delete from public.event_creation_requests as request");
+    expect(release).toBeGreaterThan(-1);
+    expect(release).toBeLessThan(rpc.indexOf("insert into public.event_creation_requests"));
+    expect(rpc).toContain("and event.deleted_at is not null;");
+  });
+
   it("purges keys after 30 days on a daily schedule", () => {
     expect(migration).toContain("where created_at < now() - interval '30 days'");
     expect(migration).toContain("'purge-event-creation-requests-daily'");
@@ -132,9 +147,10 @@ describe("create-event idempotency edge helpers", () => {
 describe("telegram-api create-event idempotency integration", () => {
   it("uses the idempotent RPC only when the client sends a key", () => {
     expect(createEvent).toContain("const clientRequestId = parseClientRequestId(payload.clientRequestId);");
-    expect(createEvent).toContain("if (clientRequestId) {");
-    expect(createEvent.match(/db\.rpc\("create_event_idempotent"/g)).toHaveLength(1);
-    expect(createEvent.match(/db\.rpc\("create_event_atomic"/g)).toHaveLength(1);
+    expect(createEvent).toContain(
+      'const rpcName = clientRequestId ? "create_event_idempotent" : "create_event_atomic";',
+    );
+    expect(createEvent.match(/db\.rpc\(/g)).toHaveLength(1);
   });
 
   it("hashes the Edge-normalized input, not the raw payload", () => {
@@ -144,7 +160,7 @@ describe("telegram-api create-event idempotency integration", () => {
   });
 
   it("returns 200 for a replay and 201 for a new event", () => {
-    expect(createEvent).toContain("replayed = data?.replayed === true;");
+    expect(createEvent).toContain('const replayed = !!data && "replayed" in data && data.replayed === true;');
     expect(createEvent).toContain("replayed ? 200 : 201)");
   });
 });

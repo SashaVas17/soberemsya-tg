@@ -24,7 +24,8 @@ test("organizer creates a meeting and lands on its management screen", async ({ 
 
 test("participant answers with an available time", async ({ page }) => {
   await page.goto("./#/event/evt_demo");
-  await page.getByRole("button", { name: /6 октября/ }).click();
+  // Mock dates are relative to today, so pick the first time option by position.
+  await page.getByRole("button", { name: /Подходит/ }).first().click();
   await page.getByRole("button", { name: "Отправить ответ" }).click();
 
   await expect(page.getByText("Ваш ответ сохранён", { exact: false })).toBeVisible();
@@ -37,7 +38,7 @@ test("organizer picks the final time and place and opens the result", async ({ p
   await expect(decide).toBeDisabled();
   const finalSelect = (placeholder: string) =>
     page.locator("select", { has: page.locator("option", { hasText: placeholder }) });
-  await finalSelect("Выберите время").selectOption({ label: "вторник, 6 октября в 18:30" });
+  await finalSelect("Выберите время").selectOption({ index: 1 });
   await finalSelect("Выберите место").selectOption({ label: "Кафе у Ратуши · Немига" });
   await decide.click();
   await page.getByRole("button", { name: "Открыть результат" }).click();

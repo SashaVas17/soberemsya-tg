@@ -60,7 +60,10 @@ export function createRequestKeyFor(
   now = Date.now(),
 ) {
   const fingerprint = JSON.stringify(payload);
-  const stored = (storage ? readStored(storage) : null) ?? memoryKey;
+  // The in-memory copy is the latest write; storage may be stale or read-only.
+  const stored = memoryKey?.fingerprint === fingerprint
+    ? memoryKey
+    : storage ? readStored(storage) : null;
   if (
     stored &&
     stored.fingerprint === fingerprint &&

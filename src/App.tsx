@@ -915,18 +915,20 @@ function CreateEvent({
     ) return;
     setSaving(true);
     setError("");
+    let result: Awaited<ReturnType<typeof api.createEvent>> | null;
     try {
-      const result = await submitCreateEventOnce(draft, submitLock, api.createEvent);
-      if (!result) return;
-      haptic();
-      onCreated(result.event);
-      navigate(createdEventPath(result.event.id), true);
+      result = await submitCreateEventOnce(draft, submitLock, api.createEvent);
     } catch (reason) {
       haptic("error");
       setError(createEventErrorMessage(reason));
+      return;
     } finally {
       setSaving(false);
     }
+    if (!result) return;
+    haptic();
+    onCreated(result.event);
+    navigate(createdEventPath(result.event.id), true);
   }, [budgetLimit, description, hasParticipantLimit, maxParticipants, maxParticipantsInput, navigate, onCreated, places, saving, timeOptions, title, visibility]);
   return (
     <main className="create-screen">

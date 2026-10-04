@@ -59,6 +59,24 @@ begin
     raise exception using errcode = 'P0001', message = 'CREATE_EVENT_INPUT_INVALID';
   end if;
 
+  if p_actor_user_id is null
+    or not exists (
+      select 1
+      from public.users as user_profile
+      where user_profile.id = p_actor_user_id
+    ) then
+    raise exception using errcode = 'P0001', message = 'CREATE_EVENT_ACTOR_INVALID';
+  end if;
+
+  -- A key whose event was soft-deleted no longer protects anything: release
+  -- it so a retry of the same draft creates a fresh event instead of a 404.
+  delete from public.event_creation_requests as request
+  using public.events as event
+  where request.owner_user_id = p_actor_user_id
+    and request.client_request_id = p_client_request_id
+    and event.id = request.event_id
+    and event.deleted_at is not null;
+
   -- Claim the key first. A concurrent caller with the same key blocks on the
   -- primary key until this transaction ends, then falls through to the replay
   -- branch (commit) or claims the key itself (rollback).

@@ -13,7 +13,7 @@ export type ValidatedTelegramData = {
   authDate: number;
 };
 
-function bytesToHex(bytes: ArrayBuffer) {
+export function bytesToHex(bytes: ArrayBuffer) {
   return Array.from(new Uint8Array(bytes), (byte) =>
     byte.toString(16).padStart(2, "0"),
   ).join("");
@@ -52,6 +52,8 @@ export async function signTelegramInitData(
   return bytesToHex(await hmac(secret, dataCheckString));
 }
 
+export const TELEGRAM_INIT_DATA_EXPIRED = "Telegram authorization data has expired";
+
 export async function validateTelegramInitData(
   raw: string,
   botToken: string,
@@ -74,7 +76,7 @@ export async function validateTelegramInitData(
     authDate > now + 30 ||
     now - authDate > maxAge
   )
-    throw new Error("Telegram authorization data has expired");
+    throw new Error(TELEGRAM_INIT_DATA_EXPIRED);
   const rawUser = params.get("user");
   if (!rawUser) throw new Error("Telegram user is missing");
   const user = JSON.parse(rawUser) as TelegramInitUser;

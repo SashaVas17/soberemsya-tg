@@ -1,6 +1,6 @@
 import { apiErrorFromBody } from "./api-error";
 import type { CreateEventRequest } from "./create-wizard";
-import { isSessionExpiredStatus, notifySessionExpired } from "./session";
+import { isSessionExpiredError, notifySessionExpired } from "./session";
 import type { AuthResult, EventData, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PlaceOption, PublicEventPreview, PublicMeetingFeedItem } from "./types";
 import { mockApi } from "./mock-api";
 
@@ -38,10 +38,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init?.headers,
     },
   });
+  // A failed body read on success must reach the caller: for POST /events it
+  // means the event may exist, so the client has to keep its retry key.
+  if (response.ok) return (await response.json()) as T;
   const body = await response.json().catch(() => ({}));
-  if (isSessionExpiredStatus(response.status)) notifySessionExpired();
-  if (!response.ok) throw apiErrorFromBody(response.status, body);
-  return body as T;
+  const error = apiErrorFromBody(response.status, body);
+  if (isSessionExpiredError(error)) notifySessionExpired();
+  throw error;
 }
 
 export const api = {

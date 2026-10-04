@@ -77,6 +77,18 @@ describe("create request key", () => {
     expect(() => clearCreateRequestKey(broken)).not.toThrow();
   });
 
+  it("prefers the in-memory key when storage is read-only and holds an older entry", () => {
+    const stale = memoryStorage();
+    stale.data.set(CREATE_REQUEST_KEY_STORAGE_KEY, JSON.stringify({ fingerprint: "{\"old\":1}", key: "old", savedAt: 0 }));
+    const readOnly: CreateRequestKeyStorage = {
+      getItem: stale.getItem,
+      setItem: () => { throw new Error("quota"); },
+      removeItem: stale.removeItem,
+    };
+    const key = createRequestKeyFor({ title: "A" }, readOnly, 1);
+    expect(createRequestKeyFor({ title: "A" }, readOnly, 2)).toBe(key);
+  });
+
   it("ignores corrupted stored values", () => {
     const storage = memoryStorage();
     storage.data.set(CREATE_REQUEST_KEY_STORAGE_KEY, "{not json");
@@ -115,6 +127,14 @@ describe("submitCreateEventOnce idempotency", () => {
     expect(storage.data.has(CREATE_REQUEST_KEY_STORAGE_KEY)).toBe(false);
   });
 
+  it("keeps the key when a successful response has no event (body lost)", async () => {
+    const storage = memoryStorage();
+    const empty = async () => ({}) as { event: { id: string } };
+    await expect(submitCreateEventOnce(draft, { current: false }, empty, storage))
+      .rejects.toThrow(SyntaxError);
+    expect(storage.data.has(CREATE_REQUEST_KEY_STORAGE_KEY)).toBe(true);
+  });
+
   it("uses a new key for a second, deliberate creation of the same meeting", async () => {
     const storage = memoryStorage();
     const keys: string[] = [];
@@ -133,7 +153,16 @@ describe("create error messages", () => {
     expect(createEventErrorMessage(new TypeError("Failed to fetch"))).toBe(CREATE_EVENT_NETWORK_ERROR);
     expect(createEventErrorMessage(new DOMException("Timed out", "TimeoutError"))).toBe(CREATE_EVENT_NETWORK_ERROR);
     expect(createEventErrorMessage(new DOMException("Aborted", "AbortError"))).toBe(CREATE_EVENT_NETWORK_ERROR);
+    expect(createEventErrorMessage(new SyntaxError("Unexpected end of JSON"))).toBe(CREATE_EVENT_NETWORK_ERROR);
     expect(createEventErrorMessage(new ApiError("Укажите название встречи.", 400))).toBe("Укажите название встречи.");
+  });
+
+  it("maps only submission errors, not errors after a successful create", () => {
+    const app = readFileSync("src/App.tsx", "utf8");
+    const submit = app.slice(app.indexOf("const submit = useCallback"), app.indexOf("return (\n    <main className=\"create-screen\">"));
+    const catchBlock = submit.indexOf("setError(createEventErrorMessage(reason));");
+    expect(catchBlock).toBeGreaterThan(-1);
+    expect(submit.indexOf("onCreated(result.event);")).toBeGreaterThan(submit.indexOf("} finally {"));
   });
 
   it("bounds the create request with a timeout", () => {

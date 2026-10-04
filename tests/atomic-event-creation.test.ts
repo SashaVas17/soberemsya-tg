@@ -134,7 +134,8 @@ describe("atomic event creation migration", () => {
 
 describe("telegram-api atomic event creation integration", () => {
   it("uses exactly one creation RPC and removes the three direct creation inserts", () => {
-    expect(createEvent.match(/db\.rpc\("create_event_atomic"/g)).toHaveLength(1);
+    expect(createEvent.match(/db\.rpc\(/g)).toHaveLength(1);
+    expect(createEvent).toContain('"create_event_atomic"');
     expect(createEvent).not.toContain('db.from("events").insert');
     expect(createEvent).not.toContain('db.from("time_options").insert');
     expect(createEvent).not.toContain('db.from("place_options").insert');

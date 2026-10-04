@@ -123,6 +123,8 @@ export async function submitCreateEventOnce<T extends { event: { id: string } }>
     const clientRequestId = createRequestKeyFor(payload, keyStorage);
     try {
       const result = await createEvent({ ...payload, clientRequestId });
+      if (typeof result?.event?.id !== "string" || !result.event.id)
+        throw new SyntaxError("Create event response has no event.");
       clearCreateRequestKey(keyStorage);
       return result;
     } catch (error) {
@@ -143,7 +145,12 @@ export const CREATE_EVENT_NETWORK_ERROR =
 export function createEventErrorMessage(reason: unknown) {
   if (reason instanceof ApiError) return reason.message;
   const name = reason && typeof reason === "object" && "name" in reason ? String(reason.name) : "";
-  if (reason instanceof TypeError || name === "AbortError" || name === "TimeoutError")
+  if (
+    reason instanceof TypeError ||
+    reason instanceof SyntaxError ||
+    name === "AbortError" ||
+    name === "TimeoutError"
+  )
     return CREATE_EVENT_NETWORK_ERROR;
   return reason instanceof Error ? reason.message : "Не удалось создать встречу.";
 }
