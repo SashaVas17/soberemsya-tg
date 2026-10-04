@@ -1,4 +1,6 @@
 import { apiErrorFromBody } from "./api-error";
+import type { CreateEventRequest } from "./create-wizard";
+import { isSessionExpiredStatus, notifySessionExpired } from "./session";
 import type { AuthResult, EventData, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PlaceOption, PublicEventPreview, PublicMeetingFeedItem } from "./types";
 import { mockApi } from "./mock-api";
 
@@ -15,6 +17,15 @@ export function setInitData(value: string) {
   initData = value;
 }
 
+export const CREATE_EVENT_TIMEOUT_MS = 25_000;
+
+function timeoutSignal(ms: number) {
+  if (typeof AbortSignal.timeout === "function") return AbortSignal.timeout(ms);
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(new DOMException("Timed out", "TimeoutError")), ms);
+  return controller.signal;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!functionUrl || !publishableKey)
     throw new Error("Сервер приложения не настроен.");
@@ -28,6 +39,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     },
   });
   const body = await response.json().catch(() => ({}));
+  if (isSessionExpiredStatus(response.status)) notifySessionExpired();
   if (!response.ok) throw apiErrorFromBody(response.status, body);
   return body as T;
 }
@@ -85,12 +97,13 @@ export const api = {
           `/events/${encodeURIComponent(eventId)}/join-requests/${encodeURIComponent(requestId)}/reject`,
           { method: "POST" },
         ),
-  createEvent: (payload: unknown) =>
+  createEvent: (payload: CreateEventRequest) =>
     useMock
       ? mockApi.createEvent(payload)
       : request<{ event: EventData }>("/events", {
           method: "POST",
           body: JSON.stringify(payload),
+          signal: timeoutSignal(CREATE_EVENT_TIMEOUT_MS),
         }),
   saveResponse: (id: string, payload: unknown) =>
     useMock

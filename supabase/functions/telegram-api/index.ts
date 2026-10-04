@@ -34,7 +34,12 @@ import { responseSaveErrorToken, responseSaveHttpError } from "../_shared/respon
 import { optionAdditionErrorToken, optionAdditionHttpError } from "../_shared/event-option-addition.ts";
 import { participantOptionProposalErrorToken, participantOptionProposalHttpError } from "../_shared/participant-option-proposal.ts";
 import { finalOptionRemovalHttpError } from "../_shared/final-option-removal.ts";
-import { eventCreationErrorToken, eventCreationHttpError } from "../_shared/event-creation.ts";
+import {
+  eventCreationErrorToken,
+  eventCreationHttpError,
+  eventCreationRequestHash,
+  parseClientRequestId,
+} from "../_shared/event-creation.ts";
 
 type Db = ReturnType<typeof createClient>;
 type AppUser = { id: string; telegram_user_id: string; username: string | null; first_name: string; last_name: string | null; photo_url: string | null };
@@ -52,6 +57,7 @@ type SaveEventResponseRow = { participant_id: string };
 type EventOptionAdditionRow = { option_id: string };
 type EventOptionProposalRow = { option_id: string };
 type CreateEventRow = { event_id: string };
+type CreateEventIdempotentRow = { event_id: string; replayed: boolean };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = (Deno.env.get("TELEGRAM_DB_SECRET_KEY") ?? "").trim();
@@ -289,30 +295,62 @@ async function createEvent(request: Request, auth: AuthContext) {
       estimatedBudget: budgetField(place.estimatedBudget),
     }];
   });
-  const eventId = id("evt");
-  const { data, error } = await db.rpc("create_event_atomic", {
-    p_event_id: eventId,
+  const clientRequestId = parseClientRequestId(payload.clientRequestId);
+  const budgetLimit = budgetField(payload.budgetLimit);
+  const rpcArgs = {
+    p_event_id: id("evt"),
     p_actor_user_id: auth.user.id,
     p_admin_token: id("backup"),
     p_title: title,
     p_description: description,
-    p_budget_limit: budgetField(payload.budgetLimit),
+    p_budget_limit: budgetLimit,
     p_visibility: visibility,
     p_max_participants: maxParticipants,
     p_time_options: times.map((startsAt) => ({ id: id("time"), startsAt })),
     p_place_options: places,
-  }).single<CreateEventRow>();
-  if (error) {
-    console.error(
-      "create_event_atomic_rpc_failed",
-      error.code,
-      eventCreationErrorToken(error) ?? "unknown",
-    );
-    throw eventCreationHttpError(error);
+  };
+  let eventId: string | undefined;
+  let replayed = false;
+  if (clientRequestId) {
+    const { data, error } = await db.rpc("create_event_idempotent", {
+      p_client_request_id: clientRequestId,
+      p_request_hash: await eventCreationRequestHash({
+        title,
+        description,
+        budgetLimit,
+        visibility,
+        maxParticipants,
+        startsAt: times,
+        places,
+      }),
+      ...rpcArgs,
+    }).single<CreateEventIdempotentRow>();
+    if (error) {
+      console.error(
+        "create_event_idempotent_rpc_failed",
+        error.code,
+        eventCreationErrorToken(error) ?? "unknown",
+      );
+      throw eventCreationHttpError(error);
+    }
+    eventId = data?.event_id;
+    replayed = data?.replayed === true;
+  } else {
+    const { data, error } = await db.rpc("create_event_atomic", rpcArgs)
+      .single<CreateEventRow>();
+    if (error) {
+      console.error(
+        "create_event_atomic_rpc_failed",
+        error.code,
+        eventCreationErrorToken(error) ?? "unknown",
+      );
+      throw eventCreationHttpError(error);
+    }
+    eventId = data?.event_id;
   }
-  if (data?.event_id !== eventId)
+  if (!eventId || (!replayed && eventId !== rpcArgs.p_event_id))
     throw new Error("Create event RPC returned no event.");
-  return json({ event: await eventPayload(eventId, auth.user.id) }, 201);
+  return json({ event: await eventPayload(eventId, auth.user.id) }, replayed ? 200 : 201);
 }
 
 async function createJoinRequest(eventId: string, auth: AuthContext) {

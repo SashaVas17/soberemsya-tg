@@ -28,6 +28,7 @@ import {
   createTimeOption,
   previousCreateStep,
   removeTimeOption,
+  createEventErrorMessage,
   submitCreateEventOnce,
   validateCreateStep,
   type CreateWizardDraft,
@@ -63,6 +64,7 @@ import {
   type VotingDraft,
 } from "./participant-voting";
 import { resultPlace, resultTime } from "./result-model";
+import { onSessionExpired } from "./session";
 import {
   haptic,
   initializeTelegram,
@@ -350,6 +352,31 @@ function EmptyState({
 function StatusBadge({ status }: { status: EventStatus }) {
   return (
     <span className={`status-badge ${status}`}>{statusLabels[status]}</span>
+  );
+}
+
+function SessionExpired() {
+  const app = telegram();
+  return (
+    <main className="outside-screen">
+      <section className="state-card error-state" role="alert">
+        <span className="state-icon error-state-icon"><CircleAlert size={30} /></span>
+        <div className="state-copy">
+          <strong>Сессия Telegram устарела</strong>
+          <p>
+            Закройте «Соберёмся» и откройте снова — Telegram обновит данные
+            входа. Несохранённые изменения на этом экране пропадут.
+          </p>
+          <button
+            className="primary-action"
+            onClick={() => (app ? app.close() : window.location.reload())}
+            type="button"
+          >
+            {app ? "Закрыть приложение" : "Перезагрузить"}
+          </button>
+        </div>
+      </section>
+    </main>
   );
 }
 
@@ -896,11 +923,7 @@ function CreateEvent({
       navigate(createdEventPath(result.event.id), true);
     } catch (reason) {
       haptic("error");
-      setError(
-        reason instanceof Error
-          ? reason.message
-          : "Не удалось создать встречу.",
-      );
+      setError(createEventErrorMessage(reason));
     } finally {
       setSaving(false);
     }
@@ -2858,7 +2881,9 @@ export default function App() {
   const [outside, setOutside] = useState(false);
   const [backOverride, setBackOverride] = useState<(() => void) | null>(null);
   const [createdEvent, setCreatedEvent] = useState<EventData | null>(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
   useTelegramBack(path, goBack, backOverride);
+  useEffect(() => onSessionExpired(() => setSessionExpired(true)), []);
   useEffect(() => {
     const app = initializeTelegram();
     const mock = import.meta.env.VITE_USE_MOCK_TELEGRAM === "true";
@@ -2892,6 +2917,7 @@ export default function App() {
       );
   }, [navigate]);
   if (outside) return <OutsideTelegram />;
+  if (sessionExpired) return <SessionExpired />;
   if (error)
     return (
       <main className="outside-screen">
