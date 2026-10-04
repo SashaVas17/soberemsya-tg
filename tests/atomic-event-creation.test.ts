@@ -134,7 +134,8 @@ describe("atomic event creation migration", () => {
 
 describe("telegram-api atomic event creation integration", () => {
   it("uses exactly one creation RPC and removes the three direct creation inserts", () => {
-    expect(createEvent.match(/db\.rpc\("create_event_atomic"/g)).toHaveLength(1);
+    expect(createEvent.match(/db\.rpc\(/g)).toHaveLength(1);
+    expect(createEvent).toContain('"create_event_atomic"');
     expect(createEvent).not.toContain('db.from("events").insert');
     expect(createEvent).not.toContain('db.from("time_options").insert');
     expect(createEvent).not.toContain('db.from("place_options").insert');
@@ -142,7 +143,7 @@ describe("telegram-api atomic event creation integration", () => {
 
   it("keeps actor and opaque id generation in verified Edge code", () => {
     expect(createEvent).toContain("p_actor_user_id: auth.user.id");
-    expect(createEvent).toContain('const eventId = id("evt")');
+    expect(createEvent).toContain('p_event_id: id("evt")');
     expect(createEvent).toContain('p_admin_token: id("backup")');
     expect(createEvent).toContain('id: id("time")');
     expect(createEvent).toContain('id: id("place")');
@@ -156,7 +157,7 @@ describe("telegram-api atomic event creation integration", () => {
     expect(createEvent).toContain("p_time_options: times.map((startsAt) => ({ id: id(\"time\"), startsAt }))");
     expect(createEvent).toContain("p_place_options: places");
     expect(createEvent).toContain("eventPayload(eventId, auth.user.id)");
-    expect(createEvent).toContain("}, 201)");
+    expect(createEvent).toContain("replayed ? 200 : 201)");
   });
 
   it("maps only stable create-validation tokens to existing safe client errors", async () => {

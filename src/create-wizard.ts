@@ -1,3 +1,9 @@
+import { ApiError } from "./api-error";
+import {
+  clearCreateRequestKey,
+  createRequestKeyFor,
+  type CreateRequestKeyStorage,
+} from "./create-request-key";
 import type { MeetingVisibility } from "./types";
 
 export type { MeetingVisibility } from "./types";
@@ -27,6 +33,8 @@ export type CreateEventPayload = {
   timeOptions: string[];
   placeOptions: PlaceDraft[];
 };
+
+export type CreateEventRequest = CreateEventPayload & { clientRequestId: string };
 
 export type SubmissionLock = { current: boolean };
 
@@ -105,13 +113,44 @@ export function createdEventPath(eventId: string) {
 export async function submitCreateEventOnce<T extends { event: { id: string } }>(
   draft: CreateWizardDraft,
   lock: SubmissionLock,
-  createEvent: (payload: CreateEventPayload) => Promise<T>,
+  createEvent: (payload: CreateEventRequest) => Promise<T>,
+  keyStorage?: CreateRequestKeyStorage | null,
 ) {
   if (lock.current) return null;
   lock.current = true;
   try {
-    return await createEvent(createEventPayload(draft));
+    const payload = createEventPayload(draft);
+    const clientRequestId = createRequestKeyFor(payload, keyStorage);
+    try {
+      const result = await createEvent({ ...payload, clientRequestId });
+      if (typeof result?.event?.id !== "string" || !result.event.id)
+        throw new SyntaxError("Create event response has no event.");
+      clearCreateRequestKey(keyStorage);
+      return result;
+    } catch (error) {
+      // A 4xx answer means the server did not create the event, so the key is
+      // spent. Network errors, timeouts and 5xx keep it: the event may exist.
+      if (error instanceof ApiError && error.status >= 400 && error.status < 500)
+        clearCreateRequestKey(keyStorage);
+      throw error;
+    }
   } finally {
     lock.current = false;
   }
+}
+
+export const CREATE_EVENT_NETWORK_ERROR =
+  "Нет ответа от сервера. Нажмите «Создать встречу» ещё раз — вторая копия встречи не появится.";
+
+export function createEventErrorMessage(reason: unknown) {
+  if (reason instanceof ApiError) return reason.message;
+  const name = reason && typeof reason === "object" && "name" in reason ? String(reason.name) : "";
+  if (
+    reason instanceof TypeError ||
+    reason instanceof SyntaxError ||
+    name === "AbortError" ||
+    name === "TimeoutError"
+  )
+    return CREATE_EVENT_NETWORK_ERROR;
+  return reason instanceof Error ? reason.message : "Не удалось создать встречу.";
 }

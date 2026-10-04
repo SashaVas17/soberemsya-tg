@@ -24,7 +24,8 @@ import {
 } from "../_shared/my-meetings-page.ts";
 import { buildPublicEventPreview } from "../_shared/public-preview.ts";
 import { buildPublicFeedItem, encodePublicFeedCursor, parsePublicFeedCursor, parsePublicFeedLimit, type PublicFeedEvent } from "../_shared/public-feed.ts";
-import { validateTelegramInitData } from "../_shared/telegram.ts";
+import { applicationError } from "../_shared/errors.ts";
+import { TELEGRAM_INIT_DATA_EXPIRED, validateTelegramInitData } from "../_shared/telegram.ts";
 import { parseCreateMeetingMode } from "../_shared/open-meetings.ts";
 import { createJoinRequestErrorToken, createJoinRequestHttpError, createJoinRequestHttpResult, type CreateJoinRequestRow } from "../_shared/join-request.ts";
 import { joinRequestDecisionErrorToken, joinRequestDecisionHttpError, joinRequestDecisionResponse, organizerJoinRequestsResponse, resolveJoinRequestDecisionRetry, type JoinRequestDecisionAction, type JoinRequestListRow, type RequesterProfileRow } from "../_shared/organizer-join-requests.ts";
@@ -34,7 +35,12 @@ import { responseSaveErrorToken, responseSaveHttpError } from "../_shared/respon
 import { optionAdditionErrorToken, optionAdditionHttpError } from "../_shared/event-option-addition.ts";
 import { participantOptionProposalErrorToken, participantOptionProposalHttpError } from "../_shared/participant-option-proposal.ts";
 import { finalOptionRemovalHttpError } from "../_shared/final-option-removal.ts";
-import { eventCreationErrorToken, eventCreationHttpError } from "../_shared/event-creation.ts";
+import {
+  eventCreationErrorToken,
+  eventCreationHttpError,
+  eventCreationRequestHash,
+  parseClientRequestId,
+} from "../_shared/event-creation.ts";
 
 type Db = ReturnType<typeof createClient>;
 type AppUser = { id: string; telegram_user_id: string; username: string | null; first_name: string; last_name: string | null; photo_url: string | null };
@@ -52,6 +58,7 @@ type SaveEventResponseRow = { participant_id: string };
 type EventOptionAdditionRow = { option_id: string };
 type EventOptionProposalRow = { option_id: string };
 type CreateEventRow = { event_id: string };
+type CreateEventIdempotentRow = { event_id: string; replayed: boolean };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = (Deno.env.get("TELEGRAM_DB_SECRET_KEY") ?? "").trim();
@@ -130,7 +137,11 @@ async function authenticate(request: Request, bodyInitData?: string): Promise<Au
     validated = await validateTelegramInitData(raw, botToken, { maxAgeSeconds: 3600 });
   } catch (error) {
     console.error("telegram_auth_validation_failed", error instanceof Error ? error.message : "unknown");
-    throw Object.assign(new Error("Не удалось подтвердить данные Telegram. Откройте Mini App заново."), { status: 401 });
+    const message = "Не удалось подтвердить данные Telegram. Откройте Mini App заново.";
+    // Only a correctly signed but stale initData is fixed by reopening the app.
+    if (error instanceof Error && error.message === TELEGRAM_INIT_DATA_EXPIRED)
+      throw applicationError("TELEGRAM_SESSION_EXPIRED", 401, message);
+    throw Object.assign(new Error(message), { status: 401 });
   }
   const profile = validated.user;
   const { data, error } = await db.rpc("ensure_telegram_user", {
@@ -289,30 +300,52 @@ async function createEvent(request: Request, auth: AuthContext) {
       estimatedBudget: budgetField(place.estimatedBudget),
     }];
   });
-  const eventId = id("evt");
-  const { data, error } = await db.rpc("create_event_atomic", {
-    p_event_id: eventId,
+  const clientRequestId = parseClientRequestId(payload.clientRequestId);
+  const budgetLimit = budgetField(payload.budgetLimit);
+  const rpcArgs = {
+    p_event_id: id("evt"),
     p_actor_user_id: auth.user.id,
     p_admin_token: id("backup"),
     p_title: title,
     p_description: description,
-    p_budget_limit: budgetField(payload.budgetLimit),
+    p_budget_limit: budgetLimit,
     p_visibility: visibility,
     p_max_participants: maxParticipants,
     p_time_options: times.map((startsAt) => ({ id: id("time"), startsAt })),
     p_place_options: places,
-  }).single<CreateEventRow>();
+  };
+  const rpcName = clientRequestId ? "create_event_idempotent" : "create_event_atomic";
+  const { data, error } = await db.rpc(
+    rpcName,
+    clientRequestId
+      ? {
+        p_client_request_id: clientRequestId,
+        p_request_hash: await eventCreationRequestHash({
+          title,
+          description,
+          budgetLimit,
+          visibility,
+          maxParticipants,
+          startsAt: times,
+          places,
+        }),
+        ...rpcArgs,
+      }
+      : rpcArgs,
+  ).single<CreateEventIdempotentRow | CreateEventRow>();
   if (error) {
     console.error(
-      "create_event_atomic_rpc_failed",
+      `${rpcName}_rpc_failed`,
       error.code,
       eventCreationErrorToken(error) ?? "unknown",
     );
     throw eventCreationHttpError(error);
   }
-  if (data?.event_id !== eventId)
+  const eventId = data?.event_id;
+  const replayed = !!data && "replayed" in data && data.replayed === true;
+  if (!eventId || (!replayed && eventId !== rpcArgs.p_event_id))
     throw new Error("Create event RPC returned no event.");
-  return json({ event: await eventPayload(eventId, auth.user.id) }, 201);
+  return json({ event: await eventPayload(eventId, auth.user.id) }, replayed ? 200 : 201);
 }
 
 async function createJoinRequest(eventId: string, auth: AuthContext) {
