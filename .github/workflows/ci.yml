@@ -31,8 +31,10 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - run: deno check supabase/functions/telegram-api/index.ts
-      - run: deno check supabase/functions/telegram-bot/index.ts
+      # package.json at the root makes Deno look for node_modules; Edge
+      # Functions resolve npm: specifiers themselves, so check them that way.
+      - run: deno check --node-modules-dir=none supabase/functions/telegram-api/index.ts
+      - run: deno check --node-modules-dir=none supabase/functions/telegram-bot/index.ts
 
   e2e:
     runs-on: ubuntu-latest
