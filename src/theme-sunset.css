@@ -304,3 +304,38 @@ h1 {
   text-overflow: clip;
   white-space: normal;
 }
+
+/* Open meetings feed and public preview. */
+.public-meetings-page .meeting-card,
+.public-meetings-page .empty-state,
+.public-meetings-page > .state-card,
+.public-feed-pagination-error,
+.public-preview-details,
+.public-preview-notice {
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-surface);
+}
+.public-feed-load-more {
+  width: 100%;
+}
+.meeting-card-action {
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-full);
+  color: var(--color-nav-active);
+  font-weight: 650;
+  padding: 6px 14px;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .public-meetings-page .meeting-card,
+  .public-meetings-page .empty-state,
+  .public-meetings-page > .state-card,
+  .public-feed-pagination-error,
+  .public-preview-details,
+  .public-preview-notice {
+    background: var(--color-surface-solid);
+  }
+}
