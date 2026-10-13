@@ -17,5 +17,5 @@ export function eventShareUrl(eventId: string, bot: string, app: string) {
 
 export function resultShareUrl(eventId: string, bot: string, app: string) {
   const link = miniAppLink(eventId, bot, app);
-  return `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent("Итог встречи в «Соберёмся»:")}`;
+  return `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent("Итог встречи в Flockly:")}`;
 }

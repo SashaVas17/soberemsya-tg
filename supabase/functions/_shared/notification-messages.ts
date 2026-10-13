@@ -112,7 +112,7 @@ export function renderNotification(
     case "join_request_approved":
       return open(`Организатор одобрил вашу заявку на встречу ${title}. Выберите удобное время и место.`);
     case "join_request_rejected":
-      return open(`Заявку на встречу ${title} не одобрили. Посмотрите другие открытые встречи.`, "Открыть «Соберёмся»");
+      return open(`Заявку на встречу ${title} не одобрили. Посмотрите другие открытые встречи.`, "Открыть Flockly");
     case "event_decided": {
       const details = finalDetails(payload);
       return open(`Итог встречи ${title}${details ? `: ${details}` : " выбран"}.`, "Подробнее");

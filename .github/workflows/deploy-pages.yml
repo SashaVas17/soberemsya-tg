@@ -30,8 +30,8 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_TELEGRAM_BOT_USERNAME: soberemsyabelarusbot
-          VITE_TELEGRAM_APP_SHORT_NAME: soberemsya
+          VITE_TELEGRAM_BOT_USERNAME: flocklyappbot
+          VITE_TELEGRAM_APP_SHORT_NAME: app
           VITE_SERVER_FUNCTION_URL: ${{ vars.VITE_SERVER_FUNCTION_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:

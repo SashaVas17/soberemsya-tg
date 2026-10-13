@@ -28,7 +28,7 @@ export function Header({
   onBack,
   resolvedTheme,
   toggleTheme,
-  title = "Соберёмся",
+  title = "Flockly",
   variant,
 }: {
   navigate: Navigate;
@@ -43,7 +43,7 @@ export function Header({
     return (
       <header className="topbar topbar-home">
         <button className="wordmark" onClick={() => navigate("/")} type="button">
-          Соберёмся
+          Flockly
         </button>
         {resolvedTheme && toggleTheme && (
           <button

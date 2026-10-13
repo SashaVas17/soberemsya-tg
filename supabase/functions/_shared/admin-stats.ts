@@ -64,7 +64,7 @@ export function formatStatsText(stats: AdminStats) {
     return value === null ? "нет данных" : `${value}% (${part} из ${total})`;
   };
   return [
-    "Статистика «Соберёмся»",
+    "Статистика Flockly",
     "",
     `Активные: сегодня ${stats.activeToday}, за 7 дней ${stats.active7d}, за 30 дней ${stats.active30d}`,
     `Пользователи: всего ${stats.usersTotal}, новых за 7 дней ${stats.usersNew7d}`,

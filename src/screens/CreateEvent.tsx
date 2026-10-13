@@ -359,7 +359,7 @@ export function CreateEvent({
               type="button"
             >
               <span className="visibility-option-title"><strong>Открытая встреча</strong><span className="visibility-option-mark" aria-hidden="true">{visibility === "public" && <Check size={16} />}</span></span>
-              <span>Пользователи «Соберёмся» смогут найти встречу и отправить заявку</span>
+              <span>Пользователи Flockly смогут найти встречу и отправить заявку</span>
             </button>
           </fieldset>
           {visibility === "public" && (

@@ -10,7 +10,7 @@ export function SessionExpired() {
         <div className="state-copy">
           <strong>Сессия Telegram устарела</strong>
           <p>
-            Закройте «Соберёмся» и откройте снова — Telegram обновит данные
+            Закройте Flockly и откройте снова — Telegram обновит данные
             входа. Несохранённые изменения на этом экране пропадут.
           </p>
           <button
@@ -32,7 +32,7 @@ export function OutsideTelegram() {
     <main className="outside-screen">
       <section className="home-preview">
         <span>Telegram Mini App</span>
-        <h1>Соберёмся</h1>
+        <h1>Flockly</h1>
         <p>
           Откройте приложение через Telegram, чтобы создавать встречи и
           голосовать вместе.

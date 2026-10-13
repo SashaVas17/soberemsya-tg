@@ -58,6 +58,12 @@
   фиолетовый `#5b2fe0` с размытыми пятнами `#ff9a6a`/`#ff6fb0`. Аватарка бота — компактный знак «f●» или
   полная надпись (PNG 640×640 отправлены владельцу, ставит сам через BotFather). Переименование в
   интерфейсе — при переносе дизайна.
+- Переезд на нового бота **@flocklyappbot** (short name `app`, решение 2026-10-13): юзернейм старого бота
+  сменить нельзя, данные привязаны к Telegram ID и сохраняются. Код: имя бота/приложения в
+  `deploy-pages.yml` и значения по умолчанию в функциях, бренд «Flockly» в текстах, скрипт
+  `scripts/configure-telegram.sh` (Mac/Linux) для вебхука/команд/кнопки меню. Владелец сам меняет секреты
+  `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_APP_SHORT_NAME`, `TELEGRAM_WEBHOOK_SECRET`
+  в Supabase и запускает скрипт; `TELEGRAM_DB_SECRET_KEY` и `TELEGRAM_CALENDAR_SIGNING_SECRET` не меняются.
 - Ход переноса: шаг 1 — вынос экранов из `App.tsx` в `src/screens/*`, общие компоненты в `src/ui/*`,
   хуки `src/app-hooks.ts`, шаринг `src/share.ts` (без изменения поведения; тесты читают UI через
   `tests/app-source.ts`). Шаг 2 — дизайн-система А2 (токены, стекло, шрифты, тёмная тема). Шаг 3 —
@@ -67,8 +73,6 @@
 **Известные проблемы**
 - Supabase-коннектор зависает на `drop`, на `raise` + `delete` в одном теле и на двух `delete` в одном теле
   (см. `CLAUDE.md`).
-- `scripts/configure-telegram.ps1` по умолчанию ставит кнопку меню на `soberemsya-tg.pages.dev`, а не на GitHub Pages
-  (проверить при следующей настройке бота).
 
 ## 1. Цель и позиционирование
 

@@ -69,8 +69,8 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = (Deno.env.get("TELEGRAM_DB_SECRET_KEY") ?? "").trim();
 const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 const calendarSigningSecret = Deno.env.get("TELEGRAM_CALENDAR_SIGNING_SECRET") ?? "";
-const botUsername = Deno.env.get("TELEGRAM_BOT_USERNAME") ?? "soberemsyabelarusbot";
-const appShortName = Deno.env.get("TELEGRAM_APP_SHORT_NAME") ?? "soberemsya";
+const botUsername = Deno.env.get("TELEGRAM_BOT_USERNAME") ?? "flocklyappbot";
+const appShortName = Deno.env.get("TELEGRAM_APP_SHORT_NAME") ?? "app";
 const adminIds = parseAdminIds(Deno.env.get("TELEGRAM_ADMIN_IDS"));
 const db = createAdminClient(supabaseUrl, serviceKey);
 
@@ -915,7 +915,7 @@ async function calendarDownload(eventId: string, search: URLSearchParams) {
   const text = buildIcs({
     id: event.id,
     title: event.title,
-    description: event.description || `Встреча в «Соберёмся»: ${eventUrl}`,
+    description: event.description || `Встреча в Flockly: ${eventUrl}`,
     location: [final.place, final.area].filter(Boolean).join(", "),
     url: eventUrl,
     startsAt: final.startsAt,

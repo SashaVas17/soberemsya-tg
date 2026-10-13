@@ -39,7 +39,7 @@ export function NotificationSettingsScreen({ navigate, onBack }: { navigate: Nav
     const granted = await requestBotWriteAccess();
     if (granted) await save({ writeAccessGranted: true });
     else if (granted === null)
-      openTelegramUrl(`https://t.me/${import.meta.env.VITE_TELEGRAM_BOT_USERNAME || "soberemsyabelarusbot"}`);
+      openTelegramUrl(`https://t.me/${import.meta.env.VITE_TELEGRAM_BOT_USERNAME || "flocklyappbot"}`);
   };
   return (
     <main className="settings-screen">

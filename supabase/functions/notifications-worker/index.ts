@@ -37,8 +37,8 @@ type ClaimedGroupMessage = {
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = (Deno.env.get("TELEGRAM_DB_SECRET_KEY") ?? "").trim();
 const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
-const bot = Deno.env.get("TELEGRAM_BOT_USERNAME") ?? "soberemsyabelarusbot";
-const app = Deno.env.get("TELEGRAM_APP_SHORT_NAME") ?? "soberemsya";
+const bot = Deno.env.get("TELEGRAM_BOT_USERNAME") ?? "flocklyappbot";
+const app = Deno.env.get("TELEGRAM_APP_SHORT_NAME") ?? "app";
 const BATCH_SIZE = 25;
 const MAX_BATCHES = 4;
 
