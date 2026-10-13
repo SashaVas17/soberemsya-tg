@@ -564,3 +564,52 @@ h1 {
 .manage-card > h2 > svg {
   flex: 0 0 auto;
 }
+
+/* Settings, statistics and system screens. */
+.settings-permission,
+.settings-toggle,
+.settings-note,
+.stat-card,
+.stat-days,
+.stat-note,
+.state-card,
+.outside-screen .state-card,
+.home-preview {
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-surface);
+}
+.stat-card strong,
+.stat-day-values,
+.state-copy > strong {
+  font-family: var(--font-display);
+}
+.stat-day-bar span {
+  background: linear-gradient(90deg, var(--action-primary-bg), #ff9a6a);
+  border-radius: var(--radius-full);
+}
+.stat-days {
+  padding: 14px;
+}
+.stat-note,
+.settings-note {
+  padding: 12px 16px;
+}
+.state-icon {
+  border-radius: var(--radius-full);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .settings-permission,
+  .settings-toggle,
+  .settings-note,
+  .stat-card,
+  .stat-days,
+  .stat-note,
+  .state-card,
+  .home-preview {
+    background: var(--color-surface-solid);
+  }
+}
