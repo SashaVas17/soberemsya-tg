@@ -41,6 +41,7 @@ import {
   eventCreationRequestHash,
   parseClientRequestId,
 } from "../_shared/event-creation.ts";
+import { notificationSettingsResponse, parseNotificationSettingsUpdate } from "../_shared/notification-settings.ts";
 
 type Db = ReturnType<typeof createClient>;
 type AppUser = { id: string; telegram_user_id: string; username: string | null; first_name: string; last_name: string | null; photo_url: string | null };
@@ -603,11 +604,37 @@ async function manageEvent(request: Request, eventId: string, auth: AuthContext)
     case "add_place": { const place = record(payload.place) ?? {}; const title = textField(place, "title", 200, "Название места слишком длинное."); if (!title) throw Object.assign(new Error("Укажите место."), { status: 400 }); const { error: rpcError } = await db.rpc("add_event_place_option", { p_event_id: eventId, p_actor_user_id: auth.user.id, p_option_id: id("place"), p_title: title, p_area: textField(place, "area", 200, "Район слишком длинный."), p_estimated_budget: budgetField(place.estimatedBudget) }).single<EventOptionAdditionRow>(); if (rpcError) { console.error("add_event_place_option_rpc_failed", rpcError.code, optionAdditionErrorToken(rpcError) ?? "unknown"); throw optionAdditionHttpError(rpcError); } break; }
     case "remove_place": { const { error: deleteError } = await db.from("place_options").delete().eq("id", String(payload.placeOptionId ?? "")).eq("event_id", eventId); if (deleteError) throw finalOptionRemovalHttpError(deleteError, "place"); break; }
     case "close": { await updateActiveOwnedEvent(eventId, auth.user.id, { status: "place_selection" }); break; }
+    case "cancel": { if (event.status === "cancelled") throw Object.assign(new Error("Встреча уже отменена."), { status: 409 }); await updateActiveOwnedEvent(eventId, auth.user.id, { status: "cancelled" }); break; }
     case "reopen": { await updateActiveOwnedEvent(eventId, auth.user.id, { status: "collecting", final_time_option_id: null, final_place_id: null }); break; }
     case "decide": { const timeId = String(payload.finalTimeOptionId ?? ""); const placeId = String(payload.finalPlaceId ?? ""); const [{ data: time }, { data: place }] = await Promise.all([db.from("time_options").select("id").eq("id", timeId).eq("event_id", eventId).maybeSingle(), db.from("place_options").select("id").eq("id", placeId).eq("event_id", eventId).maybeSingle()]); if (!time || !place) throw Object.assign(new Error("Выберите допустимые время и место."), { status: 400 }); await updateActiveOwnedEvent(eventId, auth.user.id, { status: "decided", final_time_option_id: timeId, final_place_id: placeId }); break; }
     default: throw Object.assign(new Error("Неизвестное действие."), { status: 400 });
   }
   return json({ event: await eventPayload(eventId, auth.user.id) });
+}
+
+async function notificationSettings(request: Request, auth: AuthContext) {
+  if (request.method === "PUT") {
+    const update = parseNotificationSettingsUpdate(
+      await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES),
+    );
+    if (Object.keys(update.preferences).length) {
+      const { error } = await db.from("notification_preferences").upsert(
+        { user_id: auth.user.id, ...update.preferences, updated_at: new Date().toISOString() },
+        { onConflict: "user_id" },
+      );
+      if (error) throw error;
+    }
+    if (update.writeAccessGranted) {
+      const { error } = await db.from("users").update({ can_message: true }).eq("id", auth.user.id);
+      if (error) throw error;
+    }
+  }
+  const [{ data: preferences, error: preferencesError }, { data: user, error: userError }] = await Promise.all([
+    db.from("notification_preferences").select("response_mode,reminder_24h,reminder_2h").eq("user_id", auth.user.id).maybeSingle(),
+    db.from("users").select("can_message").eq("id", auth.user.id).maybeSingle(),
+  ]);
+  if (preferencesError || userError) throw preferencesError ?? userError;
+  return json(notificationSettingsResponse(preferences, user?.can_message ?? null));
 }
 
 async function meetings(auth: AuthContext) {
@@ -919,6 +946,7 @@ function allowedMethods(path: string) {
   if (path === "/health" || /^\/calendar\/[^/]+$/.test(path)) return ["GET"];
   if (path === "/telegram/auth" || path === "/events") return ["POST"];
   if (path === "/me/meetings" || path === "/me/meetings/page" || path === "/public/events") return ["GET"];
+  if (path === "/me/notification-settings") return ["GET", "PUT"];
   if (/^\/events\/[^/]+\/response$/.test(path)) return ["POST"];
   if (/^\/events\/[^/]+\/(time-options|place-options)\/proposals$/.test(path)) return ["POST"];
   if (/^\/events\/[^/]+\/participation$/.test(path)) return ["DELETE"];
@@ -974,6 +1002,7 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
   if (path === "/events") return await createEvent(request, auth);
   if (path === "/me/meetings") return await meetings(auth);
   if (path === "/me/meetings/page") return await meetingListPage(request, auth);
+  if (path === "/me/notification-settings") return await notificationSettings(request, auth);
   if (path === "/public/events") return await publicEvents(request, auth);
   const responseMatch = path.match(/^\/events\/([^/]+)\/response$/);
   if (responseMatch)

@@ -35,6 +35,7 @@ jobs:
       # Functions resolve npm: specifiers themselves, so check them that way.
       - run: deno check --node-modules-dir=none supabase/functions/telegram-api/index.ts
       - run: deno check --node-modules-dir=none supabase/functions/telegram-bot/index.ts
+      - run: deno check --node-modules-dir=none supabase/functions/notifications-worker/index.ts
 
   e2e:
     runs-on: ubuntu-latest

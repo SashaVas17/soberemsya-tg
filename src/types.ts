@@ -132,3 +132,12 @@ export type MeetingListItem = {
 };
 
 export type AuthResult = { user: TelegramUser; startParam: string | null };
+
+export type NotificationResponseMode = "summary" | "each" | "off";
+
+export type NotificationSettings = {
+  responseMode: NotificationResponseMode;
+  reminder24h: boolean;
+  reminder2h: boolean;
+  canMessage: boolean | null;
+};

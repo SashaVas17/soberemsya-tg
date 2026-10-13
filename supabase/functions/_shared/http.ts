@@ -6,7 +6,7 @@ const browserOrigins = new Set([
   "http://127.0.0.1:5173",
 ]);
 
-const browserMethods = "GET, POST, PATCH, DELETE, OPTIONS";
+const browserMethods = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
 const browserHeaders = "apikey, content-type, x-telegram-init-data";
 
 export function browserCorsHeaders(origin: string | null) {

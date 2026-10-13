@@ -26,6 +26,7 @@ export const managePayloads = {
   }),
   close: () => ({ action: "close" as const }),
   reopen: () => ({ action: "reopen" as const }),
+  cancel: () => ({ action: "cancel" as const }),
 };
 
 export async function runActionOnce<T>(
