@@ -14,6 +14,7 @@ import {
   parseNotificationSettingsUpdate,
 } from "../supabase/functions/_shared/notification-settings";
 import { askWriteAccessOnce, WRITE_ACCESS_ASKED_KEY } from "../src/write-access";
+import { readAppSource } from "./app-source";
 
 const read = (path: string) => readFileSync(path, "utf8").replace(/\r\n/g, "\n");
 const migrationNames = readdirSync("supabase/migrations").filter((name) => name >= "2026101313");
@@ -185,7 +186,7 @@ describe("notification migrations", () => {
 
 describe("API and UI wiring", () => {
   const api = read("supabase/functions/telegram-api/index.ts");
-  const app = read("src/App.tsx");
+  const app = readAppSource();
 
   it("exposes notification settings and a cancel action", () => {
     expect(api).toContain('if (path === "/me/notification-settings") return ["GET", "PUT"];');

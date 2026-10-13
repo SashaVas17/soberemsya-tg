@@ -19,12 +19,13 @@ import {
   publicParticipantCount,
   resolveJoinRequestStatus,
 } from "../supabase/functions/_shared/public-preview";
+import { readAppSource } from "./app-source";
 
 const backendSource = readFileSync(
   "supabase/functions/telegram-api/index.ts",
   "utf8",
 );
-const appSource = readFileSync("src/App.tsx", "utf8");
+const appSource = readAppSource();
 const apiSource = readFileSync("src/api.ts", "utf8");
 const migrationSource = readFileSync(
   "supabase/migrations/20260814104624_open_meetings_foundation.sql",

@@ -12,6 +12,7 @@ import {
   createJoinRequestHttpResult,
 } from "../supabase/functions/_shared/join-request";
 import { errorResponse } from "../supabase/functions/_shared/http";
+import { readAppSource } from "./app-source";
 
 const backendSource = readFileSync(
   "supabase/functions/telegram-api/index.ts",
@@ -21,7 +22,7 @@ const handlerSource = backendSource.slice(
   backendSource.indexOf("async function createJoinRequest"),
   backendSource.indexOf("async function organizerJoinRequests"),
 );
-const appSource = readFileSync("src/App.tsx", "utf8");
+const appSource = readAppSource();
 const previewSource = appSource.slice(
   appSource.indexOf("function PublicPreviewScreen"),
   appSource.indexOf("function ParticipantEvent"),

@@ -11,8 +11,9 @@ import {
   type OrganizerRequestActionLock,
 } from "../src/organizer-request-ui";
 import type { OrganizerJoinRequest } from "../src/types";
+import { readAppSource } from "./app-source";
 
-const appSource = readFileSync("src/App.tsx", "utf8");
+const appSource = readAppSource();
 const manageSource = appSource.slice(
   appSource.indexOf("function Manage("),
   appSource.indexOf("function Result("),

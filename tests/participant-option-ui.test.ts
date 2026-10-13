@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { readAppSource } from "./app-source";
 
-const app = readFileSync("src/App.tsx", "utf8");
+const app = readAppSource();
 const api = readFileSync("src/api.ts", "utf8");
 const styles = readFileSync("src/styles.css", "utf8");
 const tokens = readFileSync("src/design-tokens.css", "utf8");

@@ -8,6 +8,7 @@ import {
   navigateToBottomItem,
 } from "../src/navigation";
 import type { MeetingListItem } from "../src/types";
+import { readAppSource } from "./app-source";
 
 const meeting: MeetingListItem = {
   id: "evt_123",
@@ -75,7 +76,7 @@ describe("primary frontend navigation", () => {
 });
 
 describe("meeting list architecture", () => {
-  const appSource = readFileSync("src/App.tsx", "utf8");
+  const appSource = readAppSource();
   const apiSource = readFileSync("src/api.ts", "utf8");
   const stylesSource = readFileSync("src/styles.css", "utf8");
 
@@ -147,7 +148,7 @@ describe("meeting list architecture", () => {
 });
 
 describe("in-app back navigation", () => {
-  const appSource = readFileSync("src/App.tsx", "utf8");
+  const appSource = readAppSource();
 
   it("keeps Back separate from Home and uses a safe internal history stack", () => {
     expect(appSource).toContain("const historyStack = useRef([initialPath.current]);");

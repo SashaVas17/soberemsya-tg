@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { readAppSource } from "./app-source";
 
-const appSource = readFileSync("src/App.tsx", "utf8");
+const appSource = readAppSource();
 const manageSource = appSource.slice(
   appSource.indexOf("function Manage("),
   appSource.indexOf("function Result("),

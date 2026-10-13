@@ -12,6 +12,7 @@ import {
   TELEGRAM_INIT_DATA_EXPIRED,
   validateTelegramInitData,
 } from "../supabase/functions/_shared/telegram";
+import { readAppSource } from "./app-source";
 
 describe("session expiry signal", () => {
   it("treats only a 401 with the expired-session code as an expired session", () => {
@@ -46,7 +47,7 @@ describe("session expiry signal", () => {
 
 describe("session expiry wiring", () => {
   const api = readFileSync("src/api.ts", "utf8");
-  const app = readFileSync("src/App.tsx", "utf8");
+  const app = readAppSource();
   const shell = app.slice(app.indexOf("export default function App()"));
 
   it("signals expiry from the shared request helper before throwing", () => {

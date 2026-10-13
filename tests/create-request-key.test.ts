@@ -16,6 +16,7 @@ import {
   type CreateEventRequest,
   type CreateWizardDraft,
 } from "../src/create-wizard";
+import { readAppSource } from "./app-source";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -158,7 +159,7 @@ describe("create error messages", () => {
   });
 
   it("maps only submission errors, not errors after a successful create", () => {
-    const app = readFileSync("src/App.tsx", "utf8");
+    const app = readAppSource();
     const submit = app.slice(app.indexOf("const submit = useCallback"), app.indexOf("return (\n    <main className=\"create-screen\">"));
     const catchBlock = submit.indexOf("setError(createEventErrorMessage(reason));");
     expect(catchBlock).toBeGreaterThan(-1);

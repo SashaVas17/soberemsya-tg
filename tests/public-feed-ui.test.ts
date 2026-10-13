@@ -2,8 +2,9 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { mergePublicMeetings } from "../src/public-feed";
 import type { PublicMeetingFeedItem } from "../src/types";
+import { readAppSource } from "./app-source";
 
-const appSource = readFileSync("src/App.tsx", "utf8");
+const appSource = readAppSource();
 const navigationSource = readFileSync("src/BottomNavigation.tsx", "utf8");
 const apiSource = readFileSync("src/api.ts", "utf8");
 const stylesSource = readFileSync("src/styles.css", "utf8");

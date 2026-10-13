@@ -10,6 +10,7 @@ import {
   resolveJoinRequestDecisionRetry,
 } from "../supabase/functions/_shared/organizer-join-requests";
 import { errorResponse } from "../supabase/functions/_shared/http";
+import { readAppSource } from "./app-source";
 
 const backendSource = readFileSync(
   "supabase/functions/telegram-api/index.ts",
@@ -29,7 +30,7 @@ const decisionSource = backendSource.slice(
 );
 const apiSource = readFileSync("src/api.ts", "utf8");
 const typeSource = readFileSync("src/types.ts", "utf8");
-const appSource = readFileSync("src/App.tsx", "utf8");
+const appSource = readAppSource();
 
 const requestRows = [
   {
