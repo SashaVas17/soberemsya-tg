@@ -339,3 +339,74 @@ h1 {
     background: var(--color-surface-solid);
   }
 }
+
+/* Meeting screen (voting): glass panels, tile options, sticky submit. */
+.voting-form .panel,
+.voting-screen .panel,
+.participant-next-action,
+.event-meta,
+.voting-saved-page {
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-surface);
+}
+.voting-screen .panel h2 {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 650;
+}
+.availability-card {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text);
+  min-height: 64px;
+}
+.availability-card.available {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-primary) 22%, transparent);
+}
+.voting-screen input,
+.voting-screen textarea,
+.voting-screen select {
+  background: var(--color-surface-elevated);
+  border-color: var(--glass-border);
+  border-radius: var(--radius-lg);
+}
+.voting-form .form-submit {
+  bottom: max(12px, env(safe-area-inset-bottom));
+  position: sticky;
+  width: 100%;
+  z-index: 5;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .voting-form .panel,
+  .voting-screen .panel,
+  .participant-next-action,
+  .event-meta,
+  .voting-saved-page {
+    background: var(--color-surface-solid);
+  }
+}
+.voting-form .availability-grid {
+  gap: 10px;
+}
+.voting-form .availability-card,
+.voting-form .availability-card:last-child {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  min-height: 68px;
+  padding: 12px 14px;
+}
+.voting-form .availability-card.available {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+}
+.voting-form .form-submit {
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--action-primary-bg) 40%, transparent);
+}
