@@ -63,9 +63,14 @@ export function eventDeepLink(bot: string, app: string, eventId: string | null) 
   return eventId ? `${base}?startapp=event_${eventId}` : base;
 }
 
-/** Where a notification button leads: the meeting, or the app for a rejection. */
+/**
+ * Where a notification button leads: the meeting, or the app for a
+ * rejection. The ntf prefix lets analytics count opens from notifications.
+ */
 export function notificationLink(bot: string, app: string, kind: NotificationKind, eventId: string | null) {
-  return eventDeepLink(bot, app, kind === "join_request_rejected" ? null : eventId);
+  const base = `https://t.me/${bot}/${app}`;
+  if (kind === "join_request_rejected" || !eventId) return `${base}?startapp=ntf`;
+  return `${base}?startapp=ntf_${eventId}`;
 }
 
 /**

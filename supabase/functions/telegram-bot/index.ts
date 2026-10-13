@@ -4,6 +4,7 @@ import {
   readJsonObject,
   TELEGRAM_WEBHOOK_BODY_LIMIT_BYTES,
 } from "../_shared/bounded-json.ts";
+import { type AdminStats, formatStatsText, isAdminTelegramId, parseAdminIds } from "../_shared/admin-stats.ts";
 import { groupCommandReply, groupCreateUrl, isGroupChatType, parseBotCommand } from "../_shared/group-chats.ts";
 
 const token = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
@@ -13,6 +14,7 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = (Deno.env.get("TELEGRAM_DB_SECRET_KEY") ?? "").trim();
 const botUsername = Deno.env.get("TELEGRAM_BOT_USERNAME") ?? "soberemsyabelarusbot";
 const appShortName = Deno.env.get("TELEGRAM_APP_SHORT_NAME") ?? "soberemsya";
+const adminIds = parseAdminIds(Deno.env.get("TELEGRAM_ADMIN_IDS"));
 
 const db = createAdminClient(supabaseUrl, serviceKey);
 
@@ -81,6 +83,15 @@ Deno.serve(async (request) => {
     }
     if (message.chatType !== "private") return json({ ok: true });
     const command = message.text.split(/\s/)[0].split("@")[0];
+    // Only administrators get /stats; for others it is an unknown command.
+    if (command === "/stats" && isAdminTelegramId(message.senderId, adminIds) && supabaseUrl && serviceKey) {
+      // A failed read is answered, not redelivered by Telegram.
+      const { data, error } = await db.rpc("admin_stats");
+      if (error) console.error("admin_stats_failed", error.code);
+      const text = error ? "Не удалось получить статистику. Попробуйте позже." : formatStatsText(data as AdminStats);
+      await telegram("sendMessage", { chat_id: message.chatId, text });
+      return json({ ok: true });
+    }
     const screens: Record<string, string> = { "/new": "create", "/my": "my-events" }; const screen = screens[command];
     const text = command === "/help" ? "Создайте встречу, отправьте её в чат и соберите ответы без регистрации." : command === "/new" ? "Создадим новую встречу." : command === "/my" ? "Ваши встречи доступны в Mini App." : "Откройте «Соберёмся», чтобы организовать встречу.";
     await telegram("sendMessage", { chat_id: message.chatId, text, reply_markup: { inline_keyboard: [[{ text: command === "/new" ? "Создать встречу" : command === "/my" ? "Мои встречи" : "Открыть «Соберёмся»", web_app: { url: screen ? `${appUrl}?screen=${screen}` : appUrl } }]] } });

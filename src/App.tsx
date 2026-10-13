@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  BarChart3,
   Bell,
   CalendarPlus,
   CalendarDays,
@@ -67,6 +68,7 @@ import {
   type VotingDraft,
 } from "./participant-voting";
 import { resultPlace, resultTime } from "./result-model";
+import { barWidth, shareText, shortDay } from "./admin-stats";
 import { onSessionExpired } from "./session";
 import {
   haptic,
@@ -89,6 +91,7 @@ import {
   type ThemePreference,
 } from "./theme";
 import type {
+  AdminStats,
   AuthResult,
   EventData,
   EventStatus,
@@ -368,6 +371,81 @@ const responseModeOptions = [
   { value: "off", title: "Не присылать", text: "Об ответах узнаете, открыв встречу" },
 ] as const;
 
+function StatCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="stat-card">
+      <strong>{value}</strong>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+// Visible only to administrators: the API answers 404 to everyone else.
+function AdminStatsScreen({ navigate, onBack }: { navigate: Navigate; onBack: () => void }) {
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [error, setError] = useState("");
+  const load = useCallback(() => {
+    setError("");
+    api.adminStats().then(({ stats: loaded }) => setStats(loaded)).catch((reason) =>
+      setError(reason instanceof Error ? reason.message : "Не удалось загрузить статистику."));
+  }, []);
+  useEffect(() => load(), [load]);
+  return (
+    <main className="settings-screen">
+      <Header navigate={navigate} onBack={onBack} title="Статистика" variant="nested" />
+      <section className="settings-page admin-stats">
+        {!stats && !error && <Loading label="Считаем статистику…" />}
+        {error && <RetryState message={error} onRetry={load} title="Статистика не загрузилась" />}
+        {stats && (
+          <>
+            <section>
+              <h2>Активные пользователи</h2>
+              <div className="stat-grid stat-grid-3">
+                <StatCard label="сегодня" value={stats.activeToday} />
+                <StatCard label="за 7 дней" value={stats.active7d} />
+                <StatCard label="за 30 дней" value={stats.active30d} />
+              </div>
+            </section>
+            <section>
+              <h2>За 7 дней</h2>
+              <div className="stat-grid">
+                <StatCard label="новых встреч" value={stats.meetings7d} />
+                <StatCard label="ответов" value={stats.responses7d} />
+                <StatCard label="заявок" value={stats.joinRequests7d} />
+                <StatCard label="отправок в чат" value={stats.shares7d} />
+                <StatCard label="переходов из уведомлений" value={stats.notificationOpens7d} />
+                <StatCard label="новых пользователей" value={stats.usersNew7d} />
+              </div>
+            </section>
+            <section className="stat-lines">
+              <p><span>Вернулись за 7 дней</span><strong>{shareText(stats.returningUsers7d, stats.previousWeekUsers)}</strong></p>
+              <p><span>Встречи с ответами, 30 дней</span><strong>{shareText(stats.meetingsWithResponses30d, stats.meetings30d)}</strong></p>
+              <p><span>Всего пользователей</span><strong>{stats.usersTotal}</strong></p>
+              <p><span>Всего встреч</span><strong>{stats.meetingsTotal}</strong></p>
+            </section>
+            <section>
+              <h2>По дням</h2>
+              <ul className="stat-days">
+                {stats.daily.map((day) => (
+                  <li key={day.day}>
+                    <span className="stat-day-date">{shortDay(day.day)}</span>
+                    <span className="stat-day-bar"><span style={{ width: `${barWidth(day.active, stats.daily)}%` }} /></span>
+                    <span className="stat-day-values">{day.active} акт. · {day.meetings} встр. · {day.responses} отв.</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="stat-note">
+                Активные пользователи считаются по открытиям приложения с 13 октября 2026 года.
+                Встречи и ответы — за всё время.
+              </p>
+            </section>
+          </>
+        )}
+      </section>
+    </main>
+  );
+}
+
 function NotificationSettingsScreen({ navigate, onBack }: { navigate: Navigate; onBack: () => void }) {
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
   const [error, setError] = useState("");
@@ -508,11 +586,13 @@ function Home({
   resolvedTheme,
   toggleTheme,
   user,
+  isAdmin,
 }: {
   navigate: Navigate;
   resolvedTheme: ResolvedTheme;
   toggleTheme: () => void;
   user: AuthResult["user"];
+  isAdmin: boolean;
 }) {
   const [data, setData] = useState<{
     owned: MeetingListItem[];
@@ -587,6 +667,16 @@ function Home({
           <Bell size={18} />
           <span>Уведомления от бота</span>
         </button>
+        {isAdmin && (
+          <button
+            className="home-settings-link"
+            onClick={() => navigate("/admin/stats")}
+            type="button"
+          >
+            <BarChart3 size={18} />
+            <span>Статистика</span>
+          </button>
+        )}
         <div className="home-section-heading">
           <h2>Ваши встречи</h2>
           <button onClick={() => navigate("/my-events")} type="button">Все</button>
@@ -3070,23 +3160,29 @@ function usePreparedShare(eventId: string | null, kind: "invite" | "result") {
 }
 
 // A card with a button when it is ready; otherwise the plain share link.
-function shareCard(preparedMessageId: string | null, fallbackUrl: string) {
-  if (!preparedMessageId) {
+// Analytics records a sent card or an opened share link; it never blocks sharing.
+function shareCard(eventId: string, preparedMessageId: string | null, fallbackUrl: string) {
+  const openFallback = () => {
     openTelegramUrl(fallbackUrl);
+    void api.trackEvent("share_fallback", eventId).catch(() => undefined);
+  };
+  if (!preparedMessageId) {
+    openFallback();
     return;
   }
   void shareTelegramMessage(preparedMessageId).then((sent) => {
-    if (sent === null) openTelegramUrl(fallbackUrl);
+    if (sent === null) openFallback();
+    else if (sent) void api.trackEvent("share_sent", eventId).catch(() => undefined);
   });
 }
 
 function shareEvent(eventId: string, preparedMessageId: string | null) {
   const { bot, app } = telegramAppConfig();
-  shareCard(preparedMessageId, buildEventShareUrl(eventId, bot, app));
+  shareCard(eventId, preparedMessageId, buildEventShareUrl(eventId, bot, app));
 }
 function shareResult(eventId: string, preparedMessageId: string | null) {
   const { bot, app } = telegramAppConfig();
-  shareCard(preparedMessageId, buildResultShareUrl(eventId, bot, app));
+  shareCard(eventId, preparedMessageId, buildResultShareUrl(eventId, bot, app));
 }
 
 export default function App() {
@@ -3127,6 +3223,8 @@ export default function App() {
         setAuth(result);
         if (result.startParam?.startsWith("event_"))
           navigate(`/event/${result.startParam.slice(6)}`, true);
+        else if (result.startParam?.startsWith("ntf_"))
+          navigate(`/event/${result.startParam.slice(4)}`, true);
         else if (result.startParam?.startsWith("group_")) {
           setGroupToken(result.startParam.slice(6));
           navigate("/create", true);
@@ -3195,12 +3293,14 @@ export default function App() {
   if (path === "/open") return <PublicMeetings navigate={navigate} onBack={goBack} />;
   if (path === "/my-events") return <MyEvents navigate={navigate} onBack={goBack} />;
   if (path === "/settings") return <NotificationSettingsScreen navigate={navigate} onBack={goBack} />;
+  if (path === "/admin/stats" && auth.isAdmin) return <AdminStatsScreen navigate={navigate} onBack={goBack} />;
   return (
     <Home
       navigate={navigate}
       resolvedTheme={resolvedTheme}
       toggleTheme={toggleTheme}
       user={auth.user}
+      isAdmin={auth.isAdmin === true}
     />
   );
 }

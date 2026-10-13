@@ -92,6 +92,7 @@ const auth: AuthResult = {
     photoUrl: null,
   },
   startParam: new URLSearchParams(globalThis.location?.search ?? "").get("mockStartParam"),
+  isAdmin: true,
 };
 const clone = <T>(value: T): T => structuredClone(value);
 const cloneEventResponse = () => ({
@@ -407,6 +408,33 @@ export const mockApi = {
   },
   prepareShareMessage: async () => ({ preparedMessageId: "mock-prepared-message" }),
   groupLink: async () => ({ groupLink: { chatTitle: "Друзья" } }),
+  trackEvent: async () => ({ ok: true as const }),
+  adminStats: async () => ({
+    stats: {
+      generatedAt: new Date().toISOString(),
+      usersTotal: 12,
+      usersNew7d: 3,
+      activeToday: 4,
+      active7d: 9,
+      active30d: 11,
+      notificationOpens7d: 5,
+      meetingsTotal: 21,
+      meetings7d: 6,
+      responses7d: 17,
+      joinRequests7d: 2,
+      shares7d: 8,
+      returningUsers7d: 5,
+      previousWeekUsers: 8,
+      meetings30d: 14,
+      meetingsWithResponses30d: 11,
+      daily: Array.from({ length: 14 }, (_, index) => ({
+        day: new Date(Date.now() - (13 - index) * 86_400_000).toISOString().slice(0, 10),
+        active: (index * 3) % 7,
+        meetings: index % 3,
+        responses: (index * 2) % 5,
+      })),
+    },
+  }),
   calendarLink: async (eventId: string) => ({
     icsUrl: `https://example.test/calendar/${encodeURIComponent(eventId)}.ics?expires=0&signature=mock`,
   }),

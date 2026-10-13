@@ -3267,3 +3267,105 @@ code {
 .created-copy .group-create-note {
   margin: 14px 0 0;
 }
+
+/* Admin statistics */
+.admin-stats h2 {
+  font-size: 17px;
+  margin: 0 0 var(--space-sm);
+}
+
+.stat-grid {
+  display: grid;
+  gap: var(--space-sm);
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+
+.stat-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+}
+
+.stat-card strong {
+  color: var(--color-text);
+  font-size: 26px;
+  line-height: 1.1;
+}
+
+.stat-card span,
+.stat-note {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.stat-lines {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  display: grid;
+  padding: 4px 14px;
+}
+
+.stat-lines p {
+  align-items: baseline;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: space-between;
+  margin: 0;
+  padding: 10px 0;
+}
+
+.stat-lines p:last-child {
+  border-bottom: 0;
+}
+
+.stat-days {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.stat-days li {
+  align-items: center;
+  display: grid;
+  font-size: 14px;
+  gap: var(--space-sm);
+  grid-template-columns: 44px 1fr auto;
+}
+
+.stat-day-date,
+.stat-day-values {
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-day-bar {
+  background: var(--color-surface-secondary);
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+}
+
+.stat-day-bar span {
+  background: var(--color-primary);
+  display: block;
+  height: 100%;
+}
+
+.stat-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.stat-lines strong {
+  white-space: nowrap;
+}
+
+.stat-note {
+  margin: var(--space-sm) 0 0;
+}

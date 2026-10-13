@@ -79,3 +79,10 @@ test("organizer creates a meeting from a group chat link", async ({ page }) => {
 
   await expect(page.getByText("Карточка встречи появится в чате «Друзья» в течение минуты.")).toBeVisible();
 });
+
+test("administrator opens the statistics screen", async ({ page }) => {
+  await page.goto("./");
+  await page.getByRole("button", { name: "Статистика" }).click();
+  await expect(page.getByRole("heading", { name: "Активные пользователи" })).toBeVisible();
+  await expect(page.getByText("63% (5 из 8)")).toBeVisible();
+});
