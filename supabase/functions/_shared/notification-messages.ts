@@ -46,12 +46,16 @@ export function formatMeetingTime(startsAt: string) {
   return whenFormatter.format(value);
 }
 
-function where(payload: Payload) {
-  return [text(payload, "place"), text(payload, "area")].filter(Boolean).join(", ");
+/** "суббота, 20 октября, 18:00 · Парк, Центр" — the final time and place. */
+export function formatFinalDetails(startsAt: string | null | undefined, place?: string | null, area?: string | null) {
+  return [
+    formatMeetingTime(startsAt ?? ""),
+    [place?.trim(), area?.trim()].filter(Boolean).join(", "),
+  ].filter(Boolean).join(" · ");
 }
 
 function finalDetails(payload: Payload) {
-  return [formatMeetingTime(text(payload, "startsAt")), where(payload)].filter(Boolean).join(" · ");
+  return formatFinalDetails(text(payload, "startsAt"), text(payload, "place"), text(payload, "area"));
 }
 
 export function eventDeepLink(bot: string, app: string, eventId: string | null) {

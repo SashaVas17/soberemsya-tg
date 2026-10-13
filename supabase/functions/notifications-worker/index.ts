@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2.111.0";
+import { createAdminClient } from "../_shared/admin-client.ts";
 import { json } from "../_shared/http.ts";
 import { type GroupMessageKind, isGroupMessageStale, renderGroupMessage } from "../_shared/group-chats.ts";
 import {
@@ -42,17 +42,7 @@ const app = Deno.env.get("TELEGRAM_APP_SHORT_NAME") ?? "soberemsya";
 const BATCH_SIZE = 25;
 const MAX_BATCHES = 4;
 
-// New-format secret keys must reach the REST API only in the apikey header.
-const adminFetch: typeof fetch = (input, init) => {
-  const headers = new Headers(init?.headers);
-  headers.set("apikey", serviceKey);
-  headers.delete("Authorization");
-  return fetch(input, { ...init, headers });
-};
-const db = createClient(supabaseUrl, serviceKey, {
-  auth: { persistSession: false, autoRefreshToken: false },
-  global: { fetch: adminFetch },
-});
+const db = createAdminClient(supabaseUrl, serviceKey);
 
 async function sendMessage(chatId: number, message: NotificationMessage): Promise<TelegramSendOutcome> {
   try {
@@ -82,7 +72,7 @@ async function complete(id: number, outcome: string, error?: string, retryAfterS
   if (rpcError) console.error("complete_notification_failed", rpcError.code);
 }
 
-async function processBatch() {
+async function processPersonalBatch() {
   const { data, error } = await db.rpc("claim_notification_batch", { p_limit: BATCH_SIZE });
   if (error) throw error;
   const items = (data ?? []) as ClaimedNotification[];
@@ -160,17 +150,22 @@ Deno.serve(async (request) => {
     return json({ error: "Unavailable" }, 503);
   }
   if (valid !== true) return json({ error: "Unauthorized" }, 401);
+  // Personal and group deliveries run independently: a failure in one does
+  // not hold back the other.
   let processed = 0;
-  try {
-    for (let batch = 0; batch < MAX_BATCHES; batch += 1) {
-      const count = await processBatch();
-      processed += count;
-      if (count < BATCH_SIZE) break;
+  let failed = false;
+  for (const [label, processBatch] of [["personal", processPersonalBatch], ["group", processGroupBatch]] as const) {
+    try {
+      for (let batch = 0; batch < MAX_BATCHES; batch += 1) {
+        const count = await processBatch();
+        processed += count;
+        if (count < BATCH_SIZE) break;
+      }
+    } catch (failure) {
+      failed = true;
+      console.error("notifications_worker_failed", label, failure instanceof Error ? failure.message : "unknown");
     }
-    processed += await processGroupBatch();
-  } catch (failure) {
-    console.error("notifications_worker_failed", failure instanceof Error ? failure.message : "unknown");
-    return json({ processed, error: "partial failure" }, 500);
   }
+  if (failed) return json({ processed, error: "partial failure" }, 500);
   return json({ processed });
 });

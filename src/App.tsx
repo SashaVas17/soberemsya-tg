@@ -968,15 +968,15 @@ function CreateEvent({
   groupToken: string | null;
 }) {
   const [step, setStep] = useState(1);
-  const [group, setGroup] = useState<{ token: string; chatTitle: string } | null>(null);
+  const [groupTitle, setGroupTitle] = useState<string | null>(null);
   const [groupError, setGroupError] = useState("");
   useEffect(() => {
-    setGroup(null);
+    setGroupTitle(null);
     setGroupError("");
     if (!groupToken) return;
     let active = true;
     api.groupLink(groupToken)
-      .then(({ groupLink }) => { if (active) setGroup({ token: groupToken, chatTitle: groupLink.chatTitle }); })
+      .then(({ groupLink }) => { if (active) setGroupTitle(groupLink.chatTitle); })
       .catch((reason) => {
         if (active)
           setGroupError(reason instanceof Error ? reason.message : "Не удалось открыть ссылку из группы.");
@@ -1042,7 +1042,7 @@ function CreateEvent({
     let result: Awaited<ReturnType<typeof api.createEvent>> | null;
     try {
       result = await submitCreateEventOnce(draft, submitLock, (payload) =>
-        api.createEvent(group ? { ...payload, groupToken: group.token } : payload));
+        api.createEvent(groupToken ? { ...payload, groupToken } : payload));
     } catch (reason) {
       haptic("error");
       setError(createEventErrorMessage(reason));
@@ -1054,18 +1054,18 @@ function CreateEvent({
     haptic();
     onCreated(
       result.event,
-      group ? { chatTitle: group.chatTitle, attached: result.groupAttached === true } : undefined,
+      groupToken ? { chatTitle: groupTitle ?? "", attached: result.groupAttached === true } : undefined,
     );
     void askWriteAccessOnce(() => api.notificationSettings({ writeAccessGranted: true }));
     navigate(createdEventPath(result.event.id), true);
-  }, [budgetLimit, description, group, hasParticipantLimit, maxParticipants, maxParticipantsInput, navigate, onCreated, places, saving, timeOptions, title, visibility]);
+  }, [budgetLimit, description, groupTitle, groupToken, hasParticipantLimit, maxParticipants, maxParticipantsInput, navigate, onCreated, places, saving, timeOptions, title, visibility]);
   return (
     <main className="create-screen">
       <Header navigate={navigate} onBack={onBack} title="Создание встречи" variant="nested" />
       <section className="create-intro">
-        {group && (
+        {groupTitle !== null && (
           <p className="group-create-note">
-            Встреча для чата «{group.chatTitle}». После создания карточка для голосования появится в чате.
+            Встреча для чата «{groupTitle}». После создания карточка для голосования появится в чате.
           </p>
         )}
         {groupError && <p className="group-create-note group-create-note-error">{groupError}</p>}
@@ -1456,6 +1456,8 @@ function Created({
   onBack: () => void;
 }) {
   const link = miniAppLink(eventId);
+  const invitePrepared = usePreparedShare(eventId, "invite");
+  const chat = group?.chatTitle ? `в чате «${group.chatTitle}»` : "в чате";
   return (
     <main className="created-screen">
       <Header navigate={navigate} onBack={onBack} title="Встреча создана" variant="nested" />
@@ -1466,11 +1468,11 @@ function Created({
           {event?.visibility === "public" && <span className="visibility-badge">Открытая</span>}
           <p>Всё готово! Теперь можно приглашать друзей.</p>
           {group?.attached && (
-            <p className="group-create-note">Карточка встречи появится в чате «{group.chatTitle}» в течение минуты.</p>
+            <p className="group-create-note">Карточка встречи появится {chat} в течение минуты.</p>
           )}
           {group && !group.attached && (
             <p className="group-create-note group-create-note-error">
-              Не удалось привязать встречу к чату «{group.chatTitle}». Отправьте приглашение вручную.
+              Не удалось опубликовать встречу {chat}. Отправьте приглашение вручную.
             </p>
           )}
         </div>
@@ -1481,7 +1483,7 @@ function Created({
         <div className="created-actions">
           <button
             className="primary-action"
-            onClick={() => shareEvent(eventId)}
+            onClick={() => shareEvent(eventId, invitePrepared)}
             type="button"
           >
             <Send size={20} />
@@ -2303,6 +2305,7 @@ function Manage({
   onBack: () => void;
 }) {
   const state = useEvent(eventId);
+  const invitePrepared = usePreparedShare(eventId, "invite");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [newTime, setNewTime] = useState("");
@@ -2797,7 +2800,7 @@ function Manage({
             <p className="manage-section-kicker">Дополнительно</p>
             <button
               className="secondary-action"
-              onClick={() => shareEvent(event.id)}
+              onClick={() => shareEvent(event.id, invitePrepared)}
               type="button"
             >
               <Send size={18} />
@@ -2870,6 +2873,7 @@ function Result({
   const [calendarError, setCalendarError] = useState("");
   const [calendarOpening, setCalendarOpening] = useState(false);
   const event = initial ?? state.event;
+  const resultPrepared = usePreparedShare(event?.status === "decided" ? eventId : null, "result");
   if (!event)
     return (
       <main>
@@ -2995,7 +2999,7 @@ function Result({
         <div className="result-actions">
           <button
             className="primary-action share-result-action"
-            onClick={() => shareResult(event.id)}
+            onClick={() => shareResult(event.id, resultPrepared)}
             type="button"
           >
             <Send size={18} />
@@ -3044,27 +3048,45 @@ function miniAppLink(eventId: string) {
   return buildMiniAppLink(eventId, bot, app);
 }
 
-// A card with a button via WebApp.shareMessage; the plain share link is
-// the fallback for older clients and for any server or Telegram error.
-async function shareCard(eventId: string, kind: "invite" | "result", fallbackUrl: string) {
-  if (canShareMessage()) {
-    try {
-      const { preparedMessageId } = await api.prepareShareMessage(eventId, kind);
-      if (await shareTelegramMessage(preparedMessageId) !== null) return;
-    } catch {
-      // Fall back to the plain link below.
-    }
-  }
-  openTelegramUrl(fallbackUrl);
+// Prepares the card (WebApp.shareMessage) when the screen opens, so a tap
+// opens Telegram's share dialog at once: a call made after a network round
+// trip can lose the user gesture and be ignored by the client.
+function usePreparedShare(eventId: string | null, kind: "invite" | "result") {
+  const [prepared, setPrepared] = useState<{ key: string; id: string } | null>(null);
+  const key = eventId ? `${kind}:${eventId}` : "";
+  useEffect(() => {
+    if (!eventId || !canShareMessage()) return;
+    let active = true;
+    api.prepareShareMessage(eventId, kind)
+      .then(({ preparedMessageId }) => {
+        if (active) setPrepared({ key: `${kind}:${eventId}`, id: preparedMessageId });
+      })
+      .catch(() => {
+        // The plain share link is used instead.
+      });
+    return () => { active = false; };
+  }, [eventId, kind]);
+  return prepared?.key === key ? prepared.id : null;
 }
 
-function shareEvent(eventId: string) {
-  const { bot, app } = telegramAppConfig();
-  void shareCard(eventId, "invite", buildEventShareUrl(eventId, bot, app));
+// A card with a button when it is ready; otherwise the plain share link.
+function shareCard(preparedMessageId: string | null, fallbackUrl: string) {
+  if (!preparedMessageId) {
+    openTelegramUrl(fallbackUrl);
+    return;
+  }
+  void shareTelegramMessage(preparedMessageId).then((sent) => {
+    if (sent === null) openTelegramUrl(fallbackUrl);
+  });
 }
-function shareResult(eventId: string) {
+
+function shareEvent(eventId: string, preparedMessageId: string | null) {
   const { bot, app } = telegramAppConfig();
-  void shareCard(eventId, "result", buildResultShareUrl(eventId, bot, app));
+  shareCard(preparedMessageId, buildEventShareUrl(eventId, bot, app));
+}
+function shareResult(eventId: string, preparedMessageId: string | null) {
+  const { bot, app } = telegramAppConfig();
+  shareCard(preparedMessageId, buildResultShareUrl(eventId, bot, app));
 }
 
 export default function App() {

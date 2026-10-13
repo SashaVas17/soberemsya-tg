@@ -1,31 +1,38 @@
 -- RPCs for group chats (service_role only).
 
--- Issued by the bot for /new in a group; valid for 24 hours and usable for
--- several meetings. The token travels in a startapp link, so it uses only
--- base64url characters (18 random bytes -> 24 characters, no padding).
-create or replace function public.create_group_link(p_chat_id bigint, p_chat_title text)
+-- Issued by the bot for /new in a group; valid for 24 hours, only for the
+-- member who sent the command, and usable for several meetings. The token
+-- travels in a startapp link, so it uses only base64url characters
+-- (18 random bytes -> 24 characters, no padding).
+create or replace function public.create_group_link(
+  p_chat_id bigint, p_chat_title text, p_issuer_telegram_user_id bigint
+)
 returns text
 language sql security definer set search_path = pg_catalog, public
 as $$
-  insert into public.group_links (token, chat_id, chat_title, expires_at)
+  insert into public.group_links (token, chat_id, chat_title, issuer_telegram_user_id, expires_at)
   values (
     translate(encode(extensions.gen_random_bytes(18), 'base64'), '+/', '-_'),
     p_chat_id,
     left(coalesce(p_chat_title, ''), 200),
+    p_issuer_telegram_user_id,
     now() + interval '24 hours')
   returning token;
 $$;
 
-create or replace function public.group_link_info(p_token text)
-returns table (chat_title text)
+create or replace function public.group_link_info(p_token text, p_actor_user_id uuid)
+returns table (chat_title text, is_issuer boolean)
 language sql stable security definer set search_path = pg_catalog, public
 as $$
-  select link.chat_title from public.group_links link
+  select link.chat_title, exists (
+    select 1 from public.users actor
+    where actor.id = p_actor_user_id and actor.telegram_user_id = link.issuer_telegram_user_id)
+  from public.group_links link
   where link.token = p_token and link.expires_at > now();
 $$;
 
 -- Attaches a meeting to the group of a valid link and queues its card.
--- Returns attached | invalid_link | forbidden | already_attached.
+-- Returns attached | invalid_link | not_issuer | forbidden | already_attached.
 -- Repeating the call (e.g. an idempotent create replay) is harmless.
 create or replace function public.attach_event_to_group(
   p_event_id text, p_actor_user_id uuid, p_token text
@@ -39,11 +46,17 @@ declare
   v_chat_id bigint;
   v_name text;
 begin
-  select link.chat_id, link.chat_title into v_link
+  select link.chat_id, link.chat_title, link.issuer_telegram_user_id into v_link
   from public.group_links link
   where link.token = p_token and link.expires_at > now();
   if v_link.chat_id is null then
     return 'invalid_link';
+  end if;
+  if not exists (
+    select 1 from public.users actor
+    where actor.id = p_actor_user_id and actor.telegram_user_id = v_link.issuer_telegram_user_id
+  ) then
+    return 'not_issuer';
   end if;
   select event.id, event.title, event.owner_user_id into v_event
   from public.events event
@@ -103,7 +116,12 @@ begin
       from public.time_options final_time, public.place_options final_place
       where final_time.id = new.final_time_option_id and final_place.id = new.final_place_id
     ), '{}'::jsonb))
-  on conflict (dedupe_key) do nothing;
+  -- The same result decided again after a reopen: a copy skipped while the
+  -- meeting was reopened is queued again; one already sent is not repeated.
+  on conflict (dedupe_key) do update
+    set status = 'pending', attempts = 0, next_attempt_at = now(), locked_at = null,
+        last_error = null, payload = excluded.payload
+    where public.group_message_outbox.status = 'skipped';
   return new;
 end;
 $$;
@@ -200,15 +218,15 @@ as $$
   where status in ('sent', 'skipped', 'failed') and created_at < now() - interval '30 days';
 $$;
 
-revoke all on function public.create_group_link(bigint, text) from public, anon, authenticated;
-revoke all on function public.group_link_info(text) from public, anon, authenticated;
+revoke all on function public.create_group_link(bigint, text, bigint) from public, anon, authenticated;
+revoke all on function public.group_link_info(text, uuid) from public, anon, authenticated;
 revoke all on function public.attach_event_to_group(text, uuid, text) from public, anon, authenticated;
 revoke all on function public.notify_group_chats() from public, anon, authenticated;
 revoke all on function public.claim_group_message_batch(integer) from public, anon, authenticated;
 revoke all on function public.complete_group_message(bigint, text, text, integer, bigint) from public, anon, authenticated;
 revoke all on function public.purge_group_data() from public, anon, authenticated;
-grant execute on function public.create_group_link(bigint, text) to service_role;
-grant execute on function public.group_link_info(text) to service_role;
+grant execute on function public.create_group_link(bigint, text, bigint) to service_role;
+grant execute on function public.group_link_info(text, uuid) to service_role;
 grant execute on function public.attach_event_to_group(text, uuid, text) to service_role;
 grant execute on function public.claim_group_message_batch(integer) to service_role;
 grant execute on function public.complete_group_message(bigint, text, text, integer, bigint) to service_role;

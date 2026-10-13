@@ -1,12 +1,14 @@
--- Bot in group chats. /new in a group issues a short-lived link token; a
--- meeting created through that link is attached to the group, and the bot
--- posts only the meeting card and the final result there. Delivery is
--- at-least-once, like the personal notification outbox.
+-- Bot in group chats. /new in a group issues a short-lived link token bound
+-- to the member who sent the command, so a forwarded link cannot post into
+-- the group. A meeting created through that link is attached to the group,
+-- and the bot posts only the meeting card and the final result there.
+-- Delivery is at-least-once, like the personal notification outbox.
 
 create table if not exists public.group_links (
   token text primary key,
   chat_id bigint not null,
   chat_title text not null default '',
+  issuer_telegram_user_id bigint not null,
   created_at timestamptz not null default now(),
   expires_at timestamptz not null
 );
@@ -55,4 +57,3 @@ alter table public.group_message_outbox enable row level security;
 revoke all privileges on table public.group_links from public, anon, authenticated;
 revoke all privileges on table public.event_group_chats from public, anon, authenticated;
 revoke all privileges on table public.group_message_outbox from public, anon, authenticated;
-grant select on table public.event_group_chats to service_role;

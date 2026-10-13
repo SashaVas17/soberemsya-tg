@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2.111.0";
+import { createAdminClient } from "../_shared/admin-client.ts";
 import {
   API_JSON_BODY_LIMIT_BYTES,
   readJsonObject,
@@ -42,10 +42,11 @@ import {
   parseClientRequestId,
 } from "../_shared/event-creation.ts";
 import { notificationSettingsResponse, parseNotificationSettingsUpdate } from "../_shared/notification-settings.ts";
-import { groupLinkExpiredError, parseGroupToken } from "../_shared/group-chats.ts";
+import { groupLinkExpiredError, groupLinkNotIssuerError, parseGroupToken } from "../_shared/group-chats.ts";
+import { eventDeepLink } from "../_shared/notification-messages.ts";
 import { buildShareCard, parseShareCardKind } from "../_shared/share-card.ts";
 
-type Db = ReturnType<typeof createClient>;
+type Db = ReturnType<typeof createAdminClient>;
 type AppUser = { id: string; telegram_user_id: string; username: string | null; first_name: string; last_name: string | null; photo_url: string | null };
 type AuthContext = { user: AppUser; startParam: string | null };
 type FullEventRow = { id: string; owner_user_id: string | null; title: string; description: string; budget_limit: number; visibility: string | null; max_participants: number | null; status: Status; final_place_id: string | null; final_time_option_id: string | null; created_at: string; deleted_at: string | null };
@@ -69,17 +70,7 @@ const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 const calendarSigningSecret = Deno.env.get("TELEGRAM_CALENDAR_SIGNING_SECRET") ?? "";
 const botUsername = Deno.env.get("TELEGRAM_BOT_USERNAME") ?? "soberemsyabelarusbot";
 const appShortName = Deno.env.get("TELEGRAM_APP_SHORT_NAME") ?? "soberemsya";
-// New-format secret keys must reach the REST API only in the apikey header.
-const adminFetch: typeof fetch = (input, init) => {
-  const headers = new Headers(init?.headers);
-  headers.set("apikey", serviceKey);
-  headers.delete("Authorization");
-  return fetch(input, { ...init, headers });
-};
-const db = createClient(supabaseUrl, serviceKey, {
-  auth: { persistSession: false, autoRefreshToken: false },
-  global: { fetch: adminFetch },
-});
+const db = createAdminClient(supabaseUrl, serviceKey);
 
 function id(prefix: string) { return `${prefix}_${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`; }
 
@@ -306,8 +297,9 @@ async function createEvent(request: Request, auth: AuthContext) {
     }];
   });
   const clientRequestId = parseClientRequestId(payload.clientRequestId);
+  // Checked only after the meeting exists: rejecting a replayed create with
+  // a 4xx would make the client forget its idempotency key.
   const groupToken = parseGroupToken(payload.groupToken);
-  if (groupToken && !await groupLinkTitle(groupToken)) throw groupLinkExpiredError();
   const budgetLimit = budgetField(payload.budgetLimit);
   const rpcArgs = {
     p_event_id: id("evt"),
@@ -914,7 +906,7 @@ async function calendarDownload(eventId: string, search: URLSearchParams) {
 
   const event = await loadFullEventRow(eventId);
   const final = await finalDetails(event);
-  const eventUrl = `https://t.me/${botUsername}/${appShortName}?startapp=event_${event.id}`;
+  const eventUrl = eventDeepLink(botUsername, appShortName, event.id);
   const text = buildIcs({
     id: event.id,
     title: event.title,
@@ -932,16 +924,15 @@ async function calendarDownload(eventId: string, search: URLSearchParams) {
   });
 }
 
-async function groupLinkTitle(token: string) {
-  const { data, error } = await db.rpc("group_link_info", { p_token: token }).maybeSingle<{ chat_title: string }>();
+async function groupLink(token: string, auth: AuthContext) {
+  const { data, error } = await db.rpc("group_link_info", {
+    p_token: parseGroupToken(token) ?? "",
+    p_actor_user_id: auth.user.id,
+  }).maybeSingle<{ chat_title: string; is_issuer: boolean }>();
   if (error) throw error;
-  return data ? { chatTitle: data.chat_title } : null;
-}
-
-async function groupLink(token: string) {
-  const link = await groupLinkTitle(parseGroupToken(token) ?? "");
-  if (!link) throw groupLinkExpiredError();
-  return json({ groupLink: link });
+  if (!data) throw groupLinkExpiredError();
+  if (!data.is_issuer) throw groupLinkNotIssuerError();
+  return json({ groupLink: { chatTitle: data.chat_title } });
 }
 
 // The meeting already exists here; a failed attachment is reported, not thrown.
@@ -989,7 +980,7 @@ async function shareMessage(request: Request, eventId: string, auth: AuthContext
   if (event.status === "cancelled")
     throw Object.assign(new Error("Встреча отменена."), { status: 409 });
   const details = kind === "result" ? await finalDetails(event) : {};
-  const url = `https://t.me/${botUsername}/${appShortName}?startapp=event_${event.id}`;
+  const url = eventDeepLink(botUsername, appShortName, event.id);
   const card = buildShareCard(
     kind,
     { title: event.title, description: event.description, ...details },
@@ -1108,7 +1099,7 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
   if (shareMessageMatch)
     return await shareMessage(request, decodeURIComponent(shareMessageMatch[1]), auth);
   const groupLinkMatch = path.match(/^\/group-links\/([^/]+)$/);
-  if (groupLinkMatch) return await groupLink(decodeURIComponent(groupLinkMatch[1]));
+  if (groupLinkMatch) return await groupLink(decodeURIComponent(groupLinkMatch[1]), auth);
   const calendarLinkMatch = path.match(/^\/events\/([^/]+)\/calendar-link$/);
   if (calendarLinkMatch)
     return await calendarLink(request, decodeURIComponent(calendarLinkMatch[1]), auth);

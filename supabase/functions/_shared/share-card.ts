@@ -1,4 +1,4 @@
-import { formatMeetingTime } from "./notification-messages.ts";
+import { formatFinalDetails } from "./notification-messages.ts";
 
 export type ShareCardKind = "invite" | "result";
 
@@ -30,11 +30,8 @@ export function buildShareCard(kind: ShareCardKind, event: ShareCardEvent, url: 
   let messageText: string;
   let buttonText: string;
   if (kind === "result") {
-    const details = [
-      formatMeetingTime(event.startsAt ?? ""),
-      [event.place, event.area].filter(Boolean).join(", "),
-    ].filter(Boolean).join(" · ");
-    messageText = `Итог встречи ${title}${details ? `: ${details}` : ""}.`;
+    const details = formatFinalDetails(event.startsAt, event.place, event.area);
+    messageText = `Итог встречи ${title}${details ? `: ${details}` : " выбран"}.`;
     buttonText = "Подробнее";
   } else {
     const description = shorten(event.description, 300);

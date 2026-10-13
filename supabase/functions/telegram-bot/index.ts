@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2.111.0";
+import { createAdminClient } from "../_shared/admin-client.ts";
 import { errorResponse, json } from "../_shared/http.ts";
 import {
   readJsonObject,
@@ -14,17 +14,7 @@ const serviceKey = (Deno.env.get("TELEGRAM_DB_SECRET_KEY") ?? "").trim();
 const botUsername = Deno.env.get("TELEGRAM_BOT_USERNAME") ?? "soberemsyabelarusbot";
 const appShortName = Deno.env.get("TELEGRAM_APP_SHORT_NAME") ?? "soberemsya";
 
-// New-format secret keys must reach the REST API only in the apikey header.
-const adminFetch: typeof fetch = (input, init) => {
-  const headers = new Headers(init?.headers);
-  headers.set("apikey", serviceKey);
-  headers.delete("Authorization");
-  return fetch(input, { ...init, headers });
-};
-const db = createClient(supabaseUrl, serviceKey, {
-  auth: { persistSession: false, autoRefreshToken: false },
-  global: { fetch: adminFetch },
-});
+const db = createAdminClient(supabaseUrl, serviceKey);
 
 function telegramMessage(update: Record<string, unknown>) {
   const message = update.message;
@@ -35,7 +25,11 @@ function telegramMessage(update: Record<string, unknown>) {
   if (typeof chatId !== "string" && typeof chatId !== "number") return null;
   const text = (message as Record<string, unknown>).text;
   const chatTitle = (chat as Record<string, unknown>).title;
+  const from = (message as Record<string, unknown>).from;
+  const sender = from && typeof from === "object" && !Array.isArray(from) ? from as Record<string, unknown> : null;
   return {
+    // Anonymous group admins write as a bot; a link cannot be bound to them.
+    senderId: sender && sender.is_bot !== true && typeof sender.id === "number" ? sender.id : null,
     chatId,
     chatType: (chat as Record<string, unknown>).type,
     chatTitle: typeof chatTitle === "string" ? chatTitle : "",
@@ -56,11 +50,12 @@ async function handleGroupMessage(message: NonNullable<ReturnType<typeof telegra
   const command = parseBotCommand(message.text, botUsername);
   if (!command) return;
   let createUrl: string | null = null;
-  if (command === "/new") {
+  if (command === "/new" && message.senderId !== null) {
     if (!supabaseUrl || !serviceKey) throw new Error("Database access is not configured");
     const { data, error } = await db.rpc("create_group_link", {
       p_chat_id: Number(message.chatId),
       p_chat_title: message.chatTitle,
+      p_issuer_telegram_user_id: message.senderId,
     });
     if (error || typeof data !== "string") throw new Error("create_group_link failed");
     createUrl = groupCreateUrl(botUsername, appShortName, data);

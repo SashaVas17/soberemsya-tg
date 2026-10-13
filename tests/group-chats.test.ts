@@ -41,7 +41,9 @@ describe("bot commands in group chats", () => {
     const createUrl = groupCreateUrl("bot", "app", token);
     expect(createUrl).toBe(`https://t.me/bot/app?startapp=group_${token}`);
     const reply = groupCommandReply("/new", "https://t.me/bot/app", createUrl);
-    expect(reply?.reply_markup.inline_keyboard[0][0]).toEqual({ text: "Создать встречу", url: createUrl });
+    expect(reply && "reply_markup" in reply && reply.reply_markup.inline_keyboard[0][0])
+      .toEqual({ text: "Создать встречу", url: createUrl });
+    expect(JSON.stringify(groupCommandReply("/new", "https://t.me/bot/app", null))).toContain("от своего имени");
     expect(JSON.stringify(groupCommandReply("/help", "https://t.me/bot/app", null))).not.toContain("web_app");
     expect(groupCommandReply("/unknown", "https://t.me/bot/app", null)).toBeNull();
     expect(bot).toContain("if (message.chatType !== \"private\") return json({ ok: true });");
@@ -69,11 +71,26 @@ describe("group links", () => {
     expect(() => parseGroupToken(42)).toThrow();
   });
 
-  it("checks the link before creating and attaches after", () => {
+  it("attaches only after the meeting exists, so a replay keeps its idempotency key", () => {
     const create = api.slice(api.indexOf("async function createEvent"), api.indexOf("async function createJoinRequest"));
-    expect(create.indexOf("groupLinkTitle(groupToken)")).toBeLessThan(create.indexOf("db.rpc("));
+    expect(create).not.toContain("groupLinkExpiredError");
     expect(create.indexOf("attachEventToGroup(")).toBeGreaterThan(create.indexOf("db.rpc("));
     expect(api).toContain('if (/^\\/group-links\\/[^/]+$/.test(path)) return ["GET"];');
+  });
+});
+
+describe("group link ownership", () => {
+  it("binds a link to the member who sent /new", () => {
+    expect(schema).toContain("issuer_telegram_user_id bigint not null");
+    expect(rpc).toContain("return 'not_issuer';");
+    expect(rpc.indexOf("return 'not_issuer';")).toBeLessThan(rpc.indexOf("insert into public.event_group_chats"));
+    expect(bot).toContain("p_issuer_telegram_user_id: message.senderId");
+    expect(bot).toContain("sender.is_bot !== true");
+    expect(api).toContain("if (!data.is_issuer) throw groupLinkNotIssuerError();");
+  });
+
+  it("re-queues a result skipped while the meeting was reopened, never a sent one", () => {
+    expect(rpc).toContain("where public.group_message_outbox.status = 'skipped';");
   });
 });
 

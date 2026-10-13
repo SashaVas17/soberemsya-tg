@@ -1,4 +1,4 @@
-import { formatMeetingTime, type NotificationMessage } from "./notification-messages.ts";
+import { formatFinalDetails, type NotificationMessage } from "./notification-messages.ts";
 
 export type GroupMessageKind = "group_card" | "group_decided";
 
@@ -26,6 +26,13 @@ export function groupLinkExpiredError() {
   );
 }
 
+export function groupLinkNotIssuerError() {
+  return Object.assign(
+    new Error("Эту ссылку создал другой участник чата. Напишите /new в группе, чтобы создать свою встречу."),
+    { status: 403, code: "GROUP_LINK_NOT_ISSUER" },
+  );
+}
+
 export function groupCreateUrl(bot: string, app: string, token: string) {
   return `https://t.me/${bot}/${app}?startapp=group_${token}`;
 }
@@ -42,10 +49,7 @@ export function renderGroupMessage(kind: GroupMessageKind, payload: Payload, url
       url,
     };
   }
-  const details = [
-    formatMeetingTime(text(payload, "startsAt")),
-    [text(payload, "place"), text(payload, "area")].filter(Boolean).join(", "),
-  ].filter(Boolean).join(" · ");
+  const details = formatFinalDetails(text(payload, "startsAt"), text(payload, "place"), text(payload, "area"));
   return { text: `Итог встречи ${title}${details ? `: ${details}` : " выбран"}.`, buttonText: "Подробнее", url };
 }
 
@@ -76,9 +80,11 @@ export function groupCommandReply(command: string, appUrl: string, createUrl: st
   if (command === "/new" && createUrl)
     return {
       text: "Создайте встречу для этого чата. Когда она будет готова, здесь появится карточка для голосования, " +
-        "а после выбора — итог.",
+        "а после выбора — итог. Кнопка действует 24 часа и только для отправителя команды.",
       reply_markup: { inline_keyboard: [[{ text: "Создать встречу", url: createUrl }]] },
     };
+  if (command === "/new")
+    return { text: "Отправьте /new от своего имени, а не анонимно: встреча создаётся от лица участника." };
   if (command === "/start" || command === "/help" || command === "/my")
     return {
       text: "«Соберёмся» помогает договориться о времени, месте и бюджете встречи. " +
