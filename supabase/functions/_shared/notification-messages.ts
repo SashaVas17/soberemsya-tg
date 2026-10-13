@@ -129,18 +129,27 @@ export type TelegramSendOutcome =
   | { outcome: "sent" }
   | { outcome: "retry"; retryAfterSeconds?: number; error: string }
   | { outcome: "blocked"; error: string }
-  | { outcome: "failed"; error: string };
+  | { outcome: "failed"; error: string }
+  | { outcome: "migrated"; newChatId: number; error: string };
 
 /** Maps a Telegram Bot API sendMessage result to an outbox outcome. */
 export function classifyTelegramResult(
   status: number,
-  body: { ok?: boolean; description?: string; parameters?: { retry_after?: number } } | null,
+  body: {
+    ok?: boolean;
+    description?: string;
+    parameters?: { retry_after?: number; migrate_to_chat_id?: number };
+  } | null,
 ): TelegramSendOutcome {
   if (status === 200 && body?.ok) return { outcome: "sent" };
   const error = `${status} ${body?.description ?? ""}`.trim();
   if (status === 429)
     return { outcome: "retry", retryAfterSeconds: body?.parameters?.retry_after ?? 30, error };
   if (status === 403) return { outcome: "blocked", error };
+  // A group became a supergroup: the chat has a new id.
+  const newChatId = body?.parameters?.migrate_to_chat_id;
+  if (status === 400 && typeof newChatId === "number" && Number.isSafeInteger(newChatId))
+    return { outcome: "migrated", newChatId, error };
   if (status >= 500 || status === 0) return { outcome: "retry", error };
   return { outcome: "failed", error };
 }

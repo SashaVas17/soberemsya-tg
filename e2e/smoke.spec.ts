@@ -66,3 +66,16 @@ test("organizer cancels a meeting", async ({ page }) => {
   await expect(page.getByText("Встреча отменена").first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Отменить встречу" })).toHaveCount(0);
 });
+
+test("organizer creates a meeting from a group chat link", async ({ page }) => {
+  await page.goto("./?mockStartParam=group_AbCdEfGhIjKlMnOpQrStUv_-");
+  await expect(page.getByText("Встреча для чата «Друзья»")).toBeVisible();
+  await page.getByLabel("Название встречи").fill("E2E в группе");
+  await page.getByRole("button", { name: "Продолжить" }).click();
+  await page.getByRole("button", { name: "Добавить время" }).click();
+  await page.getByRole("button", { name: "Добавить", exact: true }).click();
+  await page.getByRole("button", { name: "Продолжить" }).click();
+  await page.getByRole("button", { name: "Создать встречу" }).click();
+
+  await expect(page.getByText("Карточка встречи появится в чате «Друзья» в течение минуты.")).toBeVisible();
+});

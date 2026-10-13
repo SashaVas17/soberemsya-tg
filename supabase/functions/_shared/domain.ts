@@ -78,3 +78,16 @@ export function parseEventStartParam(startParam: string | null) {
   if (!match) throw Object.assign(new Error("Некорректная ссылка на встречу."), { status: 400 });
   return match[1];
 }
+
+export type StartParam =
+  | { type: "event"; eventId: string }
+  | { type: "group"; token: string };
+
+/** Accepts event_<id> and group_<token> (issued by /new in a group chat). */
+export function parseStartParam(startParam: string | null): StartParam | null {
+  if (!startParam) return null;
+  const group = startParam.match(/^group_([A-Za-z0-9_-]{24})$/);
+  if (group) return { type: "group", token: group[1] };
+  const eventId = parseEventStartParam(startParam);
+  return eventId ? { type: "event", eventId } : null;
+}

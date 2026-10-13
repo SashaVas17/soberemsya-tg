@@ -100,10 +100,10 @@ export const api = {
           `/events/${encodeURIComponent(eventId)}/join-requests/${encodeURIComponent(requestId)}/reject`,
           { method: "POST" },
         ),
-  createEvent: (payload: CreateEventRequest) =>
+  createEvent: (payload: CreateEventRequest & { groupToken?: string }) =>
     useMock
       ? mockApi.createEvent(payload)
-      : request<{ event: EventData }>("/events", {
+      : request<{ event: EventData; groupAttached?: boolean }>("/events", {
           method: "POST",
           body: JSON.stringify(payload),
           signal: timeoutSignal(CREATE_EVENT_TIMEOUT_MS),
@@ -179,6 +179,17 @@ export const api = {
       : request<{ deleted: true }>(`/events/${encodeURIComponent(id)}/manage`, {
           method: "DELETE",
         }),
+  prepareShareMessage: (id: string, kind: "invite" | "result") =>
+    useMock
+      ? mockApi.prepareShareMessage()
+      : request<{ preparedMessageId: string }>(
+          `/events/${encodeURIComponent(id)}/share-message`,
+          { method: "POST", body: JSON.stringify({ kind }) },
+        ),
+  groupLink: (token: string) =>
+    useMock
+      ? mockApi.groupLink()
+      : request<{ groupLink: { chatTitle: string } }>(`/group-links/${encodeURIComponent(token)}`),
   calendarLink: (id: string) =>
     useMock
       ? mockApi.calendarLink(id)

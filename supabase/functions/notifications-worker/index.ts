@@ -1,10 +1,13 @@
 import { createClient } from "npm:@supabase/supabase-js@2.111.0";
 import { json } from "../_shared/http.ts";
+import { type GroupMessageKind, isGroupMessageStale, renderGroupMessage } from "../_shared/group-chats.ts";
 import {
   classifyTelegramResult,
+  eventDeepLink,
   isNotificationStale,
   notificationLink,
   type NotificationKind,
+  type NotificationMessage,
   renderNotification,
   type TelegramSendOutcome,
 } from "../_shared/notification-messages.ts";
@@ -14,6 +17,17 @@ type ClaimedNotification = {
   telegram_user_id: number;
   kind: NotificationKind;
   event_id: string | null;
+  event_status: string | null;
+  event_deleted: boolean;
+  payload: Record<string, unknown>;
+  attempts: number;
+};
+
+type ClaimedGroupMessage = {
+  id: number;
+  chat_id: number;
+  kind: GroupMessageKind;
+  event_id: string;
   event_status: string | null;
   event_deleted: boolean;
   payload: Record<string, unknown>;
@@ -40,14 +54,13 @@ const db = createClient(supabaseUrl, serviceKey, {
   global: { fetch: adminFetch },
 });
 
-async function sendMessage(item: ClaimedNotification): Promise<TelegramSendOutcome> {
-  const message = renderNotification(item.kind, item.payload ?? {}, notificationLink(bot, app, item.kind, item.event_id));
+async function sendMessage(chatId: number, message: NotificationMessage): Promise<TelegramSendOutcome> {
   try {
     const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        chat_id: item.telegram_user_id,
+        chat_id: chatId,
         text: message.text,
         reply_markup: { inline_keyboard: [[{ text: message.buttonText, url: message.url }]] },
       }),
@@ -83,12 +96,56 @@ async function processBatch() {
       await complete(item.id, "skip", "meeting cancelled or deleted");
       continue;
     }
-    const result = await sendMessage(item);
+    const result = await sendMessage(
+      item.telegram_user_id,
+      renderNotification(item.kind, item.payload ?? {}, notificationLink(bot, app, item.kind, item.event_id)),
+    );
     if (result.outcome === "sent") await complete(item.id, "sent");
     else if (result.outcome === "retry") {
       await complete(item.id, "retry", result.error, result.retryAfterSeconds);
       if (result.retryAfterSeconds) throttledFor = result.retryAfterSeconds;
     } else await complete(item.id, result.outcome, result.error);
+  }
+  return items.length;
+}
+
+async function completeGroup(id: number, outcome: string, error?: string, retryAfterSeconds?: number, newChatId?: number) {
+  const { error: rpcError } = await db.rpc("complete_group_message", {
+    p_id: id,
+    p_outcome: outcome,
+    p_error: error ?? null,
+    p_retry_after_seconds: retryAfterSeconds ?? null,
+    p_new_chat_id: newChatId ?? null,
+  });
+  if (rpcError) console.error("complete_group_message_failed", rpcError.code);
+}
+
+// Group chats get only the meeting card and the final result.
+async function processGroupBatch() {
+  const { data, error } = await db.rpc("claim_group_message_batch", { p_limit: BATCH_SIZE });
+  if (error) throw error;
+  const items = (data ?? []) as ClaimedGroupMessage[];
+  let throttledFor: number | null = null;
+  for (const item of items) {
+    if (throttledFor !== null) {
+      await completeGroup(item.id, "defer", "throttled", throttledFor);
+      continue;
+    }
+    if (isGroupMessageStale(item.kind, item.event_status, item.event_deleted)) {
+      await completeGroup(item.id, "skip", "meeting cancelled, reopened or deleted");
+      continue;
+    }
+    const result = await sendMessage(
+      item.chat_id,
+      renderGroupMessage(item.kind, item.payload ?? {}, eventDeepLink(bot, app, item.event_id)),
+    );
+    if (result.outcome === "sent") await completeGroup(item.id, "sent");
+    else if (result.outcome === "retry") {
+      await completeGroup(item.id, "retry", result.error, result.retryAfterSeconds);
+      if (result.retryAfterSeconds) throttledFor = result.retryAfterSeconds;
+    } else if (result.outcome === "migrated")
+      await completeGroup(item.id, "migrated", result.error, undefined, result.newChatId);
+    else await completeGroup(item.id, result.outcome, result.error);
   }
   return items.length;
 }
@@ -110,6 +167,7 @@ Deno.serve(async (request) => {
       processed += count;
       if (count < BATCH_SIZE) break;
     }
+    processed += await processGroupBatch();
   } catch (failure) {
     console.error("notifications_worker_failed", failure instanceof Error ? failure.message : "unknown");
     return json({ processed, error: "partial failure" }, 500);

@@ -162,7 +162,7 @@ describe("create error messages", () => {
     const submit = app.slice(app.indexOf("const submit = useCallback"), app.indexOf("return (\n    <main className=\"create-screen\">"));
     const catchBlock = submit.indexOf("setError(createEventErrorMessage(reason));");
     expect(catchBlock).toBeGreaterThan(-1);
-    expect(submit.indexOf("onCreated(result.event);")).toBeGreaterThan(submit.indexOf("} finally {"));
+    expect(submit.indexOf("onCreated(\n      result.event,")).toBeGreaterThan(submit.indexOf("} finally {"));
   });
 
   it("bounds the create request with a timeout", () => {

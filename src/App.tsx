@@ -72,8 +72,10 @@ import {
   haptic,
   initializeTelegram,
   openExternalUrl,
+  canShareMessage,
   openTelegramUrl,
   requestBotWriteAccess,
+  shareTelegramMessage,
   telegram,
 } from "./telegram";
 import {
@@ -957,13 +959,30 @@ function CreateEvent({
   onBack,
   setBackOverride,
   onCreated,
+  groupToken,
 }: {
   navigate: Navigate;
   onBack: () => void;
   setBackOverride: (value: (() => void) | null) => void;
-  onCreated: (event: EventData) => void;
+  onCreated: (event: EventData, group?: CreatedGroup) => void;
+  groupToken: string | null;
 }) {
   const [step, setStep] = useState(1);
+  const [group, setGroup] = useState<{ token: string; chatTitle: string } | null>(null);
+  const [groupError, setGroupError] = useState("");
+  useEffect(() => {
+    setGroup(null);
+    setGroupError("");
+    if (!groupToken) return;
+    let active = true;
+    api.groupLink(groupToken)
+      .then(({ groupLink }) => { if (active) setGroup({ token: groupToken, chatTitle: groupLink.chatTitle }); })
+      .catch((reason) => {
+        if (active)
+          setGroupError(reason instanceof Error ? reason.message : "Не удалось открыть ссылку из группы.");
+      });
+    return () => { active = false; };
+  }, [groupToken]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [budgetLimitInput, setBudgetLimitInput] = useState("30");
@@ -1022,7 +1041,8 @@ function CreateEvent({
     setError("");
     let result: Awaited<ReturnType<typeof api.createEvent>> | null;
     try {
-      result = await submitCreateEventOnce(draft, submitLock, api.createEvent);
+      result = await submitCreateEventOnce(draft, submitLock, (payload) =>
+        api.createEvent(group ? { ...payload, groupToken: group.token } : payload));
     } catch (reason) {
       haptic("error");
       setError(createEventErrorMessage(reason));
@@ -1032,14 +1052,23 @@ function CreateEvent({
     }
     if (!result) return;
     haptic();
-    onCreated(result.event);
+    onCreated(
+      result.event,
+      group ? { chatTitle: group.chatTitle, attached: result.groupAttached === true } : undefined,
+    );
     void askWriteAccessOnce(() => api.notificationSettings({ writeAccessGranted: true }));
     navigate(createdEventPath(result.event.id), true);
-  }, [budgetLimit, description, hasParticipantLimit, maxParticipants, maxParticipantsInput, navigate, onCreated, places, saving, timeOptions, title, visibility]);
+  }, [budgetLimit, description, group, hasParticipantLimit, maxParticipants, maxParticipantsInput, navigate, onCreated, places, saving, timeOptions, title, visibility]);
   return (
     <main className="create-screen">
       <Header navigate={navigate} onBack={onBack} title="Создание встречи" variant="nested" />
       <section className="create-intro">
+        {group && (
+          <p className="group-create-note">
+            Встреча для чата «{group.chatTitle}». После создания карточка для голосования появится в чате.
+          </p>
+        )}
+        {groupError && <p className="group-create-note group-create-note-error">{groupError}</p>}
         <p className="create-step-label">Шаг {step} из 3</p>
         <h1>{step === 1 ? "Что планируем?" : step === 2 ? "Когда встречаемся?" : "Где и сколько?"}</h1>
         {step === 2 && (
@@ -1411,15 +1440,19 @@ function Refresh({
   );
 }
 
+type CreatedGroup = { chatTitle: string; attached: boolean };
+
 function Created({
   eventId,
   navigate,
   event,
+  group,
   onBack,
 }: {
   eventId: string;
   navigate: Navigate;
   event: EventData | null;
+  group: CreatedGroup | null;
   onBack: () => void;
 }) {
   const link = miniAppLink(eventId);
@@ -1432,6 +1465,14 @@ function Created({
           <h1>Встреча создана 🎉</h1>
           {event?.visibility === "public" && <span className="visibility-badge">Открытая</span>}
           <p>Всё готово! Теперь можно приглашать друзей.</p>
+          {group?.attached && (
+            <p className="group-create-note">Карточка встречи появится в чате «{group.chatTitle}» в течение минуты.</p>
+          )}
+          {group && !group.attached && (
+            <p className="group-create-note group-create-note-error">
+              Не удалось привязать встречу к чату «{group.chatTitle}». Отправьте приглашение вручную.
+            </p>
+          )}
         </div>
         <div className="created-link-card">
           <span>Ссылка-приглашение</span>
@@ -3003,13 +3044,27 @@ function miniAppLink(eventId: string) {
   return buildMiniAppLink(eventId, bot, app);
 }
 
+// A card with a button via WebApp.shareMessage; the plain share link is
+// the fallback for older clients and for any server or Telegram error.
+async function shareCard(eventId: string, kind: "invite" | "result", fallbackUrl: string) {
+  if (canShareMessage()) {
+    try {
+      const { preparedMessageId } = await api.prepareShareMessage(eventId, kind);
+      if (await shareTelegramMessage(preparedMessageId) !== null) return;
+    } catch {
+      // Fall back to the plain link below.
+    }
+  }
+  openTelegramUrl(fallbackUrl);
+}
+
 function shareEvent(eventId: string) {
   const { bot, app } = telegramAppConfig();
-  openTelegramUrl(buildEventShareUrl(eventId, bot, app));
+  void shareCard(eventId, "invite", buildEventShareUrl(eventId, bot, app));
 }
 function shareResult(eventId: string) {
   const { bot, app } = telegramAppConfig();
-  openTelegramUrl(buildResultShareUrl(eventId, bot, app));
+  void shareCard(eventId, "result", buildResultShareUrl(eventId, bot, app));
 }
 
 export default function App() {
@@ -3020,6 +3075,17 @@ export default function App() {
   const [outside, setOutside] = useState(false);
   const [backOverride, setBackOverride] = useState<(() => void) | null>(null);
   const [createdEvent, setCreatedEvent] = useState<EventData | null>(null);
+  const [createdGroup, setCreatedGroup] = useState<(CreatedGroup & { eventId: string }) | null>(null);
+  const [groupToken, setGroupToken] = useState<string | null>(null);
+  const handleCreated = useCallback((event: EventData, group?: CreatedGroup) => {
+    setCreatedEvent(event);
+    setCreatedGroup(group ? { ...group, eventId: event.id } : null);
+    if (group) setGroupToken(null);
+  }, []);
+  // A group link applies only to the create screen it opened.
+  useEffect(() => {
+    if (path !== "/create") setGroupToken(null);
+  }, [path]);
   const [sessionExpired, setSessionExpired] = useState(false);
   useTelegramBack(path, goBack, backOverride);
   useEffect(() => onSessionExpired(() => setSessionExpired(true)), []);
@@ -3039,7 +3105,10 @@ export default function App() {
         setAuth(result);
         if (result.startParam?.startsWith("event_"))
           navigate(`/event/${result.startParam.slice(6)}`, true);
-        else {
+        else if (result.startParam?.startsWith("group_")) {
+          setGroupToken(result.startParam.slice(6));
+          navigate("/create", true);
+        } else {
           const requestedScreen = new URLSearchParams(
             window.location.search,
           ).get("screen");
@@ -3076,7 +3145,15 @@ export default function App() {
   const match = (pattern: RegExp) => path.match(pattern)?.[1];
   const created = match(/^\/created\/([^/]+)$/);
   if (created)
-    return <Created event={createdEvent?.id === created ? createdEvent : null} eventId={created} navigate={navigate} onBack={backOverride ?? goBack} />;
+    return (
+      <Created
+        event={createdEvent?.id === created ? createdEvent : null}
+        eventId={created}
+        group={createdGroup?.eventId === created ? createdGroup : null}
+        navigate={navigate}
+        onBack={backOverride ?? goBack}
+      />
+    );
   const manage = match(/^\/manage\/([^/]+)$/);
   if (manage) return <Manage eventId={manage} navigate={navigate} onBack={backOverride ?? goBack} />;
   const result = match(/^\/result\/([^/]+)$/);
@@ -3088,7 +3165,8 @@ export default function App() {
       <CreateEvent
         navigate={navigate}
         onBack={backOverride ?? goBack}
-        onCreated={setCreatedEvent}
+        onCreated={handleCreated}
+        groupToken={groupToken}
         setBackOverride={setBackOverride}
       />
     );

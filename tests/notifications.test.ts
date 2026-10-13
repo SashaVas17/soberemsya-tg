@@ -16,7 +16,7 @@ import {
 import { askWriteAccessOnce, WRITE_ACCESS_ASKED_KEY } from "../src/write-access";
 
 const read = (path: string) => readFileSync(path, "utf8").replace(/\r\n/g, "\n");
-const migrationNames = readdirSync("supabase/migrations").filter((name) => name.startsWith("2026101313"));
+const migrationNames = readdirSync("supabase/migrations").filter((name) => name >= "2026101313");
 const migrations = Object.fromEntries(migrationNames.map((name) => [name, read(`supabase/migrations/${name}`)]));
 const allSql = Object.values(migrations).join("\n");
 const url = eventDeepLink("bot", "app", "evt_1");
