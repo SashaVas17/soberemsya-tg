@@ -13,7 +13,7 @@ import { parseStartParam } from "../supabase/functions/_shared/domain";
 import { barWidth, shareText, shortDay } from "../src/admin-stats";
 
 const read = (path: string) => readFileSync(path, "utf8").replace(/\r\n/g, "\n");
-const migration = read("supabase/migrations/20261013150000_analytics.sql");
+const migration = read("supabase/migrations/20261013142231_analytics.sql");
 const api = read("supabase/functions/telegram-api/index.ts");
 const bot = read("supabase/functions/telegram-bot/index.ts");
 
