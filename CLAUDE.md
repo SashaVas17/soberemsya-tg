@@ -1,6 +1,7 @@
 # «Соберёмся» — инструкции для Claude
 
-Telegram Mini App для организации встреч (бот `@soberemsyabelarusbot`, short name `soberemsya`).
+Telegram Mini App для организации встреч **Flockly** (бот `@flocklyappbot`, short name `app`;
+старый бот `@soberemsyabelarusbot` выведен из работы, в описании — ссылка на новый).
 Владелец — Александр (Telegram ID 1979217645, администратор). Общение с владельцем — на русском.
 
 ## С чего начинать каждую сессию

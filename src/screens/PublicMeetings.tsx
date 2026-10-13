@@ -83,7 +83,7 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
 
   return (
     <main className="screen-with-bottom-navigation">
-      <Header navigate={navigate} onBack={onBack} title="Соберёмся" variant="root" />
+      <Header navigate={navigate} onBack={onBack} title="Flockly" variant="root" />
       <section className="public-meetings-page">
         <div className="page-intro public-meetings-intro">
           <h1>Открытые встречи</h1>

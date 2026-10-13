@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
   [string]$ProjectRef = "qesuhhhiswwrfvfisfkp",
-  [string]$MiniAppUrl = "https://soberemsya-tg.pages.dev"
+  [string]$MiniAppUrl = "https://sashavas17.github.io/soberemsya-tg/"
 )
 
 $ErrorActionPreference = "Stop"
@@ -64,7 +64,7 @@ try {
   Invoke-Telegram "setChatMenuButton" @{
     menu_button = @{
       type = "web_app"
-      text = "Открыть Соберёмся"
+      text = "Открыть Flockly"
       web_app = @{ url = $MiniAppUrl }
     }
   } | Out-Null

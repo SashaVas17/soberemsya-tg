@@ -12,8 +12,8 @@ const appUrl = Deno.env.get("TELEGRAM_MINI_APP_URL") ?? "";
 const webhookSecret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ?? "";
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = (Deno.env.get("TELEGRAM_DB_SECRET_KEY") ?? "").trim();
-const botUsername = Deno.env.get("TELEGRAM_BOT_USERNAME") ?? "soberemsyabelarusbot";
-const appShortName = Deno.env.get("TELEGRAM_APP_SHORT_NAME") ?? "soberemsya";
+const botUsername = Deno.env.get("TELEGRAM_BOT_USERNAME") ?? "flocklyappbot";
+const appShortName = Deno.env.get("TELEGRAM_APP_SHORT_NAME") ?? "app";
 const adminIds = parseAdminIds(Deno.env.get("TELEGRAM_ADMIN_IDS"));
 
 const db = createAdminClient(supabaseUrl, serviceKey);
@@ -93,8 +93,8 @@ Deno.serve(async (request) => {
       return json({ ok: true });
     }
     const screens: Record<string, string> = { "/new": "create", "/my": "my-events" }; const screen = screens[command];
-    const text = command === "/help" ? "Создайте встречу, отправьте её в чат и соберите ответы без регистрации." : command === "/new" ? "Создадим новую встречу." : command === "/my" ? "Ваши встречи доступны в Mini App." : "Откройте «Соберёмся», чтобы организовать встречу.";
-    await telegram("sendMessage", { chat_id: message.chatId, text, reply_markup: { inline_keyboard: [[{ text: command === "/new" ? "Создать встречу" : command === "/my" ? "Мои встречи" : "Открыть «Соберёмся»", web_app: { url: screen ? `${appUrl}?screen=${screen}` : appUrl } }]] } });
+    const text = command === "/help" ? "Создайте встречу, отправьте её в чат и соберите ответы без регистрации." : command === "/new" ? "Создадим новую встречу." : command === "/my" ? "Ваши встречи доступны в Mini App." : "Откройте Flockly, чтобы организовать встречу.";
+    await telegram("sendMessage", { chat_id: message.chatId, text, reply_markup: { inline_keyboard: [[{ text: command === "/new" ? "Создать встречу" : command === "/my" ? "Мои встречи" : "Открыть Flockly", web_app: { url: screen ? `${appUrl}?screen=${screen}` : appUrl } }]] } });
     return json({ ok: true });
   } catch (error) { return errorResponse(error); }
 });

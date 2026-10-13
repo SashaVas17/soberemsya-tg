@@ -84,7 +84,7 @@ export function MyEvents({ navigate, onBack }: { navigate: Navigate; onBack: () 
   };
   return (
     <main className="screen-with-bottom-navigation">
-      <Header navigate={navigate} onBack={onBack} title="Соберёмся" variant="root" />
+      <Header navigate={navigate} onBack={onBack} title="Flockly" variant="root" />
       <section className="my-meetings-page">
         <h1>Мои встречи</h1>
         <div aria-label="Тип встреч" className="meeting-segments" role="tablist">

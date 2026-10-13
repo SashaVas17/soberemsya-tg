@@ -139,7 +139,7 @@ describe("meeting list architecture", () => {
   });
 
   it("keeps the approved root and nested top-bar boundaries", () => {
-    expect(appSource).toContain('title="Соберёмся" variant="root"');
+    expect(appSource).toContain('title="Flockly" variant="root"');
     expect(appSource).toContain('title="Управление встречей" variant="nested"');
     expect(stylesSource).toContain(".topbar-action");
     expect(stylesSource).toContain(".topbar-title");

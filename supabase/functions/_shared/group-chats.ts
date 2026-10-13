@@ -87,9 +87,9 @@ export function groupCommandReply(command: string, appUrl: string, createUrl: st
     return { text: "Отправьте /new от своего имени, а не анонимно: встреча создаётся от лица участника." };
   if (command === "/start" || command === "/help" || command === "/my")
     return {
-      text: "«Соберёмся» помогает договориться о времени, месте и бюджете встречи. " +
+      text: "Flockly помогает договориться о времени, месте и бюджете встречи. " +
         "Напишите /new, чтобы создать встречу для этого чата.",
-      reply_markup: { inline_keyboard: [[{ text: "Открыть «Соберёмся»", url: appUrl }]] },
+      reply_markup: { inline_keyboard: [[{ text: "Открыть Flockly", url: appUrl }]] },
     };
   return null;
 }
