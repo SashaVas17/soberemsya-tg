@@ -253,3 +253,54 @@ h1 {
     background: var(--color-surface-solid);
   }
 }
+
+/* My meetings: pill segments, glass cards and states. */
+.meeting-segments {
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+}
+.meeting-segments button {
+  border-radius: var(--radius-full);
+  min-height: 44px;
+}
+.meeting-segments button.selected {
+  background: var(--action-primary-bg);
+  border-color: transparent;
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--action-primary-bg) 35%, transparent);
+  color: var(--action-primary-fg);
+}
+.my-meetings-page .meeting-card,
+.my-meetings-page .empty-state,
+.my-meetings-page > .state-card,
+.my-meetings-pagination-error {
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-surface);
+}
+.my-meetings-load-more {
+  width: 100%;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .meeting-segments,
+  .my-meetings-page .meeting-card,
+  .my-meetings-page .empty-state,
+  .my-meetings-page > .state-card,
+  .my-meetings-pagination-error {
+    background: var(--color-surface-solid);
+  }
+}
+.meeting-card-title {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  display: -webkit-box;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: normal;
+}
