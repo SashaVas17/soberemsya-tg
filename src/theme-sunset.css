@@ -453,3 +453,47 @@ h1 {
     background: var(--color-surface-solid);
   }
 }
+
+/* Result and created screens. */
+.result-summary-card,
+.result-page > .panel,
+.result-grid .panel,
+.created-link-card,
+.group-create-note {
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-surface);
+}
+.result-success-icon,
+.created-success-icon {
+  background: linear-gradient(135deg, var(--action-primary-bg), #ff9a6a);
+  border-radius: var(--radius-full);
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--action-primary-bg) 38%, transparent);
+  color: var(--action-primary-fg);
+}
+.result-event-title,
+.result-summary-row strong,
+.created-copy h1 {
+  font-family: var(--font-display);
+}
+.result-summary-icon {
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-full);
+  color: var(--color-nav-active);
+}
+.result-actions .primary-action,
+.created-actions .primary-action {
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--action-primary-bg) 40%, transparent);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .result-summary-card,
+  .result-page > .panel,
+  .result-grid .panel,
+  .created-link-card,
+  .group-create-note {
+    background: var(--color-surface-solid);
+  }
+}
