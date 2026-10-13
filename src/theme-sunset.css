@@ -410,3 +410,46 @@ h1 {
 .voting-form .form-submit {
   box-shadow: 0 12px 30px color-mix(in srgb, var(--action-primary-bg) 40%, transparent);
 }
+
+/* Create wizard: glass step panels, pill progress, rounded fields. */
+.create-wizard .wizard-panel,
+.create-wizard .wizard-time-panel {
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-surface);
+}
+.create-wizard input,
+.create-wizard textarea {
+  background: var(--color-surface-elevated);
+  border-color: var(--glass-border);
+}
+.create-wizard .place-draft {
+  background: var(--color-surface-elevated);
+  border-color: var(--glass-border);
+}
+.create-intro .step-progress {
+  background: var(--color-surface-variant);
+  border-radius: var(--radius-full);
+}
+.create-intro .step-progress span {
+  background: linear-gradient(90deg, var(--action-primary-bg), #ff9a6a);
+  border-radius: var(--radius-full);
+}
+.create-wizard .create-section-heading h2,
+.create-wizard .section-row h2 {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 650;
+}
+.create-wizard .wizard-actions .primary-action {
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--action-primary-bg) 40%, transparent);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .create-wizard .wizard-panel,
+  .create-wizard .wizard-time-panel {
+    background: var(--color-surface-solid);
+  }
+}
