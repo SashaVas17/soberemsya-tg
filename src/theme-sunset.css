@@ -4,6 +4,7 @@
  */
 
 :root {
+  --accent-warm: #ff9a6a;
   font-family: var(--font-text);
 }
 
@@ -182,4 +183,435 @@ h1 {
   .app-shell::before {
     display: none;
   }
+}
+
+/* Home: glass cards over the sunset backdrop. */
+.home-greeting {
+  font-size: clamp(24px, 6.6vw, 34px);
+}
+.home-create-card {
+  background:
+    radial-gradient(120% 90% at 100% 0, color-mix(in srgb, var(--accent-warm) 55%, transparent) 0, transparent 60%),
+    var(--action-primary-bg);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 16px 36px color-mix(in srgb, var(--action-primary-bg) 35%, transparent);
+  color: var(--action-primary-fg);
+}
+.home-create-card .home-action-icon {
+  background: color-mix(in srgb, var(--action-primary-fg) 18%, transparent);
+  color: var(--action-primary-fg);
+}
+.home-create-card small {
+  color: color-mix(in srgb, var(--action-primary-fg) 82%, transparent);
+}
+.home-create-card strong {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 650;
+}
+.home-create-cta {
+  align-items: center;
+  align-self: flex-start;
+  background: color-mix(in srgb, var(--action-primary-fg) 18%, transparent);
+  border-radius: var(--radius-full);
+  color: var(--action-primary-fg);
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 650;
+  gap: 6px;
+  padding: 8px 14px;
+}
+.home-meetings-shortcut,
+.home-settings-link {
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-surface);
+}
+.home-meetings-shortcut strong,
+.home-section-heading h2 {
+  font-family: var(--font-display);
+}
+.home-section-heading h2 {
+  font-size: 18px;
+  font-weight: 650;
+}
+.home-settings-link {
+  border-radius: var(--radius-full);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .home-meetings-shortcut,
+  .home-settings-link,
+  .meeting-card {
+    background: var(--color-surface-solid);
+  }
+}
+
+/* My meetings: pill segments, glass cards and states. */
+.meeting-segments {
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+}
+.meeting-segments button {
+  border-radius: var(--radius-full);
+  min-height: 44px;
+}
+.meeting-segments button.selected {
+  background: var(--action-primary-bg);
+  border-color: transparent;
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--action-primary-bg) 35%, transparent);
+  color: var(--action-primary-fg);
+}
+.my-meetings-page .empty-state,
+.my-meetings-page > .state-card,
+.my-meetings-pagination-error {
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-surface);
+}
+.my-meetings-load-more {
+  width: 100%;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .meeting-segments,
+  .my-meetings-page .meeting-card,
+  .my-meetings-page .empty-state,
+  .my-meetings-page > .state-card,
+  .my-meetings-pagination-error {
+    background: var(--color-surface-solid);
+  }
+}
+.meeting-card-title {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  display: -webkit-box;
+  font-size: 14px;
+  font-family: var(--font-display);
+  font-weight: 650;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+/* Open meetings feed and public preview. */
+.public-meetings-page .empty-state,
+.public-meetings-page > .state-card,
+.public-feed-pagination-error,
+.public-preview-details,
+.public-preview-notice {
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-surface);
+}
+.public-feed-load-more {
+  width: 100%;
+}
+.meeting-card-action {
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-full);
+  color: var(--color-nav-active);
+  font-weight: 650;
+  padding: 6px 14px;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .public-meetings-page .meeting-card,
+  .public-meetings-page .empty-state,
+  .public-meetings-page > .state-card,
+  .public-feed-pagination-error,
+  .public-preview-details,
+  .public-preview-notice {
+    background: var(--color-surface-solid);
+  }
+}
+
+/* Meeting screen (voting): glass panels, tile options, sticky submit. */
+.voting-form .panel,
+.voting-screen .panel,
+.participant-next-action,
+.event-meta,
+.voting-saved-page {
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-surface);
+}
+.voting-screen .panel h2 {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 650;
+}
+.availability-card {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text);
+  min-height: 64px;
+}
+.availability-card.available {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-primary) 22%, transparent);
+}
+.voting-screen input,
+.voting-screen textarea,
+.voting-screen select {
+  background: var(--color-surface-elevated);
+  border-color: var(--glass-border);
+  border-radius: var(--radius-lg);
+}
+.voting-form .form-submit {
+  bottom: max(12px, env(safe-area-inset-bottom));
+  position: sticky;
+  width: 100%;
+  z-index: 5;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .voting-form .panel,
+  .voting-screen .panel,
+  .participant-next-action,
+  .event-meta,
+  .voting-saved-page {
+    background: var(--color-surface-solid);
+  }
+}
+.voting-form .availability-grid {
+  gap: 10px;
+}
+.voting-form .availability-card,
+.voting-form .availability-card:last-child {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  min-height: 68px;
+  padding: 12px 14px;
+}
+.voting-form .availability-card.available {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+}
+.voting-form .form-submit {
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--action-primary-bg) 40%, transparent);
+}
+
+/* Create wizard: glass step panels, pill progress, rounded fields. */
+.create-wizard .wizard-panel,
+.create-wizard .wizard-time-panel {
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-surface);
+}
+.create-wizard input,
+.create-wizard textarea {
+  background: var(--color-surface-elevated);
+  border-color: var(--glass-border);
+}
+.create-wizard .place-draft {
+  background: var(--color-surface-elevated);
+  border-color: var(--glass-border);
+}
+.create-intro .step-progress {
+  background: var(--color-surface-variant);
+  border-radius: var(--radius-full);
+}
+.create-intro .step-progress span {
+  background: linear-gradient(90deg, var(--action-primary-bg), var(--accent-warm));
+  border-radius: var(--radius-full);
+}
+.create-wizard .create-section-heading h2,
+.create-wizard .section-row h2 {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 650;
+}
+.create-wizard .wizard-actions .primary-action {
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--action-primary-bg) 40%, transparent);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .create-wizard .wizard-panel,
+  .create-wizard .wizard-time-panel {
+    background: var(--color-surface-solid);
+  }
+}
+
+/* Result and created screens. */
+.result-summary-card,
+.result-page > .panel,
+.result-grid .panel,
+.created-link-card,
+.group-create-note {
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-surface);
+}
+.result-success-icon,
+.created-success-icon {
+  background: linear-gradient(135deg, var(--action-primary-bg), var(--accent-warm));
+  border-radius: var(--radius-full);
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--action-primary-bg) 38%, transparent);
+  color: var(--action-primary-fg);
+}
+.result-event-title,
+.result-summary-row strong,
+.created-copy h1 {
+  font-family: var(--font-display);
+}
+.result-summary-icon {
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-full);
+  color: var(--color-nav-active);
+}
+.result-actions .primary-action,
+.created-actions .primary-action {
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--action-primary-bg) 40%, transparent);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .result-summary-card,
+  .result-page > .panel,
+  .result-grid .panel,
+  .created-link-card,
+  .group-create-note {
+    background: var(--color-surface-solid);
+  }
+}
+
+/* Manage meeting: glass cards, calmer headings, rounded controls. */
+.manage-card,
+.manage-danger-zone {
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  box-shadow: var(--shadow-surface);
+}
+.manage-card {
+  background: var(--color-surface);
+  border-color: var(--glass-border);
+}
+.manage-card > h2 {
+  flex-wrap: wrap;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 650;
+  row-gap: 2px;
+}
+.manage-card > h2 small {
+  flex-basis: 100%;
+  font-family: var(--font-text);
+}
+.manage-card > h2 > span small {
+  flex-basis: auto;
+}
+.manage-card input,
+.manage-card textarea,
+.manage-card select,
+.manage-card .slot-card,
+.manage-card .inline-add,
+.manage-card .add-place {
+  background: var(--color-surface-elevated);
+  border-color: var(--glass-border);
+}
+.manage-card .inline-add,
+.manage-card .add-place {
+  border-style: dashed;
+}
+.manage-next-action {
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  box-shadow: var(--shadow-surface);
+}
+.manage-next-action h2 {
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+.manage-danger-zone {
+  border-radius: var(--radius-xl);
+}
+.manage-card .primary-action {
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--action-primary-bg) 38%, transparent);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .manage-card {
+    background: var(--color-surface-solid);
+  }
+}
+.manage-card > h2 > span {
+  flex: 1 1 0;
+}
+.manage-card > h2 > svg {
+  flex: 0 0 auto;
+}
+
+/* Settings, statistics and system screens. */
+.settings-permission,
+.settings-toggle,
+.settings-note,
+.stat-card,
+.stat-days,
+.stat-note,
+.state-card,
+.outside-screen .state-card,
+.home-preview {
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-surface);
+}
+.stat-card strong,
+.stat-day-values,
+.state-copy > strong {
+  font-family: var(--font-display);
+}
+.stat-day-bar span {
+  background: linear-gradient(90deg, var(--action-primary-bg), var(--accent-warm));
+  border-radius: var(--radius-full);
+}
+.stat-days {
+  padding: 14px;
+}
+.stat-note,
+.settings-note {
+  padding: 12px 16px;
+}
+.state-icon {
+  border-radius: var(--radius-full);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .settings-permission,
+  .settings-toggle,
+  .settings-note,
+  .stat-card,
+  .stat-days,
+  .stat-note,
+  .state-card,
+  .home-preview {
+    background: var(--color-surface-solid);
+  }
+}
+
+/* List cards stay blur-free: many stacked blur layers are slow on weak devices. */
+.meeting-card {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-surface);
 }
