@@ -56,8 +56,7 @@ begin
 end;
 $$;
 
-drop trigger if exists events_notify_changes on public.events;
-create trigger events_notify_changes
+create or replace trigger events_notify_changes
   after update of status, title, description, final_time_option_id, final_place_id on public.events
   for each row execute function public.notify_event_changes();
 
@@ -92,8 +91,7 @@ begin
 end;
 $$;
 
-drop trigger if exists join_requests_notify on public.join_requests;
-create trigger join_requests_notify
+create or replace trigger join_requests_notify
   after insert or update of status on public.join_requests
   for each row execute function public.notify_join_requests();
 
@@ -143,8 +141,7 @@ begin
 end;
 $$;
 
-drop trigger if exists availability_votes_notify on public.availability_votes;
-create trigger availability_votes_notify
+create or replace trigger availability_votes_notify
   after insert on public.availability_votes
   referencing new table as new_votes
   for each statement execute function public.notify_new_responses();

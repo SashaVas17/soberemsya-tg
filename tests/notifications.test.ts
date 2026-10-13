@@ -16,7 +16,7 @@ import {
 import { askWriteAccessOnce, WRITE_ACCESS_ASKED_KEY } from "../src/write-access";
 
 const read = (path: string) => readFileSync(path, "utf8").replace(/\r\n/g, "\n");
-const migrationNames = readdirSync("supabase/migrations").filter((name) => name.startsWith("20261013130"));
+const migrationNames = readdirSync("supabase/migrations").filter((name) => name.startsWith("2026101313"));
 const migrations = Object.fromEntries(migrationNames.map((name) => [name, read(`supabase/migrations/${name}`)]));
 const allSql = Object.values(migrations).join("\n");
 const url = eventDeepLink("bot", "app", "evt_1");
@@ -134,7 +134,7 @@ describe("notification migrations", () => {
   });
 
   it("keeps the outbox kinds in sync with the renderer", () => {
-    for (const kind of kinds) expect(migrations["20261013130000_notifications_schema.sql"]).toContain(`'${kind}'`);
+    for (const kind of kinds) expect(migrations["20261013130744_notifications_schema.sql"]).toContain(`'${kind}'`);
   });
 
   it("hardens every new function and revokes it from browser roles", () => {
@@ -146,6 +146,10 @@ describe("notification migrations", () => {
     expect(allSql.match(/security definer set search_path = pg_catalog, public/g)?.length).toBe(functions.length);
   });
 
+  it("never uses DROP statements (the Supabase connector hangs on them)", () => {
+    expect(allSql).not.toMatch(/^\s*drop\s/im);
+  });
+
   it("never combines RAISE and DELETE in one function body (Supabase connector limitation)", () => {
     for (const body of allSql.split(/\$\$;/)) {
       expect(/\braise\b/i.test(body) && /\bdelete\s+from\b/i.test(body)).toBe(false);
@@ -153,21 +157,21 @@ describe("notification migrations", () => {
   });
 
   it("notifies on a re-decision, never drops an each-mode response, and counts real answers", () => {
-    const triggers = migrations["20261013130100_notification_triggers.sql"];
+    const triggers = migrations["20261013131123_notification_triggers.sql"];
     expect(triggers).toContain("after update of status, title, description, final_time_option_id, final_place_id on public.events");
     expect(triggers).toContain("or new.final_time_option_id is distinct from old.final_time_option_id");
     expect(triggers).toContain("to_timestamp((v_bucket + 1) * 900)");
     expect(triggers).toContain("public.event_answered_count(v_row.id, v_row.owner_user_id)");
-    expect(migrations["20261013130200_notification_scheduler.sql"]).toContain("and voter.user_id is distinct from v_row.owner_user_id");
+    expect(migrations["20261013131145_notification_scheduler.sql"]).toContain("and voter.user_id is distinct from v_row.owner_user_id");
   });
 
   it("does not spend attempts on throttled messages", () => {
-    expect(migrations["20261013130300_notification_worker_rpc.sql"]).toContain("elsif p_outcome = 'defer' then");
+    expect(migrations["20261013131208_notification_worker_rpc.sql"]).toContain("elsif p_outcome = 'defer' then");
     expect(read("supabase/functions/notifications-worker/index.ts")).toContain('await complete(item.id, "defer", "throttled", throttledFor);');
   });
 
   it("generates the worker secret in the database, never in the repository", () => {
-    const rpc = migrations["20261013130300_notification_worker_rpc.sql"];
+    const rpc = migrations["20261013131208_notification_worker_rpc.sql"];
     expect(rpc).toContain("encode(extensions.gen_random_bytes(32), 'hex')");
     expect(rpc).toContain("grant execute on function public.verify_notifications_worker_secret(text) to service_role;");
   });
