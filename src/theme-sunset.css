@@ -497,3 +497,70 @@ h1 {
     background: var(--color-surface-solid);
   }
 }
+
+/* Manage meeting: glass cards, calmer headings, rounded controls. */
+.manage-card,
+.manage-danger-zone {
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  box-shadow: var(--shadow-surface);
+}
+.manage-card {
+  background: var(--color-surface);
+  border-color: var(--glass-border);
+}
+.manage-card > h2 {
+  flex-wrap: wrap;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 650;
+  row-gap: 2px;
+}
+.manage-card > h2 small {
+  flex-basis: 100%;
+  font-family: var(--font-text);
+}
+.manage-card > h2 > span small {
+  flex-basis: auto;
+}
+.manage-card input,
+.manage-card textarea,
+.manage-card select,
+.manage-card .slot-card,
+.manage-card .inline-add,
+.manage-card .add-place {
+  background: var(--color-surface-elevated);
+  border-color: var(--glass-border);
+}
+.manage-card .inline-add,
+.manage-card .add-place {
+  border-style: dashed;
+}
+.manage-next-action {
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  box-shadow: var(--shadow-surface);
+}
+.manage-next-action h2 {
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+.manage-danger-zone {
+  border-radius: var(--radius-xl);
+}
+.manage-card .primary-action {
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--action-primary-bg) 38%, transparent);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .manage-card,
+  .manage-danger-zone,
+  .manage-next-action {
+    background: var(--color-surface-solid);
+  }
+}
+.manage-card > h2 > span {
+  flex: 1 1 0;
+}
+.manage-card > h2 > svg {
+  flex: 0 0 auto;
+}
