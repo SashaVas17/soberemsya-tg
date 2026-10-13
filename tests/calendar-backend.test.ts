@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { buildIcs, isCalendarTicketValid, signCalendarTicket } from "../supabase/functions/_shared/calendar";
+import { readAppSource } from "./app-source";
 
 const edgeApi = readFileSync("supabase/functions/telegram-api/index.ts", "utf8");
 const frontendApi = readFileSync("src/api.ts", "utf8");
-const appSource = readFileSync("src/App.tsx", "utf8");
+const appSource = readAppSource();
 
 describe("secure calendar links", () => {
   it("signs a short-lived event ticket without exposing its secret", async () => {

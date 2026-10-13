@@ -12,6 +12,7 @@ import {
   validateCreateStep,
   type CreateWizardDraft,
 } from "../src/create-wizard";
+import { readAppSource } from "./app-source";
 
 const firstTime = "2026-10-15T16:00:00.000Z";
 const secondTime = "2026-10-16T15:30:00.000Z";
@@ -145,7 +146,7 @@ describe("create meeting wizard", () => {
 });
 
 describe("create screen boundaries", () => {
-  const appSource = readFileSync("src/App.tsx", "utf8");
+  const appSource = readAppSource();
   const createSource = appSource.slice(
     appSource.indexOf("function CreateEvent("),
     appSource.indexOf("function useEvent("),

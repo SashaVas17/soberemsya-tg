@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import {
   eventShareUrl,
@@ -13,6 +12,7 @@ import {
   type VotingDraft,
 } from "../src/participant-voting";
 import type { EventData } from "../src/types";
+import { readAppSource } from "./app-source";
 
 const event: EventData = {
   id: "evt_real",
@@ -175,7 +175,7 @@ describe("Participant Voting", () => {
 });
 
 describe("Phase D screen boundaries", () => {
-  const appSource = readFileSync("src/App.tsx", "utf8");
+  const appSource = readAppSource();
   const createdSource = appSource.slice(
     appSource.indexOf("function Created("),
     appSource.indexOf("function ParticipantEvent("),

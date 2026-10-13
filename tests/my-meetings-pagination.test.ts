@@ -8,8 +8,9 @@ import {
 } from "../supabase/functions/_shared/my-meetings-page";
 import { mergeMeetingItems } from "../src/my-meetings";
 import type { MeetingListItem } from "../src/types";
+import { readAppSource } from "./app-source";
 
-const appSource = readFileSync("src/App.tsx", "utf8");
+const appSource = readAppSource();
 const apiSource = readFileSync("src/api.ts", "utf8");
 const backendSource = readFileSync("supabase/functions/telegram-api/index.ts", "utf8");
 const mockSource = readFileSync("src/mock-api.ts", "utf8");

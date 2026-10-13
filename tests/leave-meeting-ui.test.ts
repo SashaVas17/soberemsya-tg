@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { canLeaveMeeting, leaveMeetingOnce } from "../src/leave-meeting";
+import { readAppSource } from "./app-source";
 
-const appSource = readFileSync("src/App.tsx", "utf8");
+const appSource = readAppSource();
 const apiSource = readFileSync("src/api.ts", "utf8");
 const mockSource = readFileSync("src/mock-api.ts", "utf8");
 const stylesSource = readFileSync("src/styles.css", "utf8");

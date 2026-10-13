@@ -6,6 +6,7 @@ import {
   type CreateWizardDraft,
 } from "../src/create-wizard";
 import { parseCreateMeetingMode } from "../supabase/functions/_shared/open-meetings";
+import { readAppSource } from "./app-source";
 
 const draft = (overrides: Partial<CreateWizardDraft> = {}): CreateWizardDraft => ({
   title: "Открытая встреча",
@@ -71,7 +72,7 @@ describe("Open Meetings create mode", () => {
   });
 
   it("renders public controls and badges without changing the private UI", () => {
-    const source = readFileSync("src/App.tsx", "utf8");
+    const source = readAppSource();
     const create = source.slice(source.indexOf("function CreateEvent("), source.indexOf("function useEvent("));
     expect(create).toContain("Кто сможет присоединиться?");
     expect(create).toContain("Сколько человек может быть на встрече?");

@@ -7,8 +7,9 @@ import {
 import { resultPlace, resultTime } from "../src/result-model";
 import { openExternalUrl } from "../src/telegram";
 import type { EventData } from "../src/types";
+import { readAppSource } from "./app-source";
 
-const resultSource = readFileSync("src/App.tsx", "utf8");
+const resultSource = readAppSource();
 const calendarSource = readFileSync("src/calendar.ts", "utf8");
 
 const startsAt = "2026-08-15T16:00:00.000Z";

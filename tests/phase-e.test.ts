@@ -4,6 +4,7 @@ import { managePayloads, runActionOnce } from "../src/manage-actions";
 import { eventShareUrl, resultShareUrl } from "../src/meeting-links";
 import { resultPlace, resultTime } from "../src/result-model";
 import type { EventData } from "../src/types";
+import { readAppSource } from "./app-source";
 
 const decidedEvent: EventData = {
   id: "evt_decided",
@@ -134,7 +135,7 @@ describe("Final Result", () => {
 });
 
 describe("Phase E screen and state boundaries", () => {
-  const appSource = readFileSync("src/App.tsx", "utf8");
+  const appSource = readAppSource();
   const manageSource = appSource.slice(
     appSource.indexOf("function Manage("),
     appSource.indexOf("function Result("),
