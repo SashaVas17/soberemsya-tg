@@ -15,8 +15,8 @@ import { buildShareCard, parseShareCardKind } from "../supabase/functions/_share
 
 const read = (path: string) => readFileSync(path, "utf8").replace(/\r\n/g, "\n");
 const token = "AbCdEfGhIjKlMnOpQrStUv_-";
-const schema = read("supabase/migrations/20261013140000_group_chats_schema.sql");
-const rpc = read("supabase/migrations/20261013140100_group_chats_rpc.sql");
+const schema = read("supabase/migrations/20261013135742_group_chats_schema.sql");
+const rpc = read("supabase/migrations/20261013140338_group_chats_rpc.sql");
 const api = read("supabase/functions/telegram-api/index.ts");
 const bot = read("supabase/functions/telegram-bot/index.ts");
 const worker = read("supabase/functions/notifications-worker/index.ts");

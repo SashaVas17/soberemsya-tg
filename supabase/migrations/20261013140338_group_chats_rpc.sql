@@ -209,25 +209,14 @@ begin
 end;
 $$;
 
-create or replace function public.purge_group_data()
-returns void
-language sql security definer set search_path = pg_catalog, public
-as $$
-  delete from public.group_links where expires_at < now() - interval '1 day';
-  delete from public.group_message_outbox
-  where status in ('sent', 'skipped', 'failed') and created_at < now() - interval '30 days';
-$$;
-
 revoke all on function public.create_group_link(bigint, text, bigint) from public, anon, authenticated;
 revoke all on function public.group_link_info(text, uuid) from public, anon, authenticated;
 revoke all on function public.attach_event_to_group(text, uuid, text) from public, anon, authenticated;
 revoke all on function public.notify_group_chats() from public, anon, authenticated;
 revoke all on function public.claim_group_message_batch(integer) from public, anon, authenticated;
 revoke all on function public.complete_group_message(bigint, text, text, integer, bigint) from public, anon, authenticated;
-revoke all on function public.purge_group_data() from public, anon, authenticated;
 grant execute on function public.create_group_link(bigint, text, bigint) to service_role;
 grant execute on function public.group_link_info(text, uuid) to service_role;
 grant execute on function public.attach_event_to_group(text, uuid, text) to service_role;
 grant execute on function public.claim_group_message_batch(integer) to service_role;
 grant execute on function public.complete_group_message(bigint, text, text, integer, bigint) to service_role;
-grant execute on function public.purge_group_data() to service_role;

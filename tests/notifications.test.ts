@@ -156,6 +156,12 @@ describe("notification migrations", () => {
     }
   });
 
+  it("has at most one DELETE per function body (Supabase connector limitation)", () => {
+    for (const body of allSql.split(/\$\$;/)) {
+      expect(body.match(/\bdelete\s+from\b/gi)?.length ?? 0).toBeLessThanOrEqual(1);
+    }
+  });
+
   it("notifies on a re-decision, never drops an each-mode response, and counts real answers", () => {
     const triggers = migrations["20261013131123_notification_triggers.sql"];
     expect(triggers).toContain("after update of status, title, description, final_time_option_id, final_place_id on public.events");

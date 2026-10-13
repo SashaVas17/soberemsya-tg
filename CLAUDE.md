@@ -36,9 +36,10 @@ Telegram Mini App для организации встреч (бот `@soberemsy
   и проверить, что текст совпадает с `supabase_migrations.schema_migrations.statements`.
 - **Баг коннектора:** `apply_migration`/`execute_sql` зависают (таймаут 60 с, ничего не применяется) на
   «разрушающих» командах — коннектор ждёт подтверждения, которое не доходит до владельца. Подтверждено:
-  `drop ...` (даже внутри транзакции с откатом) и тело PL/pgSQL-функции, где есть и `raise`, и `delete from`.
-  Обходы: `create or replace trigger` вместо `drop trigger` + `create trigger`; `delete` выносить в отдельную
-  функцию без `raise`. Тест в `tests/notifications.test.ts` проверяет это для новых миграций.
+  `drop ...` (даже внутри транзакции с откатом), тело функции, где есть и `raise`, и `delete from`,
+  и тело функции с двумя `delete from`.
+  Обходы: `create or replace trigger` вместо `drop trigger` + `create trigger`; каждый `delete` — в отдельной
+  функции без `raise`. Тест в `tests/notifications.test.ts` проверяет это для новых миграций.
 - Порядок релиза: миграции → Edge Functions → фронтенд; каждый шаг обратно совместим.
 - Никакого фиктивного exactly-once для сообщений Telegram: доставка at-least-once, это документируется.
 - Тексты для пользователей — нейтрально, на «вы».
