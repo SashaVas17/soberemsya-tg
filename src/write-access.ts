@@ -23,11 +23,17 @@ export async function askWriteAccessOnce(
 ) {
   try {
     if (storage?.getItem(WRITE_ACCESS_ASKED_KEY)) return null;
-    storage?.setItem(WRITE_ACCESS_ASKED_KEY, "1");
   } catch {
     return null;
   }
   const granted = await ask();
+  // A client that cannot ask (null) will be asked again on a newer client.
+  if (granted === null) return null;
+  try {
+    storage?.setItem(WRITE_ACCESS_ASKED_KEY, "1");
+  } catch {
+    // Asking again next time is harmless.
+  }
   if (granted) await report().catch(() => undefined);
   return granted;
 }

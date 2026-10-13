@@ -5,6 +5,7 @@ import {
   eventDeepLink,
   formatMeetingTime,
   isNotificationStale,
+  notificationLink,
   type NotificationKind,
   renderNotification,
 } from "../supabase/functions/_shared/notification-messages";
@@ -22,7 +23,7 @@ const url = eventDeepLink("bot", "app", "evt_1");
 const kinds: NotificationKind[] = [
   "response_each", "response_summary", "join_request_new", "join_request_approved",
   "join_request_rejected", "event_decided", "event_cancelled", "event_updated",
-  "reminder_24h", "reminder_2h",
+  "event_reopened", "reminder_24h", "reminder_2h",
 ];
 
 describe("notification messages", () => {
@@ -50,8 +51,10 @@ describe("notification messages", () => {
     expect(formatMeetingTime("not a date")).toBe("");
   });
 
-  it("falls back to the app link without an event", () => {
+  it("falls back to the app link without an event and for a rejection", () => {
     expect(eventDeepLink("bot", "app", null)).toBe("https://t.me/bot/app");
+    expect(notificationLink("bot", "app", "join_request_rejected", "evt_1")).toBe("https://t.me/bot/app");
+    expect(notificationLink("bot", "app", "event_decided", "evt_1")).toBe(url);
   });
 
   it("skips stale notifications but still delivers a cancellation", () => {
@@ -106,6 +109,15 @@ describe("write access prompt", () => {
     expect(report).toHaveBeenCalledTimes(1);
   });
 
+  it("asks again later when this client cannot ask", async () => {
+    const store = storage();
+    const report = vi.fn(async () => undefined);
+    await expect(askWriteAccessOnce(report, async () => null, store)).resolves.toBeNull();
+    expect(store.data.has(WRITE_ACCESS_ASKED_KEY)).toBe(false);
+    await expect(askWriteAccessOnce(report, async () => true, store)).resolves.toBe(true);
+    expect(report).toHaveBeenCalledTimes(1);
+  });
+
   it("does not report a refusal", async () => {
     const report = vi.fn(async () => undefined);
     await askWriteAccessOnce(report, async () => false, storage());
@@ -140,6 +152,20 @@ describe("notification migrations", () => {
     }
   });
 
+  it("notifies on a re-decision, never drops an each-mode response, and counts real answers", () => {
+    const triggers = migrations["20261013130100_notification_triggers.sql"];
+    expect(triggers).toContain("after update of status, title, description, final_time_option_id, final_place_id on public.events");
+    expect(triggers).toContain("or new.final_time_option_id is distinct from old.final_time_option_id");
+    expect(triggers).toContain("to_timestamp((v_bucket + 1) * 900)");
+    expect(triggers).toContain("public.event_answered_count(v_row.id, v_row.owner_user_id)");
+    expect(migrations["20261013130200_notification_scheduler.sql"]).toContain("and voter.user_id is distinct from v_row.owner_user_id");
+  });
+
+  it("does not spend attempts on throttled messages", () => {
+    expect(migrations["20261013130300_notification_worker_rpc.sql"]).toContain("elsif p_outcome = 'defer' then");
+    expect(read("supabase/functions/notifications-worker/index.ts")).toContain('await complete(item.id, "defer", "throttled", throttledFor);');
+  });
+
   it("generates the worker secret in the database, never in the repository", () => {
     const rpc = migrations["20261013130300_notification_worker_rpc.sql"];
     expect(rpc).toContain("encode(extensions.gen_random_bytes(32), 'hex')");
@@ -154,6 +180,8 @@ describe("API and UI wiring", () => {
   it("exposes notification settings and a cancel action", () => {
     expect(api).toContain('if (path === "/me/notification-settings") return ["GET", "PUT"];');
     expect(api).toContain('case "cancel":');
+    expect(api).toContain('case "reopen": { if (event.status === "cancelled")');
+    expect(api).toContain('case "decide": { if (event.status === "cancelled")');
     expect(read("supabase/functions/_shared/http.ts")).toContain('"GET, POST, PUT, PATCH, DELETE, OPTIONS"');
   });
 

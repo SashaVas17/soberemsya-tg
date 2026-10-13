@@ -15,7 +15,11 @@ begin
   if new.deleted_at is not null then
     return new;
   end if;
-  if new.status is distinct from old.status and new.status = 'decided' then
+  if new.status = 'decided' and (
+    new.status is distinct from old.status
+    or new.final_time_option_id is distinct from old.final_time_option_id
+    or new.final_place_id is distinct from old.final_place_id
+  ) then
     v_kind := 'event_decided';
     v_key := 'decided:' || new.id || ':' || coalesce(new.final_time_option_id, '') || ':' || coalesce(new.final_place_id, '');
     v_payload := v_payload || coalesce((
@@ -26,7 +30,10 @@ begin
     ), '{}'::jsonb);
   elsif new.status is distinct from old.status and new.status = 'cancelled' then
     v_kind := 'event_cancelled';
-    v_key := 'cancelled:' || new.id || ':' || floor(extract(epoch from now()) / 600)::text;
+    v_key := 'cancelled:' || new.id;
+  elsif new.status is distinct from old.status and new.status = 'collecting' and old.status = 'decided' then
+    v_kind := 'event_reopened';
+    v_key := 'reopened:' || new.id || ':' || floor(extract(epoch from now()) / 600)::text;
   elsif new.status <> 'cancelled'
     and (new.title is distinct from old.title or new.description is distinct from old.description) then
     v_kind := 'event_updated';
@@ -51,7 +58,7 @@ $$;
 
 drop trigger if exists events_notify_changes on public.events;
 create trigger events_notify_changes
-  after update of status, title, description on public.events
+  after update of status, title, description, final_time_option_id, final_place_id on public.events
   for each row execute function public.notify_event_changes();
 
 -- The organizer hears about new join requests; the requester about decisions.
@@ -91,13 +98,16 @@ create trigger join_requests_notify
   for each row execute function public.notify_join_requests();
 
 -- A saved response rewrites availability votes; once per statement, tell an
--- organizer in "each" mode, at most once per event per 15 minutes.
+-- organizer in "each" mode, at most one message per event per 15 minutes.
 create or replace function public.notify_new_responses()
 returns trigger
 language plpgsql security definer set search_path = pg_catalog, public
 as $$
 declare
   v_row record;
+  v_bucket bigint;
+  v_payload jsonb;
+  v_id bigint;
 begin
   for v_row in
     select distinct event.id, event.title, event.owner_user_id
@@ -109,13 +119,24 @@ begin
       and participant.user_id is distinct from event.owner_user_id
   loop
     if public.notification_response_mode(v_row.owner_user_id) = 'each' then
-      perform public.enqueue_notification(
-        v_row.owner_user_id, v_row.id, 'response_each',
-        'resp:' || v_row.id || ':' || floor(extract(epoch from now()) / 900)::text,
-        jsonb_build_object(
-          'title', v_row.title,
-          'answered', (select count(*) from public.participants p where p.event_id = v_row.id
-                        and p.user_id is distinct from v_row.owner_user_id)));
+      v_bucket := floor(extract(epoch from now()) / 900)::bigint;
+      v_payload := jsonb_build_object('title', v_row.title,
+        'answered', public.event_answered_count(v_row.id, v_row.owner_user_id));
+      v_id := null;
+      -- First response in a 15-minute window goes out now; later ones update
+      -- the still-pending message or roll into one message for the next window.
+      insert into public.notification_outbox (user_id, event_id, kind, dedupe_key, payload)
+      values (v_row.owner_user_id, v_row.id, 'response_each', 'resp:' || v_row.id || ':' || v_bucket, v_payload)
+      on conflict (dedupe_key) do update set payload = excluded.payload
+        where notification_outbox.status = 'pending'
+      returning notification_outbox.id into v_id;
+      if v_id is null then
+        insert into public.notification_outbox (user_id, event_id, kind, dedupe_key, payload, next_attempt_at)
+        values (v_row.owner_user_id, v_row.id, 'response_each', 'resp:' || v_row.id || ':' || (v_bucket + 1),
+          v_payload, to_timestamp((v_bucket + 1) * 900))
+        on conflict (dedupe_key) do update set payload = excluded.payload
+          where notification_outbox.status = 'pending';
+      end if;
     end if;
   end loop;
   return null;

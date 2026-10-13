@@ -7,6 +7,7 @@ export type NotificationKind =
   | "event_decided"
   | "event_cancelled"
   | "event_updated"
+  | "event_reopened"
   | "reminder_24h"
   | "reminder_2h";
 
@@ -58,6 +59,11 @@ export function eventDeepLink(bot: string, app: string, eventId: string | null) 
   return eventId ? `${base}?startapp=event_${eventId}` : base;
 }
 
+/** Where a notification button leads: the meeting, or the app for a rejection. */
+export function notificationLink(bot: string, app: string, kind: NotificationKind, eventId: string | null) {
+  return eventDeepLink(bot, app, kind === "join_request_rejected" ? null : eventId);
+}
+
 /**
  * Notifications that no longer make sense once their meeting is cancelled
  * or deleted. A cancellation notice itself is still delivered.
@@ -106,6 +112,8 @@ export function renderNotification(
       return open(`Встреча ${title} отменена организатором.`);
     case "event_updated":
       return open(`Организатор обновил описание встречи ${title}.`);
+    case "event_reopened":
+      return open(`Организатор снова собирает ответы на встречу ${title}. Прежний итог отменён.`);
     case "reminder_24h": {
       const details = finalDetails(payload);
       return open(`Напоминание: завтра встреча ${title}${details ? ` — ${details}` : ""}.`);

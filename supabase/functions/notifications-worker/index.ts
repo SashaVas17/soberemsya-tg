@@ -2,8 +2,8 @@ import { createClient } from "npm:@supabase/supabase-js@2.111.0";
 import { json } from "../_shared/http.ts";
 import {
   classifyTelegramResult,
-  eventDeepLink,
   isNotificationStale,
+  notificationLink,
   type NotificationKind,
   renderNotification,
   type TelegramSendOutcome,
@@ -41,7 +41,7 @@ const db = createClient(supabaseUrl, serviceKey, {
 });
 
 async function sendMessage(item: ClaimedNotification): Promise<TelegramSendOutcome> {
-  const message = renderNotification(item.kind, item.payload ?? {}, eventDeepLink(bot, app, item.event_id));
+  const message = renderNotification(item.kind, item.payload ?? {}, notificationLink(bot, app, item.kind, item.event_id));
   try {
     const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: "POST",
@@ -76,7 +76,7 @@ async function processBatch() {
   let throttledFor: number | null = null;
   for (const item of items) {
     if (throttledFor !== null) {
-      await complete(item.id, "retry", "throttled", throttledFor);
+      await complete(item.id, "defer", "throttled", throttledFor);
       continue;
     }
     if (isNotificationStale(item.kind, item.event_status, item.event_deleted)) {

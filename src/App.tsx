@@ -392,7 +392,8 @@ function NotificationSettingsScreen({ navigate, onBack }: { navigate: Navigate; 
   const allowMessages = async () => {
     const granted = await requestBotWriteAccess();
     if (granted) await save({ writeAccessGranted: true });
-    else if (granted === null) openTelegramUrl(`https://t.me/${import.meta.env.VITE_TELEGRAM_BOT_USERNAME || ""}`);
+    else if (granted === null)
+      openTelegramUrl(`https://t.me/${import.meta.env.VITE_TELEGRAM_BOT_USERNAME || "soberemsyabelarusbot"}`);
   };
   return (
     <main className="settings-screen">
@@ -1889,7 +1890,7 @@ function ParticipantEvent({
         {event.canManage && (
           <button
             className="secondary-action"
-            onClick={() => navigate(`/manage/${eventId}`)}
+            onClick={() => navigate(managementPath(eventId))}
             type="button"
           >
             Управлять встречей
@@ -2718,9 +2719,12 @@ function Manage({
               ))}
             </select>
           </label>
+          {event.status === "cancelled" && (
+            <p className="settings-note">Встреча отменена. Итог и сбор ответов больше недоступны.</p>
+          )}
           <button
             className="primary-action"
-            disabled={!finalTime || !finalPlace || saving}
+            disabled={!finalTime || !finalPlace || saving || event.status === "cancelled"}
             onClick={() =>
               void mutate(managePayloads.decide(finalTime, finalPlace))
             }
@@ -2737,7 +2741,7 @@ function Manage({
               Закрыть сбор ответов
             </button>
           )}
-          {event.status !== "collecting" && (
+          {event.status !== "collecting" && event.status !== "cancelled" && (
             <button
               className="secondary-action"
               onClick={() => void mutate(managePayloads.reopen())}

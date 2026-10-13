@@ -33,7 +33,7 @@ begin
     and person.user_id is not null
     and reminder.enabled
     and p_now >= final_time.starts_at - reminder.lead_time
-    and p_now < final_time.starts_at - reminder.lead_time + interval '1 hour'
+    and p_now < final_time.starts_at - reminder.lead_time + interval '10 minutes'
   on conflict (dedupe_key) do nothing;
 
   if extract(hour from p_now at time zone 'Europe/Minsk') <> 19 then
@@ -43,9 +43,7 @@ begin
   for v_row in
     select event.id, event.title, event.owner_user_id,
       coalesce(state.last_summary_participants, 0) as previous,
-      (select count(*) from public.participants participant
-        where participant.event_id = event.id
-          and participant.user_id is distinct from event.owner_user_id)::integer as answered
+      public.event_answered_count(event.id, event.owner_user_id) as answered
     from public.events event
     left join public.event_notification_state state on state.event_id = event.id
     where event.status = 'collecting'
@@ -60,7 +58,9 @@ begin
         select count(*) as available
         from public.availability_votes vote
         join public.time_options option on option.id = vote.time_option_id
+        join public.participants voter on voter.id = vote.participant_id
         where option.event_id = v_row.id and vote.is_available
+          and voter.user_id is distinct from v_row.owner_user_id
         group by option.id
       ) option_votes;
       perform public.enqueue_notification(

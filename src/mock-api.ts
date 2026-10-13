@@ -390,9 +390,9 @@ export const mockApi = {
         description: payload.description,
       };
     if (payload.action === "close") event.status = "place_selection";
-    if (payload.action === "reopen") event.status = "collecting";
+    if (payload.action === "reopen" && event.status !== "cancelled") event.status = "collecting";
     if (payload.action === "cancel") event.status = "cancelled";
-    if (payload.action === "decide")
+    if (payload.action === "decide" && event.status !== "cancelled")
       event = {
         ...event,
         status: "decided",

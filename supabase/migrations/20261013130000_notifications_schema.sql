@@ -21,7 +21,7 @@ create table if not exists public.notification_outbox (
   kind text not null check (kind in (
     'response_each', 'response_summary', 'join_request_new',
     'join_request_approved', 'join_request_rejected', 'event_decided',
-    'event_cancelled', 'event_updated', 'reminder_24h', 'reminder_2h'
+    'event_cancelled', 'event_updated', 'event_reopened', 'reminder_24h', 'reminder_2h'
   )),
   dedupe_key text not null unique,
   payload jsonb not null default '{}'::jsonb,
@@ -82,5 +82,18 @@ as $$
   );
 $$;
 
+-- People who actually answered: non-organizer participants with votes.
+-- Approving a join request adds a participant before they answer.
+create or replace function public.event_answered_count(p_event_id text, p_owner_user_id uuid)
+returns integer
+language sql stable security definer set search_path = pg_catalog, public
+as $$
+  select count(*)::integer from public.participants participant
+  where participant.event_id = p_event_id
+    and participant.user_id is distinct from p_owner_user_id
+    and exists (select 1 from public.availability_votes vote where vote.participant_id = participant.id);
+$$;
+
 revoke all on function public.enqueue_notification(uuid, text, text, text, jsonb, interval) from public, anon, authenticated;
+revoke all on function public.event_answered_count(text, uuid) from public, anon, authenticated;
 revoke all on function public.notification_response_mode(uuid) from public, anon, authenticated;

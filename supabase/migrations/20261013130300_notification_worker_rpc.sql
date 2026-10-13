@@ -49,7 +49,8 @@ as $$
     outbox.payload, outbox.attempts;
 $$;
 
--- p_outcome: sent | retry | blocked (user blocked the bot) | skip | failed.
+-- p_outcome: sent | retry | defer (not attempted, e.g. throttled; does not
+-- consume an attempt) | blocked (user blocked the bot) | skip | failed.
 create or replace function public.complete_notification(
   p_id bigint, p_outcome text, p_error text default null, p_retry_after_seconds integer default null
 )
@@ -70,6 +71,11 @@ begin
         next_attempt_at = now() + make_interval(secs => coalesce(
           p_retry_after_seconds, least(3600, 30 * power(2, attempts))::integer)),
         locked_at = null, last_error = left(p_error, 500)
+    where id = p_id;
+  elsif p_outcome = 'defer' then
+    update public.notification_outbox
+    set status = 'pending', attempts = greatest(attempts - 1, 0), locked_at = null,
+        next_attempt_at = now() + make_interval(secs => coalesce(p_retry_after_seconds, 30))
     where id = p_id;
   elsif p_outcome = 'blocked' then
     update public.notification_outbox
