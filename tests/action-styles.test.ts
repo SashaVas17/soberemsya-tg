@@ -46,7 +46,7 @@ describe("Telegram action styling", () => {
     expect(stylesSource).toContain(".primary-action:disabled,");
     expect(stylesSource).toContain("background: var(--action-disabled-bg)");
     expect(stylesSource).toContain("color: var(--action-disabled-fg)");
-    expect(buttonBlock("Принять решение")).toContain("disabled={!finalTime || !finalPlace || saving}");
+    expect(buttonBlock("Принять решение")).toContain("disabled={!finalTime || !finalPlace || saving || event.status === \"cancelled\"}");
     expect(buttonBlock("Удалить встречу")).toContain('className="danger-button"');
   });
 

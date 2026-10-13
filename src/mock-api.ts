@@ -1,6 +1,7 @@
 import type {
   AuthResult,
   MeetingListItem,
+  NotificationSettings,
   PublicMeetingFeedItem,
 } from "./types";
 import { applyMockResponse, type MockVotingEvent } from "./participant-voting";
@@ -181,6 +182,13 @@ function assertMockParticipantProposalAllowed(eventId: string) {
       { status: 403 },
     );
 }
+
+let mockNotificationSettings: NotificationSettings = {
+  responseMode: "summary",
+  reminder24h: true,
+  reminder2h: true,
+  canMessage: null,
+};
 
 export const mockApi = {
   auth: async () => clone(auth),
@@ -365,6 +373,15 @@ export const mockApi = {
       ? { items: mockOwnedMeetingPages.slice(12), nextCursor: null }
       : { items: mockOwnedMeetingPages.slice(0, 12), nextCursor: "mock-owner-page-2" };
   },
+  notificationSettings: async (update?: Partial<NotificationSettings> & { writeAccessGranted?: boolean }) => {
+    const { writeAccessGranted, ...preferences } = update ?? {};
+    mockNotificationSettings = {
+      ...mockNotificationSettings,
+      ...preferences,
+      ...(writeAccessGranted ? { canMessage: true } : {}),
+    };
+    return mockNotificationSettings;
+  },
   manage: async (_id: string, payload: any) => {
     if (payload.action === "update_details")
       event = {
@@ -373,8 +390,9 @@ export const mockApi = {
         description: payload.description,
       };
     if (payload.action === "close") event.status = "place_selection";
-    if (payload.action === "reopen") event.status = "collecting";
-    if (payload.action === "decide")
+    if (payload.action === "reopen" && event.status !== "cancelled") event.status = "collecting";
+    if (payload.action === "cancel") event.status = "cancelled";
+    if (payload.action === "decide" && event.status !== "cancelled")
       event = {
         ...event,
         status: "decided",

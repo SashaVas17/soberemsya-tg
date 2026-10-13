@@ -1,7 +1,7 @@
 import { apiErrorFromBody } from "./api-error";
 import type { CreateEventRequest } from "./create-wizard";
 import { isSessionExpiredError, notifySessionExpired } from "./session";
-import type { AuthResult, EventData, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PlaceOption, PublicEventPreview, PublicMeetingFeedItem } from "./types";
+import type { AuthResult, EventData, NotificationSettings, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PlaceOption, PublicEventPreview, PublicMeetingFeedItem } from "./types";
 import { mockApi } from "./mock-api";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "") ?? "";
@@ -158,6 +158,14 @@ export const api = {
       : request<{ items: MeetingListItem[]; nextCursor: string | null }>(
           `/me/meetings/page?role=${encodeURIComponent(role)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
         ),
+  notificationSettings: (
+    update?: Partial<Omit<NotificationSettings, "canMessage">> & { writeAccessGranted?: boolean },
+  ) =>
+    useMock
+      ? mockApi.notificationSettings(update)
+      : request<NotificationSettings>("/me/notification-settings", update
+        ? { method: "PUT", body: JSON.stringify(update) }
+        : undefined),
   manage: (id: string, payload: unknown) =>
     useMock
       ? mockApi.manage(id, payload)

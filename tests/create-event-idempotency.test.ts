@@ -46,7 +46,7 @@ const fingerprint: EventCreationFingerprint = {
 describe("create-event idempotency migrations", () => {
   it("adds three focused migrations after the atomic creation migration", () => {
     const migrations = readdirSync("supabase/migrations").sort();
-    const added = migrations.filter((name) => name > "20260827204941_participant_option_proposals.sql");
+    const added = migrations.filter((name) => name > "20260827204941_participant_option_proposals.sql" && name < "20261005");
     expect(added).toEqual(migrationNames);
   });
 

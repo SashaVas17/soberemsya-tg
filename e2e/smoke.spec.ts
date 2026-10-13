@@ -46,3 +46,23 @@ test("organizer picks the final time and place and opens the result", async ({ p
   await expect(page).toHaveURL(/#\/result\/evt_demo/);
   await expect(page.getByText("Кафе у Ратуши").first()).toBeVisible();
 });
+
+test("user changes notification settings", async ({ page }) => {
+  await page.goto("./");
+  await page.getByRole("button", { name: "Уведомления от бота" }).click();
+  await expect(page).toHaveURL(/#\/settings/);
+  const each = page.getByRole("button", { name: /Каждый новый ответ/ });
+  await each.click();
+  await expect(each).toHaveAttribute("aria-pressed", "true");
+  const reminder = page.getByLabel("За 2 часа");
+  await reminder.uncheck();
+  await expect(reminder).not.toBeChecked();
+});
+
+test("organizer cancels a meeting", async ({ page }) => {
+  page.on("dialog", (dialog) => void dialog.accept());
+  await page.goto("./#/manage/evt_demo");
+  await page.getByRole("button", { name: "Отменить встречу" }).click();
+  await expect(page.getByText("Встреча отменена").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Отменить встречу" })).toHaveCount(0);
+});

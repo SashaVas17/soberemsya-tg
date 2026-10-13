@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Bell,
   CalendarPlus,
   CalendarDays,
   Check,
@@ -15,9 +16,11 @@ import {
   Sun,
   Trash2,
   Users,
+  XCircle,
 } from "lucide-react";
 import { api } from "./api";
 import { mergeMeetingItems } from "./my-meetings";
+import { askWriteAccessOnce } from "./write-access";
 import { hasApiErrorCode } from "./api-error";
 import { BottomNavigation } from "./BottomNavigation";
 import { googleCalendarUrl } from "./calendar";
@@ -70,6 +73,7 @@ import {
   initializeTelegram,
   openExternalUrl,
   openTelegramUrl,
+  requestBotWriteAccess,
   telegram,
 } from "./telegram";
 import {
@@ -87,6 +91,7 @@ import type {
   EventData,
   EventStatus,
   MeetingListItem,
+  NotificationSettings,
   OrganizerParticipant,
   PublicEventPreview,
   PublicMeetingFeedItem,
@@ -355,6 +360,98 @@ function StatusBadge({ status }: { status: EventStatus }) {
   );
 }
 
+const responseModeOptions = [
+  { value: "summary", title: "Сводка раз в день", text: "Вечером одно сообщение: сколько ответили и сколько подходит время" },
+  { value: "each", title: "Каждый новый ответ", text: "Сразу, но не чаще раза в 15 минут по одной встрече" },
+  { value: "off", title: "Не присылать", text: "Об ответах узнаете, открыв встречу" },
+] as const;
+
+function NotificationSettingsScreen({ navigate, onBack }: { navigate: Navigate; onBack: () => void }) {
+  const [settings, setSettings] = useState<NotificationSettings | null>(null);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const load = useCallback(() => {
+    setError("");
+    api.notificationSettings().then(setSettings).catch((reason) =>
+      setError(reason instanceof Error ? reason.message : "Не удалось загрузить настройки."));
+  }, []);
+  useEffect(() => load(), [load]);
+  const save = async (update: Parameters<typeof api.notificationSettings>[0]) => {
+    if (saving) return;
+    setSaving(true);
+    setError("");
+    try {
+      setSettings(await api.notificationSettings(update));
+      haptic();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Не удалось сохранить настройки.");
+    } finally {
+      setSaving(false);
+    }
+  };
+  const allowMessages = async () => {
+    const granted = await requestBotWriteAccess();
+    if (granted) await save({ writeAccessGranted: true });
+    else if (granted === null)
+      openTelegramUrl(`https://t.me/${import.meta.env.VITE_TELEGRAM_BOT_USERNAME || "soberemsyabelarusbot"}`);
+  };
+  return (
+    <main className="settings-screen">
+      <Header navigate={navigate} onBack={onBack} title="Уведомления" variant="nested" />
+      <section className="settings-page">
+        {!settings && !error && <Loading label="Загружаем настройки…" />}
+        {error && !settings && <RetryState message={error} onRetry={load} title="Настройки не загрузились" />}
+        {settings && (
+          <>
+            {settings.canMessage !== true && (
+              <section className="settings-permission">
+                <p>
+                  Чтобы бот мог присылать уведомления, разрешите ему писать вам в личные сообщения.
+                </p>
+                <button className="primary-action" disabled={saving} onClick={() => void allowMessages()} type="button">
+                  <Bell size={18} />
+                  Разрешить сообщения
+                </button>
+              </section>
+            )}
+            <fieldset className="visibility-selector">
+              <legend>Ответы на ваши встречи</legend>
+              {responseModeOptions.map((option) => (
+                <button
+                  aria-pressed={settings.responseMode === option.value}
+                  className={`visibility-option${settings.responseMode === option.value ? " selected" : ""}`}
+                  disabled={saving}
+                  key={option.value}
+                  onClick={() => void save({ responseMode: option.value })}
+                  type="button"
+                >
+                  <span className="visibility-option-title"><strong>{option.title}</strong><span className="visibility-option-mark" aria-hidden="true">{settings.responseMode === option.value && <Check size={16} />}</span></span>
+                  <span>{option.text}</span>
+                </button>
+              ))}
+            </fieldset>
+            <fieldset className="settings-toggles">
+              <legend>Напоминания о встрече</legend>
+              <label className="settings-toggle">
+                <input checked={settings.reminder24h} disabled={saving} onChange={(event) => void save({ reminder24h: event.target.checked })} type="checkbox" />
+                <span>За 24 часа</span>
+              </label>
+              <label className="settings-toggle">
+                <input checked={settings.reminder2h} disabled={saving} onChange={(event) => void save({ reminder2h: event.target.checked })} type="checkbox" />
+                <span>За 2 часа</span>
+              </label>
+            </fieldset>
+            <p className="settings-note">
+              Об итоге, отмене и изменениях встреч, в которых вы участвуете, бот сообщает всегда.
+            </p>
+            <ErrorNote message={error} />
+          </>
+        )}
+      </section>
+    </main>
+  );
+}
+
 function SessionExpired() {
   const app = telegram();
   return (
@@ -480,6 +577,14 @@ function Home({
             <strong>{meetingCount ?? "—"}</strong>
           </button>
         </div>
+        <button
+          className="home-settings-link"
+          onClick={() => navigate("/settings")}
+          type="button"
+        >
+          <Bell size={18} />
+          <span>Уведомления от бота</span>
+        </button>
         <div className="home-section-heading">
           <h2>Ваши встречи</h2>
           <button onClick={() => navigate("/my-events")} type="button">Все</button>
@@ -928,6 +1033,7 @@ function CreateEvent({
     if (!result) return;
     haptic();
     onCreated(result.event);
+    void askWriteAccessOnce(() => api.notificationSettings({ writeAccessGranted: true }));
     navigate(createdEventPath(result.event.id), true);
   }, [budgetLimit, description, hasParticipantLimit, maxParticipants, maxParticipantsInput, navigate, onCreated, places, saving, timeOptions, title, visibility]);
   return (
@@ -1683,6 +1789,7 @@ function ParticipantEvent({
       if (!result) return;
       state.setEvent(result.event);
       setSaved(true);
+      void askWriteAccessOnce(() => api.notificationSettings({ writeAccessGranted: true }));
       haptic();
     } catch (reason) {
       state.setError(
@@ -1778,8 +1885,17 @@ function ParticipantEvent({
     <main className="voting-screen">
       <Header navigate={navigate} onBack={onBack} title="Встреча" variant="nested" />
       <section className="voting-intro">
-        <p className="create-step-label">Вас приглашают</p>
+        <p className="create-step-label">{event.canManage ? "Ваша встреча" : "Вас приглашают"}</p>
         <h1>{event.title}</h1>
+        {event.canManage && (
+          <button
+            className="secondary-action"
+            onClick={() => navigate(managementPath(eventId))}
+            type="button"
+          >
+            Управлять встречей
+          </button>
+        )}
         {event.description && <p>{event.description}</p>}
       <div className="event-meta">
           <StatusBadge status={event.status} />
@@ -2603,9 +2719,12 @@ function Manage({
               ))}
             </select>
           </label>
+          {event.status === "cancelled" && (
+            <p className="settings-note">Встреча отменена. Итог и сбор ответов больше недоступны.</p>
+          )}
           <button
             className="primary-action"
-            disabled={!finalTime || !finalPlace || saving}
+            disabled={!finalTime || !finalPlace || saving || event.status === "cancelled"}
             onClick={() =>
               void mutate(managePayloads.decide(finalTime, finalPlace))
             }
@@ -2622,7 +2741,7 @@ function Manage({
               Закрыть сбор ответов
             </button>
           )}
-          {event.status !== "collecting" && (
+          {event.status !== "collecting" && event.status !== "cancelled" && (
             <button
               className="secondary-action"
               onClick={() => void mutate(managePayloads.reopen())}
@@ -2651,6 +2770,24 @@ function Manage({
               Открыть результат
             </button>
           </div>
+          {event.status !== "cancelled" && (
+            <div className="manage-secondary-actions">
+              <p className="manage-section-kicker">Отмена</p>
+              <p>Встреча останется в истории, участники получат уведомление.</p>
+              <button
+                className="secondary-action"
+                disabled={saving}
+                onClick={() => {
+                  if (confirm("Отменить встречу? Участники получат уведомление."))
+                    void mutate(managePayloads.cancel());
+                }}
+                type="button"
+              >
+                <XCircle size={18} />
+                Отменить встречу
+              </button>
+            </div>
+          )}
           <div className="manage-danger-zone">
             <p className="manage-section-kicker">Удаление</p>
             <p>Удаление встречи необратимо для всех участников.</p>
@@ -2957,6 +3094,7 @@ export default function App() {
     );
   if (path === "/open") return <PublicMeetings navigate={navigate} onBack={goBack} />;
   if (path === "/my-events") return <MyEvents navigate={navigate} onBack={goBack} />;
+  if (path === "/settings") return <NotificationSettingsScreen navigate={navigate} onBack={goBack} />;
   return (
     <Home
       navigate={navigate}

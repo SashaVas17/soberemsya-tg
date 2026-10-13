@@ -6,6 +6,7 @@ type TelegramWebApp = {
   ready?: () => void;
   expand?: () => void;
   close(): void;
+  requestWriteAccess?: (callback?: (granted: boolean) => void) => void;
   openLink?: (url: string) => void;
   openTelegramLink(url: string): void;
   BackButton: BackButton;
@@ -51,4 +52,20 @@ export function openExternalUrl(url: string) {
     // Telegram WebView can reject an external navigation; use the browser fallback.
   }
   window.open(url, "_blank", "noopener,noreferrer");
+}
+
+/**
+ * Asks Telegram for permission to message the user from the bot. Resolves
+ * to null when this Telegram client cannot ask (outside Telegram or too old).
+ */
+export function requestBotWriteAccess(): Promise<boolean | null> {
+  const app = telegram();
+  if (!app?.requestWriteAccess) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    try {
+      app.requestWriteAccess?.((granted) => resolve(Boolean(granted)));
+    } catch {
+      resolve(null);
+    }
+  });
 }
