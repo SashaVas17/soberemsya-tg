@@ -1011,15 +1011,25 @@ async function shareMessage(request: Request, eventId: string, auth: AuthContext
   return json({ preparedMessageId: body.result.id });
 }
 
-// Analytics never fails a request: errors are only logged.
-async function track(name: string, userId: string, eventId: string | null = null, source: string | null = null) {
-  const { error } = await db.rpc("record_analytics_event", {
-    p_name: name,
-    p_user_id: userId,
-    p_event_id: eventId,
-    p_source: source,
-  });
-  if (error) console.error("record_analytics_event_failed", name, error.code);
+declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void } | undefined;
+
+// Analytics never fails or delays a request: on Supabase the write finishes
+// after the response (EdgeRuntime.waitUntil); errors are only logged.
+function track(name: string, userId: string, eventId: string | null = null, source: string | null = null) {
+  const work = (async () => {
+    const { error } = await db.rpc("record_analytics_event", {
+      p_name: name,
+      p_user_id: userId,
+      p_event_id: eventId,
+      p_source: source,
+    });
+    if (error) console.error("record_analytics_event_failed", name, error.code);
+  })();
+  if (typeof EdgeRuntime !== "undefined" && EdgeRuntime) {
+    EdgeRuntime.waitUntil(work);
+    return Promise.resolve();
+  }
+  return work;
 }
 
 async function clientAnalytics(request: Request, auth: AuthContext) {

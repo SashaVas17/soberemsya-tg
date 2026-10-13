@@ -85,9 +85,11 @@ Deno.serve(async (request) => {
     const command = message.text.split(/\s/)[0].split("@")[0];
     // Only administrators get /stats; for others it is an unknown command.
     if (command === "/stats" && isAdminTelegramId(message.senderId, adminIds) && supabaseUrl && serviceKey) {
+      // A failed read is answered, not redelivered by Telegram.
       const { data, error } = await db.rpc("admin_stats");
-      if (error) throw new Error("admin_stats failed");
-      await telegram("sendMessage", { chat_id: message.chatId, text: formatStatsText(data as AdminStats) });
+      if (error) console.error("admin_stats_failed", error.code);
+      const text = error ? "Не удалось получить статистику. Попробуйте позже." : formatStatsText(data as AdminStats);
+      await telegram("sendMessage", { chat_id: message.chatId, text });
       return json({ ok: true });
     }
     const screens: Record<string, string> = { "/new": "create", "/my": "my-events" }; const screen = screens[command];
