@@ -131,7 +131,27 @@ export type MeetingListItem = {
   createdAt: string;
 };
 
-export type AuthResult = { user: TelegramUser; startParam: string | null };
+export type AuthResult = { user: TelegramUser; startParam: string | null; isAdmin?: boolean };
+
+export type AdminStats = {
+  generatedAt: string;
+  usersTotal: number;
+  usersNew7d: number;
+  activeToday: number;
+  active7d: number;
+  active30d: number;
+  notificationOpens7d: number;
+  meetingsTotal: number;
+  meetings7d: number;
+  responses7d: number;
+  joinRequests7d: number;
+  shares7d: number;
+  returningUsers7d: number;
+  previousWeekUsers: number;
+  meetings30d: number;
+  meetingsWithResponses30d: number;
+  daily: { day: string; active: number; meetings: number; responses: number }[];
+};
 
 export type NotificationResponseMode = "summary" | "each" | "off";
 

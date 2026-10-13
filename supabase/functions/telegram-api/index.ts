@@ -44,6 +44,7 @@ import {
 import { notificationSettingsResponse, parseNotificationSettingsUpdate } from "../_shared/notification-settings.ts";
 import { groupLinkExpiredError, groupLinkNotIssuerError, parseGroupToken } from "../_shared/group-chats.ts";
 import { eventDeepLink } from "../_shared/notification-messages.ts";
+import { isAdminTelegramId, parseAdminIds, parseClientAnalyticsEvent, startParamSource } from "../_shared/admin-stats.ts";
 import { buildShareCard, parseShareCardKind } from "../_shared/share-card.ts";
 
 type Db = ReturnType<typeof createAdminClient>;
@@ -70,6 +71,7 @@ const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 const calendarSigningSecret = Deno.env.get("TELEGRAM_CALENDAR_SIGNING_SECRET") ?? "";
 const botUsername = Deno.env.get("TELEGRAM_BOT_USERNAME") ?? "soberemsyabelarusbot";
 const appShortName = Deno.env.get("TELEGRAM_APP_SHORT_NAME") ?? "soberemsya";
+const adminIds = parseAdminIds(Deno.env.get("TELEGRAM_ADMIN_IDS"));
 const db = createAdminClient(supabaseUrl, serviceKey);
 
 function id(prefix: string) { return `${prefix}_${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`; }
@@ -345,6 +347,7 @@ async function createEvent(request: Request, auth: AuthContext) {
   if (!eventId || (!replayed && eventId !== rpcArgs.p_event_id))
     throw new Error("Create event RPC returned no event.");
   const groupAttached = groupToken ? await attachEventToGroup(eventId, auth.user.id, groupToken) : undefined;
+  if (!replayed) await track("meeting_created", auth.user.id, eventId, groupToken ? "group" : null);
   const body = { event: await eventPayload(eventId, auth.user.id), ...(groupToken ? { groupAttached } : {}) };
   return json(body, replayed ? 200 : 201);
 }
@@ -363,6 +366,7 @@ async function createJoinRequest(eventId: string, auth: AuthContext) {
     throw createJoinRequestHttpError(error);
   }
   const result = createJoinRequestHttpResult(data);
+  if (result.status === 201) await track("join_requested", auth.user.id, eventId);
   return json(result.body, result.status);
 }
 
@@ -506,6 +510,7 @@ async function saveResponse(request: Request, eventId: string, auth: AuthContext
     );
     throw responseSaveHttpError(error);
   }
+  await track("response_saved", auth.user.id, eventId);
   return json({ event: await eventPayload(eventId, auth.user.id) });
 }
 
@@ -1006,6 +1011,31 @@ async function shareMessage(request: Request, eventId: string, auth: AuthContext
   return json({ preparedMessageId: body.result.id });
 }
 
+// Analytics never fails a request: errors are only logged.
+async function track(name: string, userId: string, eventId: string | null = null, source: string | null = null) {
+  const { error } = await db.rpc("record_analytics_event", {
+    p_name: name,
+    p_user_id: userId,
+    p_event_id: eventId,
+    p_source: source,
+  });
+  if (error) console.error("record_analytics_event_failed", name, error.code);
+}
+
+async function clientAnalytics(request: Request, auth: AuthContext) {
+  const event = parseClientAnalyticsEvent(await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES));
+  await track(event.name, auth.user.id, event.eventId);
+  return json({ ok: true });
+}
+
+// Hidden from everyone except administrators: others get a plain 404.
+async function adminStats(auth: AuthContext) {
+  if (!isAdminTelegramId(auth.user.telegram_user_id, adminIds)) return json({ error: "Маршрут не найден." }, 404);
+  const { data, error } = await db.rpc("admin_stats");
+  if (error) throw error;
+  return json({ stats: data });
+}
+
 function apiPath(url: URL) {
   const segments = url.pathname.split("/").filter(Boolean);
   const functionIndex = segments.lastIndexOf("telegram-api");
@@ -1017,6 +1047,8 @@ function allowedMethods(path: string) {
   if (path === "/telegram/auth" || path === "/events") return ["POST"];
   if (path === "/me/meetings" || path === "/me/meetings/page" || path === "/public/events") return ["GET"];
   if (path === "/me/notification-settings") return ["GET", "PUT"];
+  if (path === "/me/analytics") return ["POST"];
+  if (path === "/admin/stats") return ["GET"];
   if (/^\/events\/[^/]+\/response$/.test(path)) return ["POST"];
   if (/^\/events\/[^/]+\/(time-options|place-options)\/proposals$/.test(path)) return ["POST"];
   if (/^\/events\/[^/]+\/participation$/.test(path)) return ["DELETE"];
@@ -1056,8 +1088,10 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
   if (path === "/telegram/auth") {
     const body = await readJsonObject(request, TELEGRAM_AUTH_BODY_LIMIT_BYTES);
     const auth = await authenticate(request, String(body.initData ?? ""));
-    parseStartParam(auth.startParam);
+    const start = parseStartParam(auth.startParam);
+    await track("app_open", auth.user.id, start?.type === "event" ? start.eventId : null, startParamSource(auth.startParam));
     return json({
+      isAdmin: isAdminTelegramId(auth.user.telegram_user_id, adminIds),
       user: {
         id: auth.user.id,
         telegramUserId: auth.user.telegram_user_id,
@@ -1075,6 +1109,8 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
   if (path === "/me/meetings") return await meetings(auth);
   if (path === "/me/meetings/page") return await meetingListPage(request, auth);
   if (path === "/me/notification-settings") return await notificationSettings(request, auth);
+  if (path === "/me/analytics") return await clientAnalytics(request, auth);
+  if (path === "/admin/stats") return await adminStats(auth);
   if (path === "/public/events") return await publicEvents(request, auth);
   const responseMatch = path.match(/^\/events\/([^/]+)\/response$/);
   if (responseMatch)

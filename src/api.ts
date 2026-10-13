@@ -1,7 +1,7 @@
 import { apiErrorFromBody } from "./api-error";
 import type { CreateEventRequest } from "./create-wizard";
 import { isSessionExpiredError, notifySessionExpired } from "./session";
-import type { AuthResult, EventData, NotificationSettings, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PlaceOption, PublicEventPreview, PublicMeetingFeedItem } from "./types";
+import type { AdminStats, AuthResult, EventData, NotificationSettings, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PlaceOption, PublicEventPreview, PublicMeetingFeedItem } from "./types";
 import { mockApi } from "./mock-api";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "") ?? "";
@@ -186,6 +186,12 @@ export const api = {
           `/events/${encodeURIComponent(id)}/share-message`,
           { method: "POST", body: JSON.stringify({ kind }) },
         ),
+  adminStats: () =>
+    useMock ? mockApi.adminStats() : request<{ stats: AdminStats }>("/admin/stats"),
+  trackEvent: (name: "share_sent" | "share_fallback", eventId: string) =>
+    useMock
+      ? mockApi.trackEvent()
+      : request<{ ok: true }>("/me/analytics", { method: "POST", body: JSON.stringify({ name, eventId }) }),
   groupLink: (token: string) =>
     useMock
       ? mockApi.groupLink()

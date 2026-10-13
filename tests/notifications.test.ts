@@ -53,8 +53,8 @@ describe("notification messages", () => {
 
   it("falls back to the app link without an event and for a rejection", () => {
     expect(eventDeepLink("bot", "app", null)).toBe("https://t.me/bot/app");
-    expect(notificationLink("bot", "app", "join_request_rejected", "evt_1")).toBe("https://t.me/bot/app");
-    expect(notificationLink("bot", "app", "event_decided", "evt_1")).toBe(url);
+    expect(notificationLink("bot", "app", "join_request_rejected", "evt_1")).toBe("https://t.me/bot/app?startapp=ntf");
+    expect(notificationLink("bot", "app", "event_decided", "evt_1")).toBe("https://t.me/bot/app?startapp=ntf_evt_1");
   });
 
   it("skips stale notifications but still delivers a cancellation", () => {

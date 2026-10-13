@@ -81,11 +81,18 @@ export function parseEventStartParam(startParam: string | null) {
 
 export type StartParam =
   | { type: "event"; eventId: string }
-  | { type: "group"; token: string };
+  | { type: "group"; token: string }
+  | { type: "home" };
 
-/** Accepts event_<id> and group_<token> (issued by /new in a group chat). */
+/**
+ * Accepts event_<id>, group_<token> (issued by /new in a group chat) and
+ * ntf / ntf_<id> (notification buttons).
+ */
 export function parseStartParam(startParam: string | null): StartParam | null {
   if (!startParam) return null;
+  if (startParam === "ntf") return { type: "home" };
+  const notification = startParam.match(/^ntf_([A-Za-z0-9_-]{3,80})$/);
+  if (notification) return { type: "event", eventId: notification[1] };
   const group = startParam.match(/^group_([A-Za-z0-9_-]{24})$/);
   if (group) return { type: "group", token: group[1] };
   const eventId = parseEventStartParam(startParam);
