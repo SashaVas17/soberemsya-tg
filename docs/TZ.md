@@ -64,6 +64,12 @@
   `scripts/configure-telegram.sh` (Mac/Linux) для вебхука/команд/кнопки меню. Владелец сам меняет секреты
   `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_APP_SHORT_NAME`, `TELEGRAM_WEBHOOK_SECRET`
   в Supabase и запускает скрипт; `TELEGRAM_DB_SECRET_KEY` и `TELEGRAM_CALENDAR_SIGNING_SECRET` не меняются.
+- Переезд выполнен 2026-10-13: секреты обновлены, вебхук/команды/кнопка настроены скриптом, бот отвечает,
+  Mini App открывается. Урок: секрет вебхука в Supabase и в `setWebhook` должен совпадать до символа (401).
+- Шаг 1 смержен (PR #6). Шаг 2 — PR «Redesign step 2»: токены «Закат» (светлая/тёмная), `src/theme-sunset.css`
+  (фон-пятна, стеклянные шапка и меню, кнопки-«таблетки», прозрачные контейнеры экранов, запасной
+  непрозрачный вариант), шрифты Unbounded/Golos Text из npm (@fontsource-variable), кнопка «+» в меню.
+  Ждёт одобрения владельца по скриншотам.
 - Ход переноса: шаг 1 — вынос экранов из `App.tsx` в `src/screens/*`, общие компоненты в `src/ui/*`,
   хуки `src/app-hooks.ts`, шаринг `src/share.ts` (без изменения поведения; тесты читают UI через
   `tests/app-source.ts`). Шаг 2 — дизайн-система А2 (токены, стекло, шрифты, тёмная тема). Шаг 3 —

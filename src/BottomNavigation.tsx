@@ -1,4 +1,5 @@
-import { CalendarDays, Compass, House } from "lucide-react";
+import { Fragment } from "react";
+import { CalendarDays, Compass, House, Plus } from "lucide-react";
 import {
   bottomNavigationItems,
   isBottomNavigationSelected,
@@ -15,21 +16,32 @@ export function BottomNavigation({
   return (
     <nav aria-label="Основная навигация" className="bottom-navigation">
       <div className="bottom-navigation-inner">
-        {bottomNavigationItems.map((item) => {
+        {bottomNavigationItems.map((item, index) => {
           const selected = isBottomNavigationSelected(currentPath, item.path);
           const Icon =
             item.id === "home" ? House : item.id === "open" ? Compass : CalendarDays;
           return (
-            <button
-              aria-current={selected ? "page" : undefined}
-              className={`bottom-navigation-item ${selected ? "selected" : ""}`}
-              key={item.id}
-              onClick={() => navigateToBottomItem(item.path, navigate)}
-              type="button"
-            >
-              <Icon aria-hidden="true" size={23} strokeWidth={2} />
-              <span>{item.label}</span>
-            </button>
+            <Fragment key={item.id}>
+              {index === 2 && (
+                <button
+                  aria-label="Новая встреча"
+                  className="bottom-navigation-create"
+                  onClick={() => navigate("/create")}
+                  type="button"
+                >
+                  <Plus aria-hidden="true" size={26} strokeWidth={2.4} />
+                </button>
+              )}
+              <button
+                aria-current={selected ? "page" : undefined}
+                className={`bottom-navigation-item ${selected ? "selected" : ""}`}
+                onClick={() => navigateToBottomItem(item.path, navigate)}
+                type="button"
+              >
+                <Icon aria-hidden="true" size={23} strokeWidth={2} />
+                <span>{item.label}</span>
+              </button>
+            </Fragment>
           );
         })}
       </div>

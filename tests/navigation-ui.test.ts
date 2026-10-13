@@ -125,13 +125,13 @@ describe("meeting list architecture", () => {
     expect(appSource).not.toContain("DarkHome");
   });
 
-  it("uses the Stitch semantic palette without replacing dynamic Home data", () => {
+  it("uses the Flockly «Закат» palette without replacing dynamic Home data", () => {
     const tokens = readFileSync("src/design-tokens.css", "utf8");
-    expect(tokens).toContain("--color-bg: #f7f9fa");
-    expect(tokens).toContain("--color-header-bg: #f5fafd");
-    expect(tokens).toContain("--color-primary: #006b5d");
-    expect(tokens).toContain("--color-bg: #0f1513");
-    expect(tokens).toContain("--color-primary: #63dac4");
+    expect(tokens).toContain("--color-bg: #fff3ef");
+    expect(tokens).toContain("--color-primary-strong: #6a3cf0");
+    expect(tokens).toContain("--color-surface-solid: #fffaf8");
+    expect(tokens).toContain("--color-bg: #130a1a");
+    expect(tokens).toContain("--color-primary-strong: #b49bff");
     expect(appSource).toContain("user.firstName");
     expect(appSource).toContain("meetingCount ?? \"—\"");
     expect(appSource).toContain("<MeetingGroup");
