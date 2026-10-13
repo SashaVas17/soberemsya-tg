@@ -1,11 +1,11 @@
-import { createClient } from "npm:@supabase/supabase-js@2.111.0";
+import { createAdminClient } from "../_shared/admin-client.ts";
 import {
   API_JSON_BODY_LIMIT_BYTES,
   readJsonObject,
   TELEGRAM_AUTH_BODY_LIMIT_BYTES,
 } from "../_shared/bounded-json.ts";
 import { buildIcs, isCalendarTicketValid, signCalendarTicket } from "../_shared/calendar.ts";
-import { assertEventAvailable, assertFullEventReadAccess, assertOwner, parseEventStartParam, type Status } from "../_shared/domain.ts";
+import { assertEventAvailable, assertFullEventReadAccess, assertOwner, parseStartParam, type Status } from "../_shared/domain.ts";
 import { organizerEventPayload, participantEventPayload, privateInviteEventPayload, resolveEventViewerRole, type EventViewerRole } from "../_shared/event-payload.ts";
 import {
   browserPreflightResponse,
@@ -42,8 +42,11 @@ import {
   parseClientRequestId,
 } from "../_shared/event-creation.ts";
 import { notificationSettingsResponse, parseNotificationSettingsUpdate } from "../_shared/notification-settings.ts";
+import { groupLinkExpiredError, groupLinkNotIssuerError, parseGroupToken } from "../_shared/group-chats.ts";
+import { eventDeepLink } from "../_shared/notification-messages.ts";
+import { buildShareCard, parseShareCardKind } from "../_shared/share-card.ts";
 
-type Db = ReturnType<typeof createClient>;
+type Db = ReturnType<typeof createAdminClient>;
 type AppUser = { id: string; telegram_user_id: string; username: string | null; first_name: string; last_name: string | null; photo_url: string | null };
 type AuthContext = { user: AppUser; startParam: string | null };
 type FullEventRow = { id: string; owner_user_id: string | null; title: string; description: string; budget_limit: number; visibility: string | null; max_participants: number | null; status: Status; final_place_id: string | null; final_time_option_id: string | null; created_at: string; deleted_at: string | null };
@@ -65,17 +68,9 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = (Deno.env.get("TELEGRAM_DB_SECRET_KEY") ?? "").trim();
 const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 const calendarSigningSecret = Deno.env.get("TELEGRAM_CALENDAR_SIGNING_SECRET") ?? "";
-// New-format secret keys must reach the REST API only in the apikey header.
-const adminFetch: typeof fetch = (input, init) => {
-  const headers = new Headers(init?.headers);
-  headers.set("apikey", serviceKey);
-  headers.delete("Authorization");
-  return fetch(input, { ...init, headers });
-};
-const db = createClient(supabaseUrl, serviceKey, {
-  auth: { persistSession: false, autoRefreshToken: false },
-  global: { fetch: adminFetch },
-});
+const botUsername = Deno.env.get("TELEGRAM_BOT_USERNAME") ?? "soberemsyabelarusbot";
+const appShortName = Deno.env.get("TELEGRAM_APP_SHORT_NAME") ?? "soberemsya";
+const db = createAdminClient(supabaseUrl, serviceKey);
 
 function id(prefix: string) { return `${prefix}_${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`; }
 
@@ -302,6 +297,9 @@ async function createEvent(request: Request, auth: AuthContext) {
     }];
   });
   const clientRequestId = parseClientRequestId(payload.clientRequestId);
+  // Checked only after the meeting exists: rejecting a replayed create with
+  // a 4xx would make the client forget its idempotency key.
+  const groupToken = parseGroupToken(payload.groupToken);
   const budgetLimit = budgetField(payload.budgetLimit);
   const rpcArgs = {
     p_event_id: id("evt"),
@@ -346,7 +344,9 @@ async function createEvent(request: Request, auth: AuthContext) {
   const replayed = !!data && "replayed" in data && data.replayed === true;
   if (!eventId || (!replayed && eventId !== rpcArgs.p_event_id))
     throw new Error("Create event RPC returned no event.");
-  return json({ event: await eventPayload(eventId, auth.user.id) }, replayed ? 200 : 201);
+  const groupAttached = groupToken ? await attachEventToGroup(eventId, auth.user.id, groupToken) : undefined;
+  const body = { event: await eventPayload(eventId, auth.user.id), ...(groupToken ? { groupAttached } : {}) };
+  return json(body, replayed ? 200 : 201);
 }
 
 async function createJoinRequest(eventId: string, auth: AuthContext) {
@@ -905,27 +905,15 @@ async function calendarDownload(eventId: string, search: URLSearchParams) {
     throw Object.assign(new Error("Ссылка на календарь недействительна или устарела."), { status: 401 });
 
   const event = await loadFullEventRow(eventId);
-  if (event.status !== "decided" || !event.final_time_option_id || !event.final_place_id)
-    throw Object.assign(new Error("Итог встречи ещё не выбран."), { status: 409 });
-
-  const [{ data: time, error: timeError }, { data: place, error: placeError }] = await Promise.all([
-    db.from("time_options").select("starts_at").eq("id", event.final_time_option_id).eq("event_id", eventId).maybeSingle(),
-    db.from("place_options").select("title,area").eq("id", event.final_place_id).eq("event_id", eventId).maybeSingle(),
-  ]);
-  if (timeError || placeError) throw timeError ?? placeError;
-  if (!time || !place)
-    throw Object.assign(new Error("Итоговые данные встречи недоступны."), { status: 409 });
-
-  const bot = Deno.env.get("TELEGRAM_BOT_USERNAME") ?? "soberemsyabelarusbot";
-  const app = Deno.env.get("TELEGRAM_APP_SHORT_NAME") ?? "soberemsya";
-  const eventUrl = `https://t.me/${bot}/${app}?startapp=event_${event.id}`;
+  const final = await finalDetails(event);
+  const eventUrl = eventDeepLink(botUsername, appShortName, event.id);
   const text = buildIcs({
     id: event.id,
     title: event.title,
     description: event.description || `Встреча в «Соберёмся»: ${eventUrl}`,
-    location: [place.title, place.area].filter(Boolean).join(", "),
+    location: [final.place, final.area].filter(Boolean).join(", "),
     url: eventUrl,
-    startsAt: time.starts_at,
+    startsAt: final.startsAt,
   });
   return new Response(text, {
     headers: {
@@ -934,6 +922,88 @@ async function calendarDownload(eventId: string, search: URLSearchParams) {
       "cache-control": "private, no-store",
     },
   });
+}
+
+async function groupLink(token: string, auth: AuthContext) {
+  const { data, error } = await db.rpc("group_link_info", {
+    p_token: parseGroupToken(token) ?? "",
+    p_actor_user_id: auth.user.id,
+  }).maybeSingle<{ chat_title: string; is_issuer: boolean }>();
+  if (error) throw error;
+  if (!data) throw groupLinkExpiredError();
+  if (!data.is_issuer) throw groupLinkNotIssuerError();
+  return json({ groupLink: { chatTitle: data.chat_title } });
+}
+
+// The meeting already exists here; a failed attachment is reported, not thrown.
+async function attachEventToGroup(eventId: string, userId: string, token: string) {
+  const { data, error } = await db.rpc("attach_event_to_group", {
+    p_event_id: eventId,
+    p_actor_user_id: userId,
+    p_token: token,
+  });
+  if (error) {
+    console.error("attach_event_to_group_rpc_failed", error.code);
+    return false;
+  }
+  if (data !== "attached") console.warn("attach_event_to_group_rejected", data);
+  return data === "attached";
+}
+
+async function finalDetails(event: FullEventRow) {
+  if (event.status !== "decided" || !event.final_time_option_id || !event.final_place_id)
+    throw Object.assign(new Error("Итог встречи ещё не выбран."), { status: 409 });
+  const [{ data: time, error: timeError }, { data: place, error: placeError }] = await Promise.all([
+    db.from("time_options").select("starts_at").eq("id", event.final_time_option_id).eq("event_id", event.id).maybeSingle(),
+    db.from("place_options").select("title,area").eq("id", event.final_place_id).eq("event_id", event.id).maybeSingle(),
+  ]);
+  if (timeError || placeError) throw timeError ?? placeError;
+  if (!time || !place)
+    throw Object.assign(new Error("Итоговые данные встречи недоступны."), { status: 409 });
+  return { startsAt: time.starts_at as string, place: place.title as string, area: place.area as string };
+}
+
+// Prepares a card that the Mini App sends with WebApp.shareMessage.
+async function shareMessage(request: Request, eventId: string, auth: AuthContext) {
+  const payload = await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES);
+  const kind = parseShareCardKind(payload.kind);
+  const event = await loadFullEventRow(eventId);
+  const participantExists = event.owner_user_id === auth.user.id
+    ? false
+    : await currentParticipantExists(eventId, auth.user.id);
+  assertFullEventReadAccess({
+    visibility: event.visibility,
+    ownerUserId: event.owner_user_id,
+    currentUserId: auth.user.id,
+    participantExists,
+  });
+  if (event.status === "cancelled")
+    throw Object.assign(new Error("Встреча отменена."), { status: 409 });
+  const details = kind === "result" ? await finalDetails(event) : {};
+  const url = eventDeepLink(botUsername, appShortName, event.id);
+  const card = buildShareCard(
+    kind,
+    { title: event.title, description: event.description, ...details },
+    url,
+    crypto.randomUUID().replaceAll("-", ""),
+  );
+  const response = await fetch(`https://api.telegram.org/bot${botToken}/savePreparedInlineMessage`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      user_id: auth.user.telegram_user_id,
+      result: card,
+      allow_user_chats: true,
+      allow_group_chats: true,
+      allow_channel_chats: true,
+    }),
+  }).catch(() => null);
+  const body = await response?.json().catch(() => null) as { ok?: boolean; result?: { id?: string } } | null;
+  if (!response?.ok || !body?.ok || typeof body.result?.id !== "string") {
+    console.error("save_prepared_inline_message_failed", response?.status ?? 0);
+    throw Object.assign(new Error("Не удалось подготовить карточку встречи."), { status: 502 });
+  }
+  return json({ preparedMessageId: body.result.id });
 }
 
 function apiPath(url: URL) {
@@ -952,6 +1022,8 @@ function allowedMethods(path: string) {
   if (/^\/events\/[^/]+\/participation$/.test(path)) return ["DELETE"];
   if (/^\/events\/[^/]+\/participants\/[^/]+$/.test(path)) return ["DELETE"];
   if (/^\/events\/[^/]+\/calendar-link$/.test(path)) return ["POST"];
+  if (/^\/events\/[^/]+\/share-message$/.test(path)) return ["POST"];
+  if (/^\/group-links\/[^/]+$/.test(path)) return ["GET"];
   if (/^\/events\/[^/]+\/join-request$/.test(path)) return ["POST"];
   if (/^\/events\/[^/]+\/join-requests$/.test(path)) return ["GET"];
   if (/^\/events\/[^/]+\/join-requests\/[^/]+\/(approve|reject)$/.test(path)) return ["POST"];
@@ -984,7 +1056,7 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
   if (path === "/telegram/auth") {
     const body = await readJsonObject(request, TELEGRAM_AUTH_BODY_LIMIT_BYTES);
     const auth = await authenticate(request, String(body.initData ?? ""));
-    parseEventStartParam(auth.startParam);
+    parseStartParam(auth.startParam);
     return json({
       user: {
         id: auth.user.id,
@@ -1023,6 +1095,11 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
       decodeURIComponent(organizerParticipantMatch[2]),
       auth,
     );
+  const shareMessageMatch = path.match(/^\/events\/([^/]+)\/share-message$/);
+  if (shareMessageMatch)
+    return await shareMessage(request, decodeURIComponent(shareMessageMatch[1]), auth);
+  const groupLinkMatch = path.match(/^\/group-links\/([^/]+)$/);
+  if (groupLinkMatch) return await groupLink(decodeURIComponent(groupLinkMatch[1]), auth);
   const calendarLinkMatch = path.match(/^\/events\/([^/]+)\/calendar-link$/);
   if (calendarLinkMatch)
     return await calendarLink(request, decodeURIComponent(calendarLinkMatch[1]), auth);

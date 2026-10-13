@@ -84,7 +84,7 @@ describe("Google Calendar link", () => {
     expect(resultSource).not.toContain("navigator.share");
     expect(resultSource).not.toContain("TELEGRAM_DB_SECRET_KEY");
     expect(calendarSource).not.toContain("navigator.share");
-    expect(resultSource).toContain("onClick={() => shareResult(event.id)}");
+    expect(resultSource).toContain("onClick={() => shareResult(event.id, resultPrepared)}");
     expect(resultSource).toContain('setCalendarError("Не удалось открыть календарь. Попробуйте ещё раз.")');
     expect(resultSource).not.toContain("setCalendarError(error");
   });

@@ -91,7 +91,7 @@ const auth: AuthResult = {
     lastName: null,
     photoUrl: null,
   },
-  startParam: null,
+  startParam: new URLSearchParams(globalThis.location?.search ?? "").get("mockStartParam"),
 };
 const clone = <T>(value: T): T => structuredClone(value);
 const cloneEventResponse = () => ({
@@ -295,7 +295,7 @@ export const mockApi = {
       participants: [],
       myResponse: null,
     };
-    return cloneEventResponse();
+    return { ...cloneEventResponse(), groupAttached: payload.groupToken ? true : undefined };
   },
   saveResponse: async (_id: string, payload: any) => {
     event = applyMockResponse(event, auth.user, payload);
@@ -405,6 +405,8 @@ export const mockApi = {
     eventDeleted = true;
     return { deleted: true as const };
   },
+  prepareShareMessage: async () => ({ preparedMessageId: "mock-prepared-message" }),
+  groupLink: async () => ({ groupLink: { chatTitle: "Друзья" } }),
   calendarLink: async (eventId: string) => ({
     icsUrl: `https://example.test/calendar/${encodeURIComponent(eventId)}.ics?expires=0&signature=mock`,
   }),

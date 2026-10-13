@@ -1,12 +1,20 @@
+import { createAdminClient } from "../_shared/admin-client.ts";
 import { errorResponse, json } from "../_shared/http.ts";
 import {
   readJsonObject,
   TELEGRAM_WEBHOOK_BODY_LIMIT_BYTES,
 } from "../_shared/bounded-json.ts";
+import { groupCommandReply, groupCreateUrl, isGroupChatType, parseBotCommand } from "../_shared/group-chats.ts";
 
 const token = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 const appUrl = Deno.env.get("TELEGRAM_MINI_APP_URL") ?? "";
 const webhookSecret = Deno.env.get("TELEGRAM_WEBHOOK_SECRET") ?? "";
+const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+const serviceKey = (Deno.env.get("TELEGRAM_DB_SECRET_KEY") ?? "").trim();
+const botUsername = Deno.env.get("TELEGRAM_BOT_USERNAME") ?? "soberemsyabelarusbot";
+const appShortName = Deno.env.get("TELEGRAM_APP_SHORT_NAME") ?? "soberemsya";
+
+const db = createAdminClient(supabaseUrl, serviceKey);
 
 function telegramMessage(update: Record<string, unknown>) {
   const message = update.message;
@@ -16,12 +24,44 @@ function telegramMessage(update: Record<string, unknown>) {
   const chatId = (chat as Record<string, unknown>).id;
   if (typeof chatId !== "string" && typeof chatId !== "number") return null;
   const text = (message as Record<string, unknown>).text;
-  return { chatId, text: typeof text === "string" ? text : "" };
+  const chatTitle = (chat as Record<string, unknown>).title;
+  const from = (message as Record<string, unknown>).from;
+  const sender = from && typeof from === "object" && !Array.isArray(from) ? from as Record<string, unknown> : null;
+  return {
+    // Anonymous group admins write as a bot; a link cannot be bound to them.
+    senderId: sender && sender.is_bot !== true && typeof sender.id === "number" ? sender.id : null,
+    chatId,
+    chatType: (chat as Record<string, unknown>).type,
+    chatTitle: typeof chatTitle === "string" ? chatTitle : "",
+    text: typeof text === "string" ? text : "",
+  };
 }
 
+// 4xx (no rights in the chat, the bot was removed) will not succeed on a
+// webhook retry, so only 429/5xx are surfaced for Telegram to redeliver.
 async function telegram(method: string, body: unknown) {
   const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  if (!response.ok) throw new Error(`Telegram API ${method} failed`);
+  if (response.ok) return;
+  if (response.status === 429 || response.status >= 500) throw new Error(`Telegram API ${method} failed`);
+  console.warn("telegram_api_rejected", method, response.status);
+}
+
+async function handleGroupMessage(message: NonNullable<ReturnType<typeof telegramMessage>>) {
+  const command = parseBotCommand(message.text, botUsername);
+  if (!command) return;
+  let createUrl: string | null = null;
+  if (command === "/new" && message.senderId !== null) {
+    if (!supabaseUrl || !serviceKey) throw new Error("Database access is not configured");
+    const { data, error } = await db.rpc("create_group_link", {
+      p_chat_id: Number(message.chatId),
+      p_chat_title: message.chatTitle,
+      p_issuer_telegram_user_id: message.senderId,
+    });
+    if (error || typeof data !== "string") throw new Error("create_group_link failed");
+    createUrl = groupCreateUrl(botUsername, appShortName, data);
+  }
+  const reply = groupCommandReply(command, `https://t.me/${botUsername}/${appShortName}`, createUrl);
+  if (reply) await telegram("sendMessage", { chat_id: message.chatId, ...reply });
 }
 
 Deno.serve(async (request) => {
@@ -35,6 +75,11 @@ Deno.serve(async (request) => {
     if (!token || !appUrl || !webhookSecret) throw new Error("Telegram bot secrets are not configured");
     if (request.headers.get("x-telegram-bot-api-secret-token") !== webhookSecret) return json({ error: "Unauthorized" }, 401);
     const update = await readJsonObject(request, TELEGRAM_WEBHOOK_BODY_LIMIT_BYTES); const message = telegramMessage(update); if (!message) return json({ ok: true });
+    if (isGroupChatType(message.chatType)) {
+      await handleGroupMessage(message);
+      return json({ ok: true });
+    }
+    if (message.chatType !== "private") return json({ ok: true });
     const command = message.text.split(/\s/)[0].split("@")[0];
     const screens: Record<string, string> = { "/new": "create", "/my": "my-events" }; const screen = screens[command];
     const text = command === "/help" ? "Создайте встречу, отправьте её в чат и соберите ответы без регистрации." : command === "/new" ? "Создадим новую встречу." : command === "/my" ? "Ваши встречи доступны в Mini App." : "Откройте «Соберёмся», чтобы организовать встречу.";

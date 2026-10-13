@@ -16,7 +16,7 @@ import {
 import { askWriteAccessOnce, WRITE_ACCESS_ASKED_KEY } from "../src/write-access";
 
 const read = (path: string) => readFileSync(path, "utf8").replace(/\r\n/g, "\n");
-const migrationNames = readdirSync("supabase/migrations").filter((name) => name.startsWith("2026101313"));
+const migrationNames = readdirSync("supabase/migrations").filter((name) => name >= "2026101313");
 const migrations = Object.fromEntries(migrationNames.map((name) => [name, read(`supabase/migrations/${name}`)]));
 const allSql = Object.values(migrations).join("\n");
 const url = eventDeepLink("bot", "app", "evt_1");
@@ -153,6 +153,12 @@ describe("notification migrations", () => {
   it("never combines RAISE and DELETE in one function body (Supabase connector limitation)", () => {
     for (const body of allSql.split(/\$\$;/)) {
       expect(/\braise\b/i.test(body) && /\bdelete\s+from\b/i.test(body)).toBe(false);
+    }
+  });
+
+  it("has at most one DELETE per function body (Supabase connector limitation)", () => {
+    for (const body of allSql.split(/\$\$;/)) {
+      expect(body.match(/\bdelete\s+from\b/gi)?.length ?? 0).toBeLessThanOrEqual(1);
     }
   });
 

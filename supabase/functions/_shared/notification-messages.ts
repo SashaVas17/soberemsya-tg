@@ -46,12 +46,16 @@ export function formatMeetingTime(startsAt: string) {
   return whenFormatter.format(value);
 }
 
-function where(payload: Payload) {
-  return [text(payload, "place"), text(payload, "area")].filter(Boolean).join(", ");
+/** "суббота, 20 октября, 18:00 · Парк, Центр" — the final time and place. */
+export function formatFinalDetails(startsAt: string | null | undefined, place?: string | null, area?: string | null) {
+  return [
+    formatMeetingTime(startsAt ?? ""),
+    [place?.trim(), area?.trim()].filter(Boolean).join(", "),
+  ].filter(Boolean).join(" · ");
 }
 
 function finalDetails(payload: Payload) {
-  return [formatMeetingTime(text(payload, "startsAt")), where(payload)].filter(Boolean).join(" · ");
+  return formatFinalDetails(text(payload, "startsAt"), text(payload, "place"), text(payload, "area"));
 }
 
 export function eventDeepLink(bot: string, app: string, eventId: string | null) {
@@ -129,18 +133,27 @@ export type TelegramSendOutcome =
   | { outcome: "sent" }
   | { outcome: "retry"; retryAfterSeconds?: number; error: string }
   | { outcome: "blocked"; error: string }
-  | { outcome: "failed"; error: string };
+  | { outcome: "failed"; error: string }
+  | { outcome: "migrated"; newChatId: number; error: string };
 
 /** Maps a Telegram Bot API sendMessage result to an outbox outcome. */
 export function classifyTelegramResult(
   status: number,
-  body: { ok?: boolean; description?: string; parameters?: { retry_after?: number } } | null,
+  body: {
+    ok?: boolean;
+    description?: string;
+    parameters?: { retry_after?: number; migrate_to_chat_id?: number };
+  } | null,
 ): TelegramSendOutcome {
   if (status === 200 && body?.ok) return { outcome: "sent" };
   const error = `${status} ${body?.description ?? ""}`.trim();
   if (status === 429)
     return { outcome: "retry", retryAfterSeconds: body?.parameters?.retry_after ?? 30, error };
   if (status === 403) return { outcome: "blocked", error };
+  // A group became a supergroup: the chat has a new id.
+  const newChatId = body?.parameters?.migrate_to_chat_id;
+  if (status === 400 && typeof newChatId === "number" && Number.isSafeInteger(newChatId))
+    return { outcome: "migrated", newChatId, error };
   if (status >= 500 || status === 0) return { outcome: "retry", error };
   return { outcome: "failed", error };
 }

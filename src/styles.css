@@ -3247,3 +3247,23 @@ code {
   color: var(--color-text-secondary);
   font-size: 14px;
 }
+
+/* Meeting created from a group chat link */
+.group-create-note {
+  background: var(--color-primary-soft);
+  border-radius: 14px;
+  color: var(--color-on-primary-soft);
+  font-size: 15px;
+  line-height: 1.45;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+}
+
+.group-create-note-error {
+  background: var(--color-error-container);
+  color: var(--color-error);
+}
+
+.created-copy .group-create-note {
+  margin: 14px 0 0;
+}
