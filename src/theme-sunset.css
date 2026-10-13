@@ -1,0 +1,185 @@
+/*
+ * Flockly «Закат» (design A2): warm blurred backdrop, glass chrome, violet accent.
+ * Loaded after styles.css; colours live in design-tokens.css.
+ */
+
+:root {
+  font-family: var(--font-text);
+}
+
+body {
+  font-family: var(--font-text);
+}
+
+/* Soft colour fields behind the whole app; content surfaces are translucent over them. */
+.app-shell {
+  isolation: isolate;
+  position: relative;
+}
+.app-shell::before {
+  background:
+    radial-gradient(70vmax 70vmax at -12% -8%, var(--backdrop-blob-1) 0, transparent 62%),
+    radial-gradient(64vmax 64vmax at 112% 38%, var(--backdrop-blob-2) 0, transparent 62%),
+    radial-gradient(70vmax 70vmax at 8% 108%, var(--backdrop-blob-3) 0, transparent 62%);
+  content: "";
+  inset: 0;
+  opacity: var(--backdrop-opacity);
+  pointer-events: none;
+  position: fixed;
+  z-index: -1;
+}
+
+/* Screen containers let the backdrop show through. */
+.home-page,
+.my-meetings-page,
+.public-meetings-page,
+.create-screen,
+.created-screen,
+.voting-screen,
+.manage-screen,
+.result-screen,
+.settings-screen {
+  background: transparent;
+}
+
+h1,
+.wordmark,
+.topbar-title {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+h1 {
+  font-size: clamp(28px, 7.4vw, 44px);
+  font-weight: 650;
+  line-height: 1.12;
+}
+/* Unbounded is wide: page titles get a calmer size than the old display face. */
+.page-intro h1,
+.public-meetings-intro h1,
+.public-preview-heading h1,
+.my-meetings-page > h1,
+.create-intro h1,
+.voting-intro h1,
+.voting-saved-page h1,
+.manage-intro h1,
+.result-success-intro h1 {
+  font-size: clamp(24px, 6.6vw, 34px);
+  line-height: 1.15;
+}
+.wordmark {
+  font-size: 19px;
+  font-weight: 700;
+}
+
+/* Glass chrome: only elements that float above scrolling content get the blur. */
+.topbar {
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+  background: var(--color-header-bg);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.icon-action {
+  background: var(--color-surface);
+  border-color: var(--glass-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text);
+}
+
+.primary-action,
+.secondary-action,
+.danger-button,
+.quiet-danger-action {
+  border-radius: var(--radius-full);
+  font-weight: 650;
+  min-height: 50px;
+  padding: 0 20px;
+}
+.primary-action {
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--action-primary-bg) 38%, transparent);
+}
+.secondary-action {
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+/* Dialogs sit over other content, so they stay opaque. */
+.participant-remove-dialog,
+.time-picker-dialog {
+  background: var(--color-surface-solid);
+  border-color: var(--glass-border);
+}
+
+/* Floating glass navigation with the create button in the middle. */
+.bottom-navigation {
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  background: var(--color-nav-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  bottom: max(14px, env(safe-area-inset-bottom));
+  box-shadow: var(--shadow-surface);
+  left: max(14px, env(safe-area-inset-left));
+  margin: 0 auto;
+  max-width: 520px;
+  padding: 6px;
+  right: max(14px, env(safe-area-inset-right));
+}
+.bottom-navigation-inner {
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 64px minmax(0, 1fr);
+  gap: 4px;
+}
+.bottom-navigation-item {
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  line-height: 1.15;
+  min-height: 56px;
+  padding: 4px 6px;
+  text-align: center;
+}
+.bottom-navigation-item.selected {
+  background: var(--color-primary-soft);
+  color: var(--color-nav-active);
+  font-weight: 700;
+}
+.bottom-navigation-create {
+  align-items: center;
+  background: var(--action-primary-bg);
+  border: 3px solid var(--color-surface-solid);
+  border-radius: var(--radius-full);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--action-primary-bg) 45%, transparent);
+  color: var(--action-primary-fg);
+  cursor: pointer;
+  display: inline-flex;
+  height: 60px;
+  justify-content: center;
+  justify-self: center;
+  margin-top: -22px;
+  width: 60px;
+}
+.bottom-navigation-create:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+.screen-with-bottom-navigation {
+  padding-bottom: calc(112px + env(safe-area-inset-bottom));
+}
+
+/* Without blur support or with reduced transparency, glass becomes solid. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .topbar,
+  .bottom-navigation {
+    background: var(--color-surface-solid);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --color-surface: var(--color-surface-solid);
+    --color-header-bg: var(--color-surface-solid);
+    --color-nav-bg: var(--color-surface-solid);
+  }
+  .app-shell::before {
+    display: none;
+  }
+}
