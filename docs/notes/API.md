@@ -14,7 +14,7 @@ tags: [flockly, бэкенд, api]
 | POST | `/events` | Создать встречу (необязательные `clientRequestId` — идемпотентность, `category` — id категории) |
 | GET | `/events/:id` | Встреча для участника |
 | GET | `/events/:id/preview` | Предпросмотр открытой встречи |
-| PATCH, DELETE | `/events/:id/manage` | Изменить / удалить (организатор) |
+| PATCH, DELETE | `/events/:id/manage` | Изменить / удалить (организатор); действия: `update_details`, `set_category`, `add_time`, `remove_time`, `add_place`, `remove_place`, `close`, `reopen`, `cancel`, `decide` |
 | POST | `/events/:id/response` | Сохранить ответ участника |
 | POST | `/events/:id/time-options/proposals`, `/place-options/proposals` | Участник предлагает вариант |
 | DELETE | `/events/:id/participation` | Выйти из встречи |

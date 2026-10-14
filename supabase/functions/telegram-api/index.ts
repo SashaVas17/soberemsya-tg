@@ -680,6 +680,14 @@ async function manageEvent(request: Request, eventId: string, auth: AuthContext)
   const payload = await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES);
   switch (payload.action) {
     case "update_details": { const title = textField(payload, "title", 200, "Название встречи слишком длинное."); if (!title) throw Object.assign(new Error("Название не может быть пустым."), { status: 400 }); await updateActiveOwnedEvent(eventId, auth.user.id, { title, description: textField(payload, "description", 4_000, "Описание слишком длинное.") }); break; }
+    case "set_category": {
+      // Separate from update_details: a category change notifies nobody.
+      const categoryId = parseCategoryId(payload.category);
+      if (categoryId && !categoryById(await loadCategories(), categoryId))
+        throw Object.assign(new Error("Эта категория недоступна."), { status: 400 });
+      await updateActiveOwnedEvent(eventId, auth.user.id, { category_id: categoryId });
+      break;
+    }
     case "add_time": { const startsAt = String(payload.startsAt ?? ""); if (Number.isNaN(Date.parse(startsAt))) throw Object.assign(new Error("Некорректная дата."), { status: 400 }); const { error: rpcError } = await db.rpc("add_event_time_option", { p_event_id: eventId, p_actor_user_id: auth.user.id, p_option_id: id("time"), p_starts_at: startsAt }).single<EventOptionAdditionRow>(); if (rpcError) { console.error("add_event_time_option_rpc_failed", rpcError.code, optionAdditionErrorToken(rpcError) ?? "unknown"); throw optionAdditionHttpError(rpcError); } break; }
     case "remove_time": { const optionId = String(payload.timeOptionId ?? ""); const { error: deleteError } = await db.from("time_options").delete().eq("id", optionId).eq("event_id", eventId); if (deleteError) throw finalOptionRemovalHttpError(deleteError, "time"); break; }
     case "add_place": { const place = record(payload.place) ?? {}; const title = textField(place, "title", 200, "Название места слишком длинное."); if (!title) throw Object.assign(new Error("Укажите место."), { status: 400 }); const { error: rpcError } = await db.rpc("add_event_place_option", { p_event_id: eventId, p_actor_user_id: auth.user.id, p_option_id: id("place"), p_title: title, p_area: textField(place, "area", 200, "Район слишком длинный."), p_estimated_budget: budgetField(place.estimatedBudget) }).single<EventOptionAdditionRow>(); if (rpcError) { console.error("add_event_place_option_rpc_failed", rpcError.code, optionAdditionErrorToken(rpcError) ?? "unknown"); throw optionAdditionHttpError(rpcError); } break; }

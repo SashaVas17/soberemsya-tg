@@ -123,3 +123,31 @@ describe("category on the meeting screens", () => {
     expect(appSource.match(/\{event\.category && <CategoryBadge category=\{event\.category\} \/>\}/g)).toHaveLength(2);
   });
 });
+
+describe("changing the category in «Управление»", () => {
+  it("sends a separate set_category action that notifies nobody", async () => {
+    const { managePayloads } = await import("../src/manage-actions");
+    expect(managePayloads.setCategory("bar")).toEqual({ action: "set_category", category: "bar" });
+    expect(managePayloads.setCategory(null)).toEqual({ action: "set_category", category: null });
+    const backend = readFileSync("supabase/functions/telegram-api/index.ts", "utf8");
+    const action = backend.slice(backend.indexOf('case "set_category": {'), backend.indexOf('case "add_time": {'));
+    expect(action).toContain("const categoryId = parseCategoryId(payload.category);");
+    expect(action).toContain("if (categoryId && !categoryById(await loadCategories(), categoryId))");
+    expect(action).toContain("await updateActiveOwnedEvent(eventId, auth.user.id, { category_id: categoryId });");
+  });
+
+  it("offers instant category chips on the manage screen", () => {
+    expect(appSource).toContain('onToggle={() => void mutate(managePayloads.setCategory(selected ? null : choice.id), "category")}');
+    // The error of an instant change shows next to the chips, not at the bottom of the page.
+    expect(appSource).toContain("<ErrorNote message={categoryError} />");
+    expect(appSource).toContain("<legend>Категория <span>меняется сразу</span></legend>");
+  });
+
+  it("changes and clears the category in the mock", async () => {
+    await mockApi.manage("evt_demo", { action: "set_category", category: "cinema" });
+    expect((await mockApi.event("evt_demo")).event.category).toEqual({ id: "cinema", name: "Кино" });
+    await mockApi.manage("evt_demo", { action: "set_category", category: null });
+    expect((await mockApi.event("evt_demo")).event.category).toBeNull();
+    await mockApi.manage("evt_demo", { action: "set_category", category: "bar" });
+  });
+});

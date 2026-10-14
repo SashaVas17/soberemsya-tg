@@ -6,7 +6,7 @@ import { managePayloads, runActionOnce } from "../manage-actions";
 import { nonNegativeIntegerFromInput, normalizeNumericInput } from "../numeric-input";
 import { OrganizerJoinRequests } from "../OrganizerJoinRequests";
 import { haptic } from "../telegram";
-import type { OrganizerParticipant } from "../types";
+import type { MeetingCategory, OrganizerParticipant } from "../types";
 import type { Navigate, EditablePlaceDraft } from "../app-types";
 import {
   Header,
@@ -16,6 +16,7 @@ import {
   EmptyState,
   StatusBadge,
   CategoryBadge,
+  CategoryChip,
   Refresh,
 } from "../ui/common";
 import { useEvent } from "../app-hooks";
@@ -48,7 +49,18 @@ export function Manage({
   const [participantToRemove, setParticipantToRemove] = useState<OrganizerParticipant | null>(null);
   const [removingParticipantId, setRemovingParticipantId] = useState<string | null>(null);
   const [participantRemovalError, setParticipantRemovalError] = useState("");
+  const [categoryChoices, setCategoryChoices] = useState<MeetingCategory[]>([]);
+  const [categoryError, setCategoryError] = useState("");
   const actionLock = useRef(false);
+  useEffect(() => {
+    // Optional: without the list the category simply cannot be changed here.
+    let active = true;
+    api.categories().then(
+      ({ categories }) => { if (active) setCategoryChoices(categories); },
+      (reason) => console.error("categories_load_failed", reason),
+    );
+    return () => { active = false; };
+  }, []);
   useEffect(() => {
     if (state.lastUpdated) {
       setTimeRemovalError("");
@@ -66,10 +78,12 @@ export function Manage({
     state.event?.finalPlaceId,
     state.event?.finalTimeOptionId,
   ]);
-  const mutate = async (payload: unknown, removalKind?: "time" | "place") => {
+  // A local error kind keeps the message next to the control that failed.
+  const mutate = async (payload: unknown, removalKind?: "time" | "place" | "category") => {
     if (actionLock.current) return false;
     if (removalKind === "time") setTimeRemovalError("");
     if (removalKind === "place") setPlaceRemovalError("");
+    if (removalKind === "category") setCategoryError("");
     setSaving(true);
     try {
       const result = await runActionOnce(actionLock, () =>
@@ -87,6 +101,7 @@ export function Manage({
         : "Не удалось изменить встречу.";
       if (removalKind === "time") setTimeRemovalError(message);
       else if (removalKind === "place") setPlaceRemovalError(message);
+      else if (removalKind === "category") setCategoryError(message);
       else state.setError(message);
       haptic("error");
       return false;
@@ -220,6 +235,26 @@ export function Manage({
           >
             Сохранить описание
           </button>
+          {categoryChoices.length > 0 && (
+            <fieldset className="category-picker">
+              <legend>Категория <span>меняется сразу</span></legend>
+              <div className="category-chips category-chips-wrap">
+                {categoryChoices.map((choice) => {
+                  const selected = event.category?.id === choice.id;
+                  return (
+                    <CategoryChip
+                      category={choice}
+                      disabled={saving}
+                      key={choice.id}
+                      onToggle={() => void mutate(managePayloads.setCategory(selected ? null : choice.id), "category")}
+                      selected={selected}
+                    />
+                  );
+                })}
+              </div>
+              <ErrorNote message={categoryError} />
+            </fieldset>
+          )}
         </section>
         <section className="panel manage-card manage-time-card">
           <h2><CalendarDays size={24} /><span>Время<small>Варианты, за которые могут голосовать участники</small></span></h2>

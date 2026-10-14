@@ -264,16 +264,19 @@ export function CategoryChip({
   category,
   selected,
   onToggle,
+  disabled = false,
 }: {
   category: MeetingCategory;
   selected: boolean;
   onToggle: () => void;
+  disabled?: boolean;
 }) {
   const Icon = categoryIcon(category.id);
   return (
     <button
       aria-pressed={selected}
       className={`category-chip${selected ? " selected" : ""}`}
+      disabled={disabled}
       onClick={onToggle}
       type="button"
     >

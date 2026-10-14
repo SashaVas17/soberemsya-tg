@@ -8,6 +8,11 @@ export const managePayloads = {
     title,
     description,
   }),
+  /** null removes the category. */
+  setCategory: (category: string | null) => ({
+    action: "set_category" as const,
+    category,
+  }),
   addTime: (startsAt: string) => ({ action: "add_time" as const, startsAt }),
   removeTime: (timeOptionId: string, force: boolean) => ({
     action: "remove_time" as const,
