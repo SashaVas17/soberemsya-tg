@@ -3,6 +3,10 @@ name: Deploy GitHub Pages
 on:
   push:
     branches: [main]
+    # Заметки Obsidian (docs/) и скиллы Claude не влияют на сайт
+    paths-ignore:
+      - "docs/**"
+      - ".claude/**"
   workflow_dispatch:
 
 permissions:

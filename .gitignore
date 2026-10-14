@@ -67,3 +67,9 @@ next-env.d.ts
 /work/
 .ua/
 deno.lock
+
+# Obsidian (хранилище — docs/): личное состояние окон и корзина не коммитятся
+docs/.obsidian/workspace*.json
+docs/.obsidian/cache
+docs/.obsidian/plugins/*/data.json
+docs/.trash/
