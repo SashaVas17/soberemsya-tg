@@ -102,6 +102,10 @@ create table if not exists public.user_blocks (
   blocker_user_id uuid not null references public.users(id) on delete cascade,
   blocked_user_id uuid not null references public.users(id) on delete cascade,
   created_at timestamptz not null default now(),
+  -- The open meeting preview hides its organizer, so a block made from it
+  -- must not reveal who that is: the list then shows only this label.
+  reveal_identity boolean not null default false,
+  label text not null default '' check (char_length(label) <= 240),
   primary key (blocker_user_id, blocked_user_id),
   check (blocker_user_id <> blocked_user_id)
 );
@@ -294,23 +298,30 @@ security definer set search_path = pg_catalog, public
 as $$
 declare
   v_target uuid;
-  v_inserted integer;
+  v_existing boolean;
+  v_reveal boolean := p_participant_id is not null or p_request_id is not null;
+  v_title text;
 begin
   v_target := public.moderation_target_user(p_event_id, p_actor_user_id, p_participant_id, p_request_id);
+  select e.title into v_title from public.events e where e.id = p_event_id;
   -- Serializes one user's blocks so the cap below holds under concurrency.
   perform pg_advisory_xact_lock(hashtextextended('blocks:' || p_actor_user_id::text, 0));
-  if not exists (
+  v_existing := exists (
     select 1 from public.user_blocks b
     where b.blocker_user_id = p_actor_user_id and b.blocked_user_id = v_target
-  ) and (
+  );
+  if not v_existing and (
     select count(*) from public.user_blocks b where b.blocker_user_id = p_actor_user_id
   ) >= 200 then
     raise exception using errcode = 'P0001', message = 'BLOCK_LIMIT_REACHED';
   end if;
-  insert into public.user_blocks (blocker_user_id, blocked_user_id)
-  values (p_actor_user_id, v_target)
-  on conflict do nothing;
-  get diagnostics v_inserted = row_count;
+  -- Only the organizer blocking a participant or requester already sees their
+  -- name; anyone else gets the meeting title instead.
+  insert into public.user_blocks as b (blocker_user_id, blocked_user_id, reveal_identity, label)
+  values (p_actor_user_id, v_target, v_reveal,
+    left(case when v_reveal then '' else 'Организатор встречи «' || coalesce(v_title, '') || '»' end, 240))
+  on conflict on constraint user_blocks_pkey do update
+  set reveal_identity = b.reveal_identity or excluded.reveal_identity;
   update public.join_requests r
   set status = 'rejected', decided_at = now(), decided_by_user_id = p_actor_user_id
   where r.status = 'pending'
@@ -320,7 +331,7 @@ begin
       or (r.requester_user_id = p_actor_user_id and r.event_id in (
         select e.id from public.events e where e.owner_user_id = v_target))
     );
-  return query select v_target, case when v_inserted > 0 then 'created' else 'existing' end;
+  return query select v_target, case when v_existing then 'existing' else 'created' end;
 end;
 $$;
 
@@ -337,12 +348,17 @@ as $$
   select exists (select 1 from removed);
 $$;
 
+-- Names and usernames only where the blocker saw them before the block.
 create or replace function public.list_user_blocks(p_actor_user_id uuid)
-returns table (user_id uuid, first_name text, last_name text, username text, created_at timestamptz)
+returns table (user_id uuid, first_name text, last_name text, username text, label text, created_at timestamptz)
 language sql stable
 security definer set search_path = pg_catalog, public
 as $$
-  select u.id, u.first_name, u.last_name, u.username, b.created_at
+  select u.id,
+    case when b.reveal_identity then u.first_name end,
+    case when b.reveal_identity then u.last_name end,
+    case when b.reveal_identity then u.username end,
+    b.label, b.created_at
   from public.user_blocks b
   join public.users u on u.id = b.blocked_user_id
   where b.blocker_user_id = p_actor_user_id

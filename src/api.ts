@@ -220,7 +220,7 @@ export const api = {
   blockFromEvent: (eventId: string, target: ModerationTarget) =>
     useMock
       ? mockApi.blockFromEvent(target)
-      : request<{ blocked: true; userId: string | null }>(
+      : request<{ blocked: true }>(
           `/events/${encodeURIComponent(eventId)}/block`,
           { method: "POST", body: JSON.stringify(moderationTargetBody(target)) },
         ),

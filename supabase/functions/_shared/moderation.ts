@@ -153,6 +153,7 @@ export type BlockedUserRow = {
   first_name: string | null;
   last_name: string | null;
   username: string | null;
+  label: string | null;
   created_at: string;
 };
 
@@ -164,7 +165,10 @@ export function blockedUsersResponse(rows: BlockedUserRow[]) {
   return {
     users: rows.map((row) => ({
       userId: row.user_id,
-      name: displayName(row.first_name, row.last_name),
+      // Without a revealed identity the database sends only a label.
+      name: row.first_name || row.last_name
+        ? displayName(row.first_name, row.last_name)
+        : row.label?.trim() || "Пользователь Telegram",
       username: row.username,
       blockedAt: row.created_at,
     })),

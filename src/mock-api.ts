@@ -297,7 +297,7 @@ export const mockApi = {
         { userId, name: target.kind === "organizer" ? "Организатор" : "Участник", username: null, blockedAt: new Date().toISOString() },
         ...mockBlockedUsers,
       ];
-    return { blocked: true as const, userId };
+    return { blocked: true as const };
   },
   blockedUsers: async () => ({ users: clone(mockBlockedUsers) }),
   unblockUser: async (userId: string) => {

@@ -1218,7 +1218,7 @@ async function reportEvent(request: Request, eventId: string, auth: AuthContext)
 
 async function blockFromEvent(request: Request, eventId: string, auth: AuthContext) {
   const target = parseModerationTarget(await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES));
-  const { data, error } = await db.rpc("block_user", {
+  const { error } = await db.rpc("block_user", {
     p_actor_user_id: auth.user.id,
     p_event_id: eventId,
     p_participant_id: target.participantId,
@@ -1228,7 +1228,9 @@ async function blockFromEvent(request: Request, eventId: string, auth: AuthConte
     logModerationRpcError("block_user_rpc_failed", error);
     throw moderationHttpError(error);
   }
-  return json({ blocked: true, userId: data?.blocked_user_id ?? null });
+  // The blocked person's id stays on the server: the open meeting preview
+  // does not reveal who its organizer is.
+  return json({ blocked: true });
 }
 
 async function blockedUsers(auth: AuthContext) {

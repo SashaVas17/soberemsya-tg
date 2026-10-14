@@ -135,9 +135,20 @@ describe("blocks and hidden meetings", () => {
 
   it("lists blocked people with a readable name", () => {
     expect(blockedUsersResponse([
-      { user_id: "u1", first_name: "Анна", last_name: null, username: "anna", created_at: "2026-10-14T10:00:00Z" },
-      { user_id: "u2", first_name: null, last_name: null, username: null, created_at: "2026-10-14T11:00:00Z" },
-    ]).users.map((user) => user.name)).toEqual(["Анна", "Пользователь Telegram"]);
+      { user_id: "u1", first_name: "Анна", last_name: null, username: "anna", label: "", created_at: "2026-10-14T10:00:00Z" },
+      { user_id: "u2", first_name: null, last_name: null, username: null, label: "Организатор встречи «Кино»", created_at: "2026-10-14T11:00:00Z" },
+      { user_id: "u3", first_name: null, last_name: null, username: null, label: "", created_at: "2026-10-14T12:00:00Z" },
+    ]).users.map((user) => user.name)).toEqual(["Анна", "Организатор встречи «Кино»", "Пользователь Telegram"]);
+  });
+
+  it("does not reveal an organizer blocked from the open meeting preview", () => {
+    const block = functionBody("block_user");
+    expect(block).toContain("v_reveal boolean := p_participant_id is not null or p_request_id is not null;");
+    expect(block).toContain("set reveal_identity = b.reveal_identity or excluded.reveal_identity;");
+    const list = functionBody("list_user_blocks");
+    expect(list).toContain("case when b.reveal_identity then u.username end");
+    expect(api).toContain("return json({ blocked: true });");
+    expect(api).not.toContain("blocked_user_id ?? null");
   });
 });
 
@@ -317,9 +328,9 @@ describe("moderation screens", () => {
     expect((await mockApi.publicMeetings()).communityRulesAccepted).toBe(false);
     await mockApi.acceptCommunityRules();
     expect((await mockApi.publicMeetings()).communityRulesAccepted).toBe(true);
-    const { userId } = await mockApi.blockFromEvent({ kind: "organizer" });
-    expect((await mockApi.blockedUsers()).users.map((user) => user.userId)).toContain(userId);
-    await mockApi.unblockUser(userId);
+    expect(await mockApi.blockFromEvent({ kind: "organizer" })).toEqual({ blocked: true });
+    const [blocked] = (await mockApi.blockedUsers()).users;
+    await mockApi.unblockUser(blocked.userId);
     expect((await mockApi.blockedUsers()).users).toEqual([]);
     const [report] = (await mockApi.adminReports("open")).reports;
     await mockApi.adminSetEventHidden(report.event!.id, true);
