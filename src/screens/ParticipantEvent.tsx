@@ -18,7 +18,7 @@ import { haptic } from "../telegram";
 import type { EventData } from "../types";
 import type { Navigate } from "../app-types";
 import { useMainButton, useParticipantEvent } from "../app-hooks";
-import { Header, Loading, ErrorNote, RetryState, StatusBadge } from "../ui/common";
+import { CategoryBadge, Header, Loading, ErrorNote, RetryState, StatusBadge } from "../ui/common";
 import { PublicPreviewScreen } from "./PublicPreviewScreen";
 import { LeaveMeetingAction } from "../ui/LeaveMeetingAction";
 import { Result } from "./Result";
@@ -385,6 +385,7 @@ export function ParticipantEvent({
         {event.description && <p>{event.description}</p>}
       <div className="event-meta">
           <StatusBadge status={event.status} />
+          {event.category && <CategoryBadge category={event.category} />}
           <span>{plural(event.participants.length, "ответ", "ответа", "ответов")}</span>
         </div>
         <div className="participant-next-action">

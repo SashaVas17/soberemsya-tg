@@ -169,3 +169,13 @@ describe("role-scoped event payloads", () => {
     ).toThrow("Доступна только публичная информация о встрече.");
   });
 });
+
+describe("meeting category in the payload", () => {
+  it("is shown to every viewer and is null without one", () => {
+    const category = { id: "boardgames", name: "Настолки" };
+    for (const build of [organizerEventPayload, participantEventPayload, privateInviteEventPayload]) {
+      expect(build({ ...source("user_owner"), category }).category).toEqual(category);
+      expect(build(source("user_owner")).category).toBeNull();
+    }
+  });
+});

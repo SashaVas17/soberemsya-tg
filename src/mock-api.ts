@@ -100,7 +100,7 @@ const auth: AuthResult = {
 };
 const clone = <T>(value: T): T => structuredClone(value);
 const cloneEventResponse = () => ({
-  event: clone(event) as unknown as import("./types").EventData,
+  event: { ...clone(event), category: mockEventCategory() } as unknown as import("./types").EventData,
 });
 let joinRequestStatus: "none" | "pending" | "rejected" = "none";
 let organizerRequests: MockOrganizerJoinRequestRecord[] = [];
@@ -221,7 +221,8 @@ export const mockApi = {
   auth: async () => clone(auth),
   event: async (eventId: string) => {
     void eventId;
-    return mockPublicEventAccess(event, currentPublicRole());
+    const result = mockPublicEventAccess(event, currentPublicRole());
+    return { event: { ...result.event, category: mockEventCategory() } };
   },
   publicEventPreview: async (eventId: string) => {
     void eventId;

@@ -51,6 +51,8 @@ export type EventPayloadSource = {
   votes: PayloadVote[];
   placeVotes: PayloadPlaceVote[];
   currentUserId: string;
+  /** The meeting's category, if it has an active one. */
+  category?: { id: string; name: string } | null;
 };
 
 type DetailedParticipant = {
@@ -98,6 +100,7 @@ function commonEventPayload(source: EventPayloadSource) {
     status: event.status,
     finalPlaceId: event.final_place_id,
     finalTimeOptionId: event.final_time_option_id,
+    category: source.category ?? null,
     timeOptions: times.map((time) => ({
       id: time.id,
       startsAt: time.starts_at,
