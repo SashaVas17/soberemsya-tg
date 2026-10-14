@@ -20,6 +20,7 @@ import {
   Refresh,
 } from "../ui/common";
 import { useEvent } from "../app-hooks";
+import { SafetyActions } from "../ui/Moderation";
 import { usePreparedShare, shareEvent } from "../share";
 
 export function Manage({
@@ -192,6 +193,12 @@ export function Manage({
           lastUpdated={state.lastUpdated}
           onClick={() => void state.load()}
         />
+        {event.hiddenByModerator && (
+          <p className="moderation-notice" role="status">
+            Администратор скрыл встречу из ленты открытых встреч: новые люди не найдут её и не смогут
+            подать заявку. Участники по-прежнему её видят.
+          </p>
+        )}
         <section className="manage-next-action" aria-labelledby="manage-next-action-title">
           <div>
             <p className="manage-section-kicker">Следующий шаг</p>
@@ -430,6 +437,14 @@ export function Manage({
                   <p>
                     <b>Ограничения:</b> {person.restrictions || "нет"}
                   </p>
+                  {event.myResponse?.id !== person.id && person.userId && (
+                    <SafetyActions
+                      eventId={eventId}
+                      personLabel={person.name}
+                      reportSubject={`Жалоба на участника ${person.name}`}
+                      target={{ kind: "participant", participantId: person.id }}
+                    />
+                  )}
                   {event.myResponse?.id !== person.id && (
                     <button
                       className="participant-remove-action"

@@ -3369,3 +3369,176 @@ code {
 .stat-note {
   margin: var(--space-sm) 0 0;
 }
+
+/* Stage 2.4: reports, blocks, community rules, administrator reports. */
+.safety-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-md);
+  justify-content: center;
+  margin-top: var(--space-md);
+}
+.safety-action {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--color-text-muted);
+  display: inline-flex;
+  font: inherit;
+  font-size: 14px;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 4px;
+}
+.safety-action:active {
+  transform: scale(0.97);
+}
+.join-request-card .safety-actions,
+.participant-answer .safety-actions {
+  column-gap: var(--space-xs);
+  display: flex;
+  justify-content: flex-start;
+  margin-top: var(--space-xs);
+}
+/* Above the floating bottom navigation. */
+.moderation-backdrop {
+  z-index: 60;
+}
+.moderation-dialog {
+  max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 36px);
+  overflow-y: auto;
+}
+.moderation-dialog h2 {
+  font-size: 20px;
+  text-wrap: balance;
+}
+.report-reasons {
+  border: 0;
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+}
+.report-reasons legend {
+  font-weight: 700;
+  margin-bottom: 6px;
+  padding: 0;
+}
+.report-reason {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-height: 44px;
+}
+.report-reason input {
+  accent-color: var(--color-primary);
+  flex: none;
+  height: 20px;
+  margin: 0;
+  width: 20px;
+}
+.community-rules {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 20px;
+}
+.community-rules li {
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+.community-rules-panel {
+  display: grid;
+  gap: var(--space-md);
+}
+.community-rules-panel h2 {
+  margin: 0;
+}
+.moderation-notice {
+  background: color-mix(in srgb, var(--coral) 12%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--coral) 35%, transparent);
+  border-radius: var(--radius-lg);
+  margin: 0 0 var(--space-md);
+  padding: 12px 16px;
+}
+.admin-report-tabs {
+  grid-template-columns: repeat(3, 1fr);
+}
+.admin-report-card {
+  display: grid;
+  gap: 8px;
+  margin-bottom: var(--space-md);
+}
+.admin-report-card p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.admin-report-heading {
+  align-items: baseline;
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: space-between;
+}
+.admin-report-heading time {
+  white-space: nowrap;
+}
+.admin-report-heading time,
+.admin-report-meta {
+  color: var(--color-text-muted);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.admin-report-comment {
+  font-style: italic;
+}
+.admin-report-actions {
+  display: grid;
+  gap: var(--space-xs);
+  grid-template-columns: 1fr 1fr;
+  margin-top: 4px;
+}
+.admin-report-actions button {
+  font-size: 15px;
+  min-width: 0;
+  padding-inline: 8px;
+}
+.blocked-user-list {
+  display: grid;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 8px 16px;
+}
+.blocked-user-list li {
+  align-items: center;
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: space-between;
+  min-height: 52px;
+}
+.blocked-user-list li span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.blocked-user-list button {
+  flex: none;
+  padding-inline: 14px;
+  width: auto;
+}
+.public-feed-safety-links {
+  display: flex;
+  gap: var(--space-md);
+  justify-content: center;
+  margin-top: var(--space-lg);
+}
+.public-feed-safety-links button {
+  background: transparent;
+  border: 0;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 14px;
+  min-height: 44px;
+  padding: 0 6px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

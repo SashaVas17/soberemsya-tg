@@ -147,8 +147,9 @@ describe("notification migrations", () => {
     expect(allSql.match(/security definer set search_path = pg_catalog, public/g)?.length).toBe(functions.length);
   });
 
-  it("never uses DROP statements (the Supabase connector hangs on them)", () => {
-    expect(allSql).not.toMatch(/^\s*drop\s/im);
+  // ALTER TABLE ... DROP CONSTRAINT passed the connector on 2026-10-14.
+  it("never uses DROP statements other than DROP CONSTRAINT (the Supabase connector hangs on them)", () => {
+    expect(allSql).not.toMatch(/^\s*drop\s+(?!constraint\b)/im);
   });
 
   it("never combines RAISE and DELETE in one function body (Supabase connector limitation)", () => {

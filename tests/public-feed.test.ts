@@ -1,6 +1,14 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildPublicFeedItem, encodePublicFeedCursor, parsePublicFeedCursor, parsePublicFeedLimit, publicFeedEligible } from "../supabase/functions/_shared/public-feed";
+import { readdirSync as listMigrations, readFileSync as readMigration } from "node:fs";
+
+const feedSql = (() => {
+  const name = listMigrations("supabase/migrations").find((file) => file.endsWith("_moderation.sql"));
+  const sql = readMigration(`supabase/migrations/${name}`, "utf8");
+  const start = sql.indexOf("create or replace function public.public_feed_page(");
+  return sql.slice(start, sql.indexOf("$$;", start));
+})();
 
 const backendSource = readFileSync(
   "supabase/functions/telegram-api/index.ts",
@@ -124,10 +132,13 @@ describe("public meetings feed pagination", () => {
       backendSource.indexOf("async function publicEvents"),
       backendSource.indexOf("async function calendarLink"),
     );
-    expect(source).toContain('.order("created_at", { ascending: false })');
-    expect(source).toContain('.order("id", { ascending: false })');
-    expect(source).toContain("created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})");
-    expect(source).toContain(".limit(limit + 1)");
+    // The page query lives in SQL (public_feed_page, stage 2.4 moderation).
+    expect(source).toContain('db.rpc("public_feed_page"');
+    expect(source).toContain("p_cursor_created_at: cursor?.createdAt ?? null,");
+    expect(source).toContain("p_cursor_id: cursor?.id ?? null,");
+    expect(source).toContain("p_limit: limit + 1,");
+    expect(feedSql).toContain("order by e.created_at desc, e.id desc");
+    expect(feedSql).toContain("or (e.created_at = p_cursor_created_at and e.id < p_cursor_id))");
     expect(source).toContain("encodePublicFeedCursor");
     expect(source).toContain(": null,");
   });
@@ -140,9 +151,9 @@ describe("public meetings feed endpoint boundaries", () => {
   );
 
   it("enforces fixed eligibility filters and batched minimal relation reads", () => {
-    expect(source).toContain('.eq("visibility", "public")');
-    expect(source).toContain('.is("deleted_at", null)');
-    expect(source).toContain('.eq("status", "collecting")');
+    expect(feedSql).toContain("and e.visibility = 'public'");
+    expect(feedSql).toContain("and e.deleted_at is null");
+    expect(feedSql).toContain("and e.status = 'collecting'");
     expect(source).toContain('select("event_id,starts_at")');
     expect(source).toContain('select("event_id,user_id")');
     expect(source).not.toContain("eventPayload(");

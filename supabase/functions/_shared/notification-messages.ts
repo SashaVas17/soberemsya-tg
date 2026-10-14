@@ -1,4 +1,5 @@
 import { DEFAULT_TIME_ZONE } from "./cities.ts";
+import { reportReasonLabel } from "./moderation.ts";
 
 export type NotificationKind =
   | "response_each"
@@ -11,7 +12,8 @@ export type NotificationKind =
   | "event_updated"
   | "event_reopened"
   | "reminder_24h"
-  | "reminder_2h";
+  | "reminder_2h"
+  | "report_new";
 
 export type NotificationMessage = {
   text: string;
@@ -73,6 +75,8 @@ export function eventDeepLink(bot: string, app: string, eventId: string | null) 
  */
 export function notificationLink(bot: string, app: string, kind: NotificationKind, eventId: string | null) {
   const base = `https://t.me/${bot}/${app}`;
+  // A report opens the administrator's reports screen.
+  if (kind === "report_new") return `${base}?startapp=reports`;
   if (kind === "join_request_rejected" || !eventId) return `${base}?startapp=ntf`;
   return `${base}?startapp=ntf_${eventId}`;
 }
@@ -87,6 +91,8 @@ export function isNotificationStale(
   eventDeleted: boolean,
 ) {
   if (kind === "event_cancelled") return eventDeleted;
+  // The administrator needs a report even about a cancelled meeting.
+  if (kind === "report_new") return false;
   return eventDeleted || eventStatus === "cancelled";
 }
 
@@ -134,6 +140,13 @@ export function renderNotification(
     case "reminder_2h": {
       const details = finalDetails(payload);
       return open(`Через 2 часа встреча ${title}${details ? ` — ${details}` : ""}.`);
+    }
+    case "report_new": {
+      const reason = reportReasonLabel(payload.reason);
+      const target = text(payload, "targetType") === "user"
+        ? `на пользователя ${text(payload, "targetName") || "Telegram"} (встреча ${title})`
+        : `на встречу ${title}`;
+      return open(`Новая жалоба ${target}. Причина: ${reason}.`, "Открыть жалобы");
     }
   }
 }

@@ -166,9 +166,9 @@ describe("participant proposal HTTP contract", () => {
       expect(source).not.toContain("payload.userId");
       expect(source).toContain("return json({ event: await eventPayload(eventId, auth.user.id) })");
     }
-    expect(proposeTime.match(/db\.rpc\("propose_event_time_option"/g)).toHaveLength(1);
+    expect(proposeTime.match(/db\.rpc\("propose_event_time_option_limited"/g)).toHaveLength(1);
     expect(proposeTime).toContain('p_option_id: id("time")');
-    expect(proposePlace.match(/db\.rpc\("propose_event_place_option"/g)).toHaveLength(1);
+    expect(proposePlace.match(/db\.rpc\("propose_event_place_option_limited"/g)).toHaveLength(1);
     expect(proposePlace).toContain('p_option_id: id("place")');
   });
 

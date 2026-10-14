@@ -21,6 +21,7 @@ import { useMainButton, useParticipantEvent } from "../app-hooks";
 import { CategoryBadge, Header, Loading, ErrorNote, RetryState, StatusBadge } from "../ui/common";
 import { PublicPreviewScreen } from "./PublicPreviewScreen";
 import { LeaveMeetingAction } from "../ui/LeaveMeetingAction";
+import { SafetyActions } from "../ui/Moderation";
 import { Result } from "./Result";
 
 function localProposalDefaults() {
@@ -531,6 +532,7 @@ export function ParticipantEvent({
               : "Отправить ответ"}
         </button>
         <LeaveMeetingAction event={event} eventId={eventId} navigate={navigate} />
+        {!event.canManage && event.visibility === "public" && <SafetyActions eventId={eventId} />}
       </form>
     </main>
   );

@@ -4,6 +4,7 @@ import { publicJoinRequestView } from "../join-request";
 import type { PublicEventPreview } from "../types";
 import type { Navigate } from "../app-types";
 import { CategoryBadge, Header, ErrorNote, StatusBadge } from "../ui/common";
+import { SafetyActions } from "../ui/Moderation";
 
 export function PublicPreviewScreen({
   error,
@@ -79,6 +80,7 @@ export function PublicPreviewScreen({
           )}
           <ErrorNote message={error} />
         </section>
+        <SafetyActions eventId={preview.id} onBlocked={() => navigate("/open")} />
       </section>
     </main>
   );

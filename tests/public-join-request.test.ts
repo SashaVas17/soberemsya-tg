@@ -51,8 +51,8 @@ describe("public join-request HTTP contract", () => {
     expect(backendSource).toContain('join-request$/.test(path)) return ["POST"]');
   });
 
-  it("calls only create_join_request with route and authenticated identity", () => {
-    expect(handlerSource).toContain('db.rpc("create_join_request"');
+  it("calls only the moderated create_join_request with route and authenticated identity", () => {
+    expect(handlerSource).toContain('db.rpc("create_join_request_moderated"');
     expect(handlerSource).toContain("p_event_id: eventId");
     expect(handlerSource).toContain("p_requester_user_id: auth.user.id");
     expect(handlerSource.match(/db\./g)).toHaveLength(1);

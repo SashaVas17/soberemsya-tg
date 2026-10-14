@@ -37,7 +37,7 @@ export function isAdminTelegramId(telegramUserId: string | number | null | undef
 /** Where an app open came from, by its startapp parameter. */
 export function startParamSource(startParam: string | null) {
   if (!startParam) return "direct";
-  if (startParam === "ntf" || startParam.startsWith("ntf_")) return "notification";
+  if (startParam === "ntf" || startParam === "reports" || startParam.startsWith("ntf_")) return "notification";
   if (startParam.startsWith("group_")) return "group";
   if (startParam.startsWith("event_")) return "event";
   return "other";

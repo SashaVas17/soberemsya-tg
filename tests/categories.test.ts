@@ -153,11 +153,11 @@ describe("categories in the API", () => {
   it("filters the feed by category and title and lists the categories", () => {
     expect(backend).toContain('const requestedCategoryId = parseCategoryId(url.searchParams.get("category"));');
     expect(backend).toContain('const search = parseFeedSearch(url.searchParams.get("q"));');
-    expect(backend).toContain('if (category) eventQuery = eventQuery.eq("category_id", category.id);');
+    expect(backend).toContain("p_category_id: category?.id ?? null,");
     expect(backend).toContain(
       "if (requestedCategoryId && !category) return json({ items: [], nextCursor: null, ...cityFields });",
     );
-    expect(backend).toContain('if (search) eventQuery = eventQuery.ilike("title", titleSearchPattern(search));');
+    expect(backend).toContain("p_title_pattern: search ? titleSearchPattern(search) : null,");
     expect(backend).toContain("category: categoryById(categories, event.category_id),");
   });
 });

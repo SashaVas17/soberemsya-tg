@@ -49,8 +49,10 @@ describe("administrators", () => {
 
   it("hides stats from everyone else", () => {
     const handler = api.slice(api.indexOf("async function adminStats"), api.indexOf("function apiPath("));
-    expect(handler.indexOf("isAdminTelegramId(")).toBeLessThan(handler.indexOf('db.rpc("admin_stats")'));
-    expect(handler).toContain('json({ error: "Маршрут не найден." }, 404)');
+    expect(handler.indexOf("isAdmin(auth)")).toBeLessThan(handler.indexOf('db.rpc("admin_stats")'));
+    expect(handler).toContain("return adminNotFound();");
+    expect(api).toContain('const adminNotFound = () => json({ error: "Маршрут не найден." }, 404);');
+    expect(api).toContain("return isAdminTelegramId(auth.user.telegram_user_id, adminIds);");
     expect(bot).toContain('command === "/stats" && isAdminTelegramId(message.senderId, adminIds)');
   });
 });

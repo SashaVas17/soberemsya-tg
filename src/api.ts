@@ -1,9 +1,10 @@
 import { apiErrorFromBody } from "./api-error";
 import type { CreateEventRequest } from "./create-wizard";
 import { isSessionExpiredError, notifySessionExpired } from "./session";
-import type { AdminStats, AuthResult, EventData, NotificationSettings, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PlaceOption, MeetingCategory, PublicEventPreview, PublicMeetingFeedPage, UserCity } from "./types";
+import type { AdminReport, AdminStats, AuthResult, BlockedUser, ReportStatus, EventData, NotificationSettings, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PlaceOption, MeetingCategory, PublicEventPreview, PublicMeetingFeedPage, UserCity } from "./types";
 import { publicFeedPath, type PublicFeedFilters } from "./public-feed";
 import { mockApi } from "./mock-api";
+import { moderationTargetBody, type ModerationTarget, type ReportReason } from "./moderation";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "") ?? "";
 const functionUrl =
@@ -205,6 +206,59 @@ export const api = {
     useMock
       ? mockApi.groupLink()
       : request<{ groupLink: { chatTitle: string } }>(`/group-links/${encodeURIComponent(token)}`),
+  reportEvent: (
+    eventId: string,
+    target: ModerationTarget,
+    report: { reason: ReportReason; comment: string },
+  ) =>
+    useMock
+      ? mockApi.reportEvent()
+      : request<{ reported: true; alreadyReported: boolean }>(
+          `/events/${encodeURIComponent(eventId)}/report`,
+          { method: "POST", body: JSON.stringify({ ...report, ...moderationTargetBody(target) }) },
+        ),
+  blockFromEvent: (eventId: string, target: ModerationTarget) =>
+    useMock
+      ? mockApi.blockFromEvent(target)
+      : request<{ blocked: true; userId: string | null }>(
+          `/events/${encodeURIComponent(eventId)}/block`,
+          { method: "POST", body: JSON.stringify(moderationTargetBody(target)) },
+        ),
+  blockedUsers: () =>
+    useMock ? mockApi.blockedUsers() : request<{ users: BlockedUser[] }>("/me/blocks"),
+  unblockUser: (userId: string) =>
+    useMock
+      ? mockApi.unblockUser(userId)
+      : request<{ unblocked: true }>(`/me/blocks/${encodeURIComponent(userId)}`, { method: "DELETE" }),
+  acceptCommunityRules: () =>
+    useMock
+      ? mockApi.acceptCommunityRules()
+      : request<{ communityRulesAccepted: true }>("/me/community-rules", { method: "POST", body: "{}" }),
+  adminReports: (status: ReportStatus = "open") =>
+    useMock
+      ? mockApi.adminReports(status)
+      : request<{ reports: AdminReport[] }>(`/admin/reports?status=${encodeURIComponent(status)}`),
+  adminResolveReport: (reportId: string, action: "resolve" | "dismiss") =>
+    useMock
+      ? mockApi.adminResolveReport(reportId, action)
+      : request<{ status: ReportStatus }>(
+          `/admin/reports/${encodeURIComponent(reportId)}/${action}`,
+          { method: "POST", body: "{}" },
+        ),
+  adminSetEventHidden: (eventId: string, hidden: boolean) =>
+    useMock
+      ? mockApi.adminSetEventHidden(eventId, hidden)
+      : request<{ hidden: boolean }>(
+          `/admin/events/${encodeURIComponent(eventId)}/${hidden ? "hide" : "unhide"}`,
+          { method: "POST", body: "{}" },
+        ),
+  adminSetUserBanned: (userId: string, banned: boolean) =>
+    useMock
+      ? mockApi.adminSetUserBanned(userId, banned)
+      : request<{ banned: boolean; hiddenEvents: number }>(
+          `/admin/users/${encodeURIComponent(userId)}/${banned ? "ban" : "unban"}`,
+          { method: "POST", body: "{}" },
+        ),
   calendarLink: (id: string) =>
     useMock
       ? mockApi.calendarLink(id)

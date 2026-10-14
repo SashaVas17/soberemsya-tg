@@ -12,6 +12,7 @@ import {
 import type { City, MeetingCategory, PublicMeetingFeedItem } from "../types";
 import type { Navigate } from "../app-types";
 import { CategoryBadge, CategoryChip, Header, Loading, RetryState, EmptyState } from "../ui/common";
+import { CommunityRulesDialog } from "../ui/Moderation";
 
 export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBack: () => void }) {
   const [items, setItems] = useState<PublicMeetingFeedItem[]>([]);
@@ -31,6 +32,8 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
   // What the user types, and the search actually sent (settled after a pause).
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  // The rules are shown once, before the first look at open meetings.
+  const [rulesPending, setRulesPending] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setSearch(normalizeFeedSearch(searchInput)), 350);
@@ -57,6 +60,7 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
         setItems(mergePublicMeetings([], result.items));
       }
       setNextCursor(result.nextCursor);
+      if (result.communityRulesAccepted === false) setRulesPending(true);
       if (result.city) setCity(result.city);
       if (result.cities) setCityChoices(result.cities);
       if (result.categories) {
@@ -290,8 +294,13 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
             {loadingMore ? "Загружаем…" : "Загрузить ещё"}
           </button>
         )}
+        <nav aria-label="Безопасность" className="public-feed-safety-links">
+          <button onClick={() => navigate("/rules")} type="button">Правила</button>
+          <button onClick={() => navigate("/blocked")} type="button">Заблокированные</button>
+        </nav>
       </section>
       <BottomNavigation currentPath="/open" navigate={navigate} />
+      {rulesPending && <CommunityRulesDialog onAccepted={() => setRulesPending(false)} />}
     </main>
   );
 }

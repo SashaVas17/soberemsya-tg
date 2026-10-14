@@ -82,6 +82,8 @@ export type OrganizerEventData = EventDataBase & {
   participants: OrganizerParticipant[];
   canManage: true;
   myResponse: OrganizerParticipant | null;
+  /** The administrator took the meeting off the open feed. */
+  hiddenByModerator?: boolean;
 };
 
 export type ParticipantEventData = EventDataBase & {
@@ -131,6 +133,8 @@ export type PublicMeetingFeedPage = {
   city?: City;
   cities?: City[];
   categories?: MeetingCategory[];
+  /** Whether the viewer has seen the community rules (stage 2.4). */
+  communityRulesAccepted?: boolean;
 };
 
 export type PublicMeetingFeedItem = {
@@ -187,4 +191,40 @@ export type NotificationSettings = {
   reminder24h: boolean;
   reminder2h: boolean;
   canMessage: boolean | null;
+};
+
+export type BlockedUser = {
+  userId: string;
+  name: string;
+  username: string | null;
+  blockedAt: string;
+};
+
+export type ReportStatus = "open" | "resolved" | "dismissed";
+
+/** A report as the administrator sees it. */
+export type AdminReport = {
+  id: string;
+  status: ReportStatus;
+  targetType: "event" | "user";
+  reason: string;
+  comment: string;
+  createdAt: string;
+  resolvedAt: string | null;
+  reporter: { name: string | null; username: string | null };
+  event: {
+    id: string;
+    title: string;
+    status: EventStatus;
+    visibility: MeetingVisibility;
+    hidden: boolean;
+    deleted: boolean;
+  } | null;
+  targetUser: {
+    id: string;
+    name: string | null;
+    username: string | null;
+    banned: boolean;
+  } | null;
+  openReportsOnTarget: number;
 };
