@@ -62,6 +62,7 @@ describe("public meetings feed shape", () => {
       "budgetLimit",
       "participantCount",
       "maxParticipants",
+      "category",
     ]);
     for (const field of [
       "ownerUserId",

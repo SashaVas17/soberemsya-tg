@@ -172,6 +172,7 @@ describe("public preview shape and privacy", () => {
       "participantCount",
       "maxParticipants",
       "joinRequestStatus",
+      "category",
     ]);
   });
 

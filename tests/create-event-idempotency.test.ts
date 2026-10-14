@@ -159,7 +159,7 @@ describe("telegram-api create-event idempotency integration", () => {
   it("uses the idempotent RPC only when the client sends a key", () => {
     expect(createEvent).toContain("const clientRequestId = parseClientRequestId(payload.clientRequestId);");
     expect(createEvent).toContain(
-      'const rpcName = clientRequestId ? "create_event_idempotent" : "create_event_atomic";',
+      'const rpcName = clientRequestId ? "create_event_idempotent_categorized" : "create_event_categorized";',
     );
     expect(createEvent.match(/db\.rpc\(/g)).toHaveLength(1);
   });

@@ -1,7 +1,8 @@
 import { apiErrorFromBody } from "./api-error";
 import type { CreateEventRequest } from "./create-wizard";
 import { isSessionExpiredError, notifySessionExpired } from "./session";
-import type { AdminStats, AuthResult, EventData, NotificationSettings, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PlaceOption, PublicEventPreview, PublicMeetingFeedPage, UserCity } from "./types";
+import type { AdminStats, AuthResult, EventData, NotificationSettings, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PlaceOption, MeetingCategory, PublicEventPreview, PublicMeetingFeedPage, UserCity } from "./types";
+import { publicFeedPath, type PublicFeedFilters } from "./public-feed";
 import { mockApi } from "./mock-api";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "") ?? "";
@@ -67,12 +68,14 @@ export const api = {
       : request<{ preview: PublicEventPreview }>(
         `/events/${encodeURIComponent(id)}/preview`,
         ),
-  publicMeetings: (cursor?: string) =>
+  publicMeetings: (cursor?: string, filters?: PublicFeedFilters) =>
     useMock
-      ? mockApi.publicMeetings(cursor)
-      : request<PublicMeetingFeedPage>(
-          `/public/events${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
-        ),
+      ? mockApi.publicMeetings(cursor, filters)
+      : request<PublicMeetingFeedPage>(publicFeedPath(cursor, filters)),
+  categories: () =>
+    useMock
+      ? mockApi.categories()
+      : request<{ categories: MeetingCategory[] }>("/categories"),
   createJoinRequest: (id: string) =>
     useMock
       ? mockApi.createJoinRequest(id)

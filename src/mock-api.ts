@@ -1,11 +1,13 @@
 import type {
   AuthResult,
   City,
+  MeetingCategory,
   MeetingListItem,
   NotificationSettings,
   PublicMeetingFeedItem,
   UserCity,
 } from "./types";
+import { normalizeFeedSearch, type PublicFeedFilters } from "./public-feed";
 import { applyMockResponse, type MockVotingEvent } from "./participant-voting";
 import { mockCreateJoinRequest } from "./join-request";
 import {
@@ -190,6 +192,24 @@ function assertMockParticipantProposalAllowed(eventId: string) {
 const mockCities: City[] = [{ id: "minsk", name: "Минск" }];
 let mockCity: City = mockCities[0];
 
+// Same list as the meeting_categories migration.
+const mockCategories: MeetingCategory[] = [
+  { id: "coffee", name: "Кофе" },
+  { id: "bar", name: "Бар" },
+  { id: "sport", name: "Спорт" },
+  { id: "boardgames", name: "Настолки" },
+  { id: "walk", name: "Прогулка" },
+  { id: "cinema", name: "Кино" },
+  { id: "concert", name: "Концерт" },
+  { id: "outdoor", name: "Активный отдых" },
+  { id: "other", name: "Другое" },
+];
+let mockEventCategoryId: string | null = "bar";
+
+function mockEventCategory() {
+  return mockCategories.find((category) => category.id === mockEventCategoryId) ?? null;
+}
+
 let mockNotificationSettings: NotificationSettings = {
   responseMode: "summary",
   reminder24h: true,
@@ -205,16 +225,22 @@ export const mockApi = {
   },
   publicEventPreview: async (eventId: string) => {
     void eventId;
-    return mockPublicEventPreview(
+    const result = mockPublicEventPreview(
       event,
       currentPublicRole(),
       currentPublicRole() === "owner" ? auth.user.id : "user_owner",
     );
+    return { ...result, preview: { ...result.preview, category: mockEventCategory() } };
   },
-  publicMeetings: async (cursor?: string) => {
+  categories: async () => ({ categories: mockCategories }),
+  publicMeetings: async (cursor?: string, filters?: PublicFeedFilters) => {
     void cursor;
+    const search = normalizeFeedSearch(filters?.q ?? "").toLocaleLowerCase("ru");
+    const matches =
+      (!filters?.category || filters.category === mockEventCategoryId) &&
+      (!search || event.title.toLocaleLowerCase("ru").includes(search));
     return {
-      items: [
+      items: matches ? [
         {
           id: event.id,
           title: event.title,
@@ -226,11 +252,13 @@ export const mockApi = {
           budgetLimit: event.budgetLimit,
           participantCount: event.participants.length,
           maxParticipants: 6,
+          category: mockEventCategory(),
         } satisfies PublicMeetingFeedItem,
-      ],
+      ] : [],
       nextCursor: null,
       city: mockCity,
       cities: mockCities,
+      categories: mockCategories,
     };
   },
   userCity: async (cityId?: string) => {
@@ -310,6 +338,9 @@ export const mockApi = {
       participants: [],
       myResponse: null,
     };
+    mockEventCategoryId = mockCategories.some((category) => category.id === payload.category)
+      ? payload.category
+      : null;
     return { ...cloneEventResponse(), groupAttached: payload.groupToken ? true : undefined };
   },
   saveResponse: async (_id: string, payload: any) => {

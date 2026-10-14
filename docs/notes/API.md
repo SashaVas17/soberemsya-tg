@@ -11,7 +11,7 @@ tags: [flockly, бэкенд, api]
 | --- | --- | --- |
 | GET | `/health` | Проверка живости |
 | POST | `/telegram/auth` | Вход по `initData` |
-| POST | `/events` | Создать встречу (необязательный `clientRequestId` — идемпотентность) |
+| POST | `/events` | Создать встречу (необязательные `clientRequestId` — идемпотентность, `category` — id категории) |
 | GET | `/events/:id` | Встреча для участника |
 | GET | `/events/:id/preview` | Предпросмотр открытой встречи |
 | PATCH, DELETE | `/events/:id/manage` | Изменить / удалить (организатор) |
@@ -30,7 +30,8 @@ tags: [flockly, бэкенд, api]
 | GET, PUT | `/me/notification-settings` | Настройки уведомлений |
 | GET, PUT | `/me/city` | Город пользователя и список доступных (`{ city, cities }`); PUT `{ cityId }` — только активный город |
 | POST | `/me/analytics` | Событие аналитики с клиента |
-| GET | `/public/events` | Лента открытых встреч города пользователя; в ответе также `city` и `cities` |
+| GET | `/public/events` | Лента открытых встреч города пользователя; `?category=<id>` и `?q=<текст>` (поиск по названию, до 80 символов); в ответе также `city`, `cities`, `categories`, у карточек — `category` |
+| GET | `/categories` | Активные категории встреч (для мастера создания) |
 | GET | `/admin/stats` | Статистика (только администратор) |
 
 Источник: `allowedMethods()` в `supabase/functions/telegram-api/index.ts`; логика — в `_shared/`.

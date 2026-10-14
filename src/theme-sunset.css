@@ -682,3 +682,169 @@ h1 {
   font-size: 14px;
   margin-top: var(--space-xs);
 }
+
+/* Open meetings filters: title search and category chips (Stage 2.2). */
+.public-feed-filters {
+  display: grid;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  min-width: 0;
+}
+.feed-search {
+  align-items: center;
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  display: flex;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 4px 0 16px;
+  transition: border-color 150ms ease-out;
+}
+.feed-search:focus-within {
+  border-color: var(--color-primary);
+}
+.feed-search input {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--color-text);
+  flex: 1;
+  font: inherit;
+  /* 16px keeps iOS from zooming into the field on focus. */
+  font-size: 16px;
+  min-width: 0;
+  outline: none;
+  padding: 12px 0;
+}
+.feed-search input::placeholder {
+  color: var(--color-text-muted);
+}
+.feed-search input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+.feed-search-clear {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  flex: none;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+.feed-search-clear:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+/* One scrolling row in the feed, bleeding to the screen edges. */
+.category-chips {
+  display: flex;
+  gap: 8px;
+  margin: 0 calc(-1 * var(--page-gutter));
+  overflow-x: auto;
+  padding: 2px var(--page-gutter);
+  scroll-padding-inline: var(--page-gutter);
+  scrollbar-width: none;
+}
+.category-chips::-webkit-scrollbar {
+  display: none;
+}
+/* In the create wizard the chips wrap instead. */
+.category-chips.category-chips-wrap {
+  flex-wrap: wrap;
+  margin: 0;
+  overflow: visible;
+  padding: 0;
+}
+.category-chip {
+  align-items: center;
+  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text);
+  cursor: pointer;
+  display: inline-flex;
+  flex: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  position: relative;
+  transition-duration: 150ms;
+  transition-property: background-color, border-color, color;
+  transition-timing-function: ease-out;
+  white-space: nowrap;
+}
+/* A 44px touch target without a taller pill. */
+.category-chip::before {
+  content: "";
+  inset: -2px 0;
+  position: absolute;
+}
+.category-chip svg {
+  color: var(--color-primary);
+  flex: none;
+}
+.category-chip.selected {
+  background: var(--action-primary-bg);
+  border-color: transparent;
+  color: var(--action-primary-fg);
+}
+.category-chip.selected svg {
+  color: currentColor;
+}
+.category-chip:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+.category-badge {
+  align-items: center;
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-full);
+  color: var(--color-on-primary-soft);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 4px;
+  justify-self: start;
+  line-height: 1;
+  padding: 5px 10px;
+}
+/* The previous results stay visible, dimmed, while a new filter loads. */
+.public-meeting-list {
+  transition: opacity 150ms ease-out;
+}
+.public-meeting-list[aria-busy="true"] {
+  opacity: 0.6;
+}
+.category-picker {
+  border: 0;
+  display: grid;
+  gap: 10px;
+  margin: 4px 0 0;
+  min-width: 0;
+  padding: 0;
+}
+.category-picker legend {
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 800;
+  margin-bottom: 10px;
+  padding: 0;
+}
+.category-picker legend span {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  margin-left: 6px;
+}

@@ -1,4 +1,5 @@
 import type { Status } from "./domain.ts";
+import type { Category } from "./categories.ts";
 import { DEFAULT_TIME_ZONE } from "./cities.ts";
 
 export type JoinRequestStatus = "none" | "pending" | "approved" | "rejected";
@@ -14,6 +15,7 @@ export type PublicEventPreview = {
   participantCount: number;
   maxParticipants: number | null;
   joinRequestStatus: JoinRequestStatus;
+  category: Category | null;
 };
 
 type PreviewEvent = {
@@ -125,6 +127,7 @@ export function buildPublicEventPreview(input: {
   participantExists: boolean;
   requestStatus: string | null | undefined;
   timeZone?: string;
+  category?: Category | null;
 }): PublicEventPreview {
   return {
     id: input.event.id,
@@ -143,5 +146,6 @@ export function buildPublicEventPreview(input: {
       input.participantExists,
       input.requestStatus,
     ),
+    category: input.category ?? null,
   };
 }

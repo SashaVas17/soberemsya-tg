@@ -22,6 +22,8 @@ export type CreateWizardDraft = {
   maxParticipants: number | null;
   timeOptions: string[];
   places: PlaceDraft[];
+  /** Optional meeting category id; null when none is chosen. */
+  category?: string | null;
 };
 
 export type CreateEventPayload = {
@@ -32,6 +34,7 @@ export type CreateEventPayload = {
   maxParticipants: number | null;
   timeOptions: string[];
   placeOptions: PlaceDraft[];
+  category?: string;
 };
 
 export type CreateEventRequest = CreateEventPayload & { clientRequestId: string };
@@ -75,6 +78,9 @@ export function createEventPayload(
       draft.visibility === "private" ? null : draft.maxParticipants,
     timeOptions: draft.timeOptions,
     placeOptions: draft.places.filter((place) => place.title.trim()),
+    // Sent only when chosen: a payload without a category keeps the same
+    // idempotency fingerprint and server request hash as before categories.
+    ...(draft.category ? { category: draft.category } : {}),
   };
 }
 
