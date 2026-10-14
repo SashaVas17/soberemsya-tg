@@ -1,9 +1,12 @@
 import type { MeetingListItem } from "./types";
 
+// Five slots keep the create button in the middle: two tabs, create, two tabs.
+// shortLabel is shown under the icon; label is the full accessible name.
 export const bottomNavigationItems = [
-  { id: "home", label: "Главная", path: "/" },
-  { id: "open", label: "Открытые встречи", path: "/open" },
-  { id: "meetings", label: "Мои встречи", path: "/my-events" },
+  { id: "home", label: "Главная", shortLabel: "Главная", path: "/" },
+  { id: "open", label: "Открытые встречи", shortLabel: "Открытые", path: "/open" },
+  { id: "map", label: "Карта", shortLabel: "Карта", path: "/map" },
+  { id: "meetings", label: "Мои встречи", shortLabel: "Мои", path: "/my-events" },
 ] as const;
 
 export type BottomNavigationPath =

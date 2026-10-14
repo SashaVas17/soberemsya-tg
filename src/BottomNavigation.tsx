@@ -1,10 +1,17 @@
 import { Fragment } from "react";
-import { CalendarDays, Compass, House, Plus } from "lucide-react";
+import { CalendarDays, Compass, House, MapIcon, Plus } from "lucide-react";
 import {
   bottomNavigationItems,
   isBottomNavigationSelected,
   navigateToBottomItem,
 } from "./navigation";
+
+const navigationIcons = {
+  home: House,
+  open: Compass,
+  map: MapIcon,
+  meetings: CalendarDays,
+} as const;
 
 export function BottomNavigation({
   currentPath,
@@ -18,8 +25,7 @@ export function BottomNavigation({
       <div className="bottom-navigation-inner">
         {bottomNavigationItems.map((item, index) => {
           const selected = isBottomNavigationSelected(currentPath, item.path);
-          const Icon =
-            item.id === "home" ? House : item.id === "open" ? Compass : CalendarDays;
+          const Icon = navigationIcons[item.id];
           return (
             <Fragment key={item.id}>
               {index === 2 && (
@@ -29,17 +35,18 @@ export function BottomNavigation({
                   onClick={() => navigate("/create")}
                   type="button"
                 >
-                  <Plus aria-hidden="true" size={26} strokeWidth={2.4} />
+                  <Plus aria-hidden="true" size={24} strokeWidth={2.2} />
                 </button>
               )}
               <button
                 aria-current={selected ? "page" : undefined}
+                aria-label={item.label === item.shortLabel ? undefined : item.label}
                 className={`bottom-navigation-item ${selected ? "selected" : ""}`}
                 onClick={() => navigateToBottomItem(item.path, navigate)}
                 type="button"
               >
-                <Icon aria-hidden="true" size={23} strokeWidth={2} />
-                <span>{item.label}</span>
+                <Icon aria-hidden="true" size={22} strokeWidth={2} />
+                <span>{item.shortLabel}</span>
               </button>
             </Fragment>
           );
