@@ -5,48 +5,41 @@
   "showAttachments": false,
   "hideUnresolved": false,
   "showOrphans": true,
-  "collapse-color-groups": false,
+  "collapse-color-groups": true,
   "colorGroups": [
     {
-      "query": "path:",
+      "query": "path: notes",
       "color": {
         "a": 1,
         "rgb": 2805566
       }
     },
     {
-      "query": "line:()",
+      "query": "*",
       "color": {
         "a": 1,
-        "rgb": 14429742
+        "rgb": 8210681
       }
     },
     {
-      "query": "file:",
+      "query": "path:inbox  ",
       "color": {
         "a": 1,
-        "rgb": 2390742
+        "rgb": 13964565
       }
     },
     {
-      "query": "tag:",
+      "query": "path:assets  ",
       "color": {
         "a": 1,
-        "rgb": 14667818
+        "rgb": 14992903
       }
     },
     {
-      "query": "section:()",
+      "query": "path:templates  ",
       "color": {
         "a": 1,
-        "rgb": 16384217
-      }
-    },
-    {
-      "query": "[]",
-      "color": {
-        "a": 1,
-        "rgb": 9717474
+        "rgb": 28415
       }
     }
   ],
@@ -60,6 +53,6 @@
   "repelStrength": 10,
   "linkStrength": 1,
   "linkDistance": 250,
-  "scale": 1.4016406861613215,
+  "scale": 1.1020251048037173,
   "close": true
 }
