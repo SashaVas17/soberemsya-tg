@@ -129,3 +129,13 @@ test("organizer chooses a category and the open feed shows it", async ({ page })
   await page.getByRole("button", { name: "Настолки", exact: true }).click();
   await expect(card).toBeVisible();
 });
+
+test("organizer changes the meeting category", async ({ page }) => {
+  await page.goto("./#/manage/evt_demo");
+  const meta = page.locator(".manage-intro .event-meta");
+  await expect(meta.getByText("Бар", { exact: true })).toBeVisible();
+  await page.locator(".category-picker").getByRole("button", { name: "Кино" }).click();
+  await expect(meta.getByText("Кино", { exact: true })).toBeVisible();
+  await page.locator(".category-picker").getByRole("button", { name: "Кино" }).click();
+  await expect(meta.getByText("Кино", { exact: true })).toHaveCount(0);
+});

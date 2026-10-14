@@ -848,3 +848,7 @@ h1 {
   font-weight: 600;
   margin-left: 6px;
 }
+.category-chip:disabled {
+  cursor: default;
+  opacity: 0.6;
+}

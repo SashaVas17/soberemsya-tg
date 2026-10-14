@@ -430,6 +430,11 @@ export const mockApi = {
     return mockNotificationSettings;
   },
   manage: async (_id: string, payload: any) => {
+    if (payload.action === "set_category") {
+      if (payload.category !== null && !mockCategories.some((category) => category.id === payload.category))
+        throw new Error("Эта категория недоступна.");
+      mockEventCategoryId = payload.category;
+    }
     if (payload.action === "update_details")
       event = {
         ...event,
