@@ -57,6 +57,10 @@ Telegram Mini App для организации встреч **Flockly** (бот
   Обходы: `create or replace trigger` вместо `drop trigger` + `create trigger`; каждый `delete` — в отдельной
   функции без `raise`. Тест в `tests/notifications.test.ts` проверяет это для новых миграций.
 - Порядок релиза: миграции → Edge Functions → фронтенд; каждый шаг обратно совместим.
+- Новые таблицы в этом проекте **не** дают `service_role` прав на данные (default ACL — только
+  TRUNCATE/REFERENCES/TRIGGER). Если функция читает таблицу напрямую (`db.from(...)`), в миграции нужен явный
+  `grant select ... to service_role` (запись — только если нужна). Проверяет `tests/service-role-grants.test.ts`;
+  после релиза — проверить права `has_table_privilege('service_role', ...)` и логи функций на 5xx.
 - Никакого фиктивного exactly-once для сообщений Telegram: доставка at-least-once, это документируется.
 - Тексты для пользователей — нейтрально, на «вы».
 
