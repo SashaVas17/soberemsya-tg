@@ -1,3 +1,5 @@
+import { DEFAULT_TIME_ZONE } from "./cities.ts";
+
 export type NotificationKind =
   | "response_each"
   | "response_summary"
@@ -19,7 +21,9 @@ export type NotificationMessage = {
 
 type Payload = Record<string, unknown>;
 
-const timeZone = "Europe/Minsk";
+// All active cities share Minsk time for now; per-city zones here come with
+// the first city outside it (Stage 4).
+const timeZone = DEFAULT_TIME_ZONE;
 const whenFormatter = new Intl.DateTimeFormat("ru-RU", {
   weekday: "long",
   day: "numeric",
