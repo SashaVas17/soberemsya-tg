@@ -10,6 +10,7 @@ import { NotificationSettingsScreen } from "./screens/NotificationSettingsScreen
 import { SessionExpired, OutsideTelegram } from "./screens/SystemScreens";
 import { Home } from "./screens/Home";
 import { PublicMeetings } from "./screens/PublicMeetings";
+import { MapScreen } from "./screens/MapScreen";
 import { CreateEvent } from "./screens/CreateEvent";
 import type { CreatedGroup } from "./app-types";
 import { Created } from "./screens/Created";
@@ -124,6 +125,7 @@ export default function App() {
       />
     );
   if (path === "/open") return <PublicMeetings navigate={navigate} onBack={goBack} />;
+  if (path === "/map") return <MapScreen navigate={navigate} onBack={goBack} />;
   if (path === "/my-events") return <MyEvents navigate={navigate} onBack={goBack} />;
   if (path === "/settings") return <NotificationSettingsScreen navigate={navigate} onBack={goBack} />;
   if (path === "/admin/stats" && auth.isAdmin) return <AdminStatsScreen navigate={navigate} onBack={goBack} />;
