@@ -73,6 +73,7 @@ type EventDataBase = {
   status: EventStatus;
   finalPlaceId: string | null;
   finalTimeOptionId: string | null;
+  category?: MeetingCategory | null;
   timeOptions: TimeOption[];
   placeOptions: PlaceOption[];
 };

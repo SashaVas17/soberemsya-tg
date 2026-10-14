@@ -115,3 +115,11 @@ describe("mock feed filters", () => {
     expect((await mockApi.categories()).categories.map((category) => category.id)).toContain("outdoor");
   });
 });
+
+describe("category on the meeting screens", () => {
+  it("resolves the category in the payload and shows it to participants and the organizer", () => {
+    const backend = readFileSync("supabase/functions/telegram-api/index.ts", "utf8");
+    expect(backend).toContain("category: categoryById(categories, event.category_id),");
+    expect(appSource.match(/\{event\.category && <CategoryBadge category=\{event\.category\} \/>\}/g)).toHaveLength(2);
+  });
+});

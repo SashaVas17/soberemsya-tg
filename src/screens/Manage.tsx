@@ -15,6 +15,7 @@ import {
   RetryState,
   EmptyState,
   StatusBadge,
+  CategoryBadge,
   Refresh,
 } from "../ui/common";
 import { useEvent } from "../app-hooks";
@@ -159,6 +160,7 @@ export function Manage({
         <div className="event-meta">
           <StatusBadge status={event.status} />
           {event.visibility === "public" && <span className="visibility-badge">Открытая</span>}
+          {event.category && <CategoryBadge category={event.category} />}
           <span>
             {plural(
               event.participants.length,

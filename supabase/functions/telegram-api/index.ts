@@ -249,10 +249,11 @@ async function eventPayload(
   viewerRole?: EventViewerRole,
 ) {
   const event = loadedEvent ?? await loadFullEventRow(eventId);
-  const [{ data: times, error: timeError }, { data: places, error: placeError }, { data: people, error: peopleError }] = await Promise.all([
+  const [{ data: times, error: timeError }, { data: places, error: placeError }, { data: people, error: peopleError }, categories] = await Promise.all([
     db.from("time_options").select("id,starts_at").eq("event_id", eventId).order("starts_at"),
     db.from("place_options").select("id,title,area,estimated_budget").eq("event_id", eventId),
     db.from("participants").select("id,user_id,name,area,budget,preferences,restrictions").eq("event_id", eventId).order("created_at"),
+    loadCategories(),
   ]);
   if (timeError || placeError || peopleError) throw timeError ?? placeError ?? peopleError;
   const participantIds = (people ?? []).map((person) => person.id);
@@ -277,6 +278,7 @@ async function eventPayload(
     votes: votes ?? [],
     placeVotes: placeVotes ?? [],
     currentUserId: userId,
+    category: categoryById(categories, event.category_id),
   };
   if (role === "owner") return organizerEventPayload(source);
   if (role === "participant") return participantEventPayload(source);
