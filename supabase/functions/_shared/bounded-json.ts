@@ -28,8 +28,8 @@ function bodyTooLargeError() {
   );
 }
 
-function declaredContentLength(request: Request) {
-  const value = request.headers.get("content-length");
+function declaredContentLength(headers: Headers) {
+  const value = headers.get("content-length");
   if (!value || !/^\d+$/.test(value)) return null;
   const length = Number(value);
   return Number.isSafeInteger(length) ? length : null;
@@ -45,15 +45,19 @@ function joinChunks(chunks: Uint8Array[], length: number) {
   return body;
 }
 
-export async function readJsonObject(
-  request: Request,
+/** Reads a request or response body, failing once it grows past maxBytes. */
+export async function readBoundedBytes(
+  message: Request | Response,
   maxBytes: number,
-): Promise<Record<string, unknown>> {
-  const contentLength = declaredContentLength(request);
-  if (contentLength !== null && contentLength > maxBytes) throw bodyTooLargeError();
-
-  if (!request.body) throw invalidJsonError();
-  const reader = request.body.getReader();
+  tooLarge: () => Error,
+): Promise<Uint8Array> {
+  const contentLength = declaredContentLength(message.headers);
+  if (contentLength !== null && contentLength > maxBytes) {
+    await message.body?.cancel();
+    throw tooLarge();
+  }
+  if (!message.body) return new Uint8Array(0);
+  const reader = message.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
   try {
@@ -63,19 +67,26 @@ export async function readJsonObject(
       total += value.byteLength;
       if (total > maxBytes) {
         await reader.cancel();
-        throw bodyTooLargeError();
+        throw tooLarge();
       }
       chunks.push(value);
     }
   } finally {
     reader.releaseLock();
   }
+  return joinChunks(chunks, total);
+}
+
+export async function readJsonObject(
+  request: Request,
+  maxBytes: number,
+): Promise<Record<string, unknown>> {
+  // A missing body reads as empty and fails as invalid JSON below.
+  const body = await readBoundedBytes(request, maxBytes, bodyTooLargeError);
 
   let parsed: unknown;
   try {
-    const text = new TextDecoder("utf-8", { fatal: true }).decode(
-      joinChunks(chunks, total),
-    );
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(body);
     if (!text.trim()) throw new SyntaxError();
     parsed = JSON.parse(text);
   } catch {

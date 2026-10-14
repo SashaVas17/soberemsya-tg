@@ -33,6 +33,11 @@ tags: [flockly, бэкенд, api]
 | GET | `/public/events` | Лента открытых встреч города пользователя; `?category=<id>` и `?q=<текст>` (поиск по названию, до 80 символов); в ответе также `city`, `cities`, `categories`, у карточек — `category` |
 | GET | `/categories` | Активные категории встреч (для мастера создания) |
 | GET | `/admin/stats` | Статистика (только администратор) |
+| GET | `/venues` | Каталог мест города пользователя (только опубликованные): `?category=<id>`, `?q=<текст>`, `?budget=<BYN>` (уровни цен, которые начинаются не дороже бюджета; места без уровня подходят всегда), `?offset=` (по 30, до 1000). Порядок: «Рекомендуем», затем по названию. В ответе — `items`, `nextOffset`, `city`, `categories` |
+| GET, POST | `/admin/venues` | Места на курации `?status=pending\|published\|hidden` с теми же фильтрами (в ответе ещё `importCategories`); POST `{ categoryId, name, address?, priceLevel?, website? }` — добавить место вручную (сразу опубликовано) |
+| PATCH | `/admin/venues/:id` | `{ status, categoryId, priceLevel, featured }` — все поля курации сразу |
+| POST | `/admin/venues/publish` | `{ ids }` (до 200) — опубликовать новые места |
+| POST | `/admin/venues/import` | `{ categoryId }` — загрузить категорию из OpenStreetMap (Overpass) для города администратора: новые — в «Новые», известные — обновляются OSM-поля. Ответ `{ found, inserted, updated }`; OSM недоступен — 503 |
 | POST | `/events/:id/report` | Жалоба `{ reason, comment?, participantId?, requestId? }`: без id — на встречу и её организатора, с `participantId`/`requestId` — на участника/автора заявки (только организатор). Повтор — 200 `alreadyReported` |
 | POST | `/events/:id/block` | Заблокировать организатора (без id) или участника/автора заявки (`participantId`/`requestId`, только организатор) |
 | GET | `/me/blocks` | Кого заблокировал пользователь |
@@ -47,5 +52,7 @@ tags: [flockly, бэкенд, api]
 ограниченному администратором пользователю открытые встречи и заявки — 403 `USER_RESTRICTED`. Скрытая
 встреча и встреча человека, с которым есть блокировка (в любую сторону), не видны в ленте и превью
 (для посторонних — 404), заявка на неё отклоняется как на недоступную.
+
+Маршруты `/admin/venues*` — только администратору, остальным 404 (как и прочие `/admin/*`).
 
 Источник: `allowedMethods()` в `supabase/functions/telegram-api/index.ts`; логика — в `_shared/`.

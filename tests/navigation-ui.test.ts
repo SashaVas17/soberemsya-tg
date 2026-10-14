@@ -24,18 +24,18 @@ const meeting: MeetingListItem = {
 };
 
 describe("primary frontend navigation", () => {
-  it("contains exactly Home, Open Meetings, Map and My Meetings", () => {
+  it("contains exactly Home, Open Meetings, Places and My Meetings", () => {
     expect(bottomNavigationItems).toHaveLength(4);
     expect(bottomNavigationItems.map((item) => item.label)).toEqual([
       "Главная",
       "Открытые встречи",
-      "Карта",
+      "Куда сходить",
       "Мои встречи",
     ]);
     expect(bottomNavigationItems.map((item) => item.shortLabel)).toEqual([
       "Главная",
       "Открытые",
-      "Карта",
+      "Места",
       "Мои",
     ]);
     expect(bottomNavigationItems.map((item) => item.label)).not.toEqual(
@@ -46,12 +46,12 @@ describe("primary frontend navigation", () => {
   it("navigates between all persistent tabs through existing paths", () => {
     const navigate = vi.fn();
     navigateToBottomItem("/open", navigate);
-    navigateToBottomItem("/map", navigate);
+    navigateToBottomItem("/places", navigate);
     navigateToBottomItem("/my-events", navigate);
     navigateToBottomItem("/", navigate);
     expect(navigate.mock.calls).toEqual([
       ["/open"],
-      ["/map"],
+      ["/places"],
       ["/my-events"],
       ["/"],
     ]);
@@ -64,8 +64,8 @@ describe("primary frontend navigation", () => {
     expect(isBottomNavigationSelected("/open", "/open")).toBe(true);
     expect(isBottomNavigationSelected("/open", "/")).toBe(false);
     expect(isBottomNavigationSelected("/my-events", "/my-events")).toBe(true);
-    expect(isBottomNavigationSelected("/map", "/map")).toBe(true);
-    expect(isBottomNavigationSelected("/map", "/open")).toBe(false);
+    expect(isBottomNavigationSelected("/places", "/places")).toBe(true);
+    expect(isBottomNavigationSelected("/places", "/open")).toBe(false);
   });
 
   it("keeps the create button in the middle of five slots", () => {
@@ -75,7 +75,7 @@ describe("primary frontend navigation", () => {
     expect(sunset).toContain(
       "grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 56px minmax(0, 1fr) minmax(0, 1fr);",
     );
-    expect(readAppSource()).toContain('path === "/map"');
+    expect(readAppSource()).toContain('path === "/places"');
   });
 
   it("opens owner and participant meetings through stable routes", () => {
