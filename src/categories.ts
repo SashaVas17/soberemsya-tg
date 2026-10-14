@@ -8,6 +8,7 @@ import {
   Music,
   Sparkles,
   Tag,
+  UtensilsCrossed,
   Wine,
   type LucideIcon,
 } from "lucide-react";
@@ -16,6 +17,7 @@ import {
 // picks an icon. A category added later shows the generic tag icon.
 const categoryIcons: Record<string, LucideIcon> = {
   coffee: Coffee,
+  food: UtensilsCrossed,
   bar: Wine,
   sport: Dumbbell,
   boardgames: Dices,

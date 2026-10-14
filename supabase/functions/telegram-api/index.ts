@@ -51,6 +51,7 @@ import {
   citiesFromRows,
   type CityRow,
   parseCityId,
+  publicCity,
   requireActiveCity,
   resolveUserCity,
   userCityResponse,
@@ -76,6 +77,32 @@ import {
   previewHiddenFromViewer,
   restrictionHttpError,
 } from "../_shared/moderation.ts";
+import {
+  adminVenueResponse,
+  chunk,
+  nextVenueOffset,
+  OVERPASS_MAX_RESPONSE_BYTES,
+  OVERPASS_URL,
+  overpassFailed,
+  overpassQuery,
+  overpassTruncated,
+  osmImportCategories,
+  parseOsmImportRequest,
+  parseVenueCreate,
+  parseVenueId,
+  parseVenueIds,
+  parseVenueListFilters,
+  parseVenueStatus,
+  parseVenueUpdate,
+  readBoundedJson,
+  VENUE_COLUMNS,
+  VENUE_PAGE_SIZE,
+  venueHttpError,
+  venueResponse,
+  venuesFromOverpass,
+  type VenueListFilters,
+  type VenueRow,
+} from "../_shared/venues.ts";
 
 type Db = ReturnType<typeof createAdminClient>;
 type AppUser = { id: string; telegram_user_id: string; username: string | null; first_name: string; last_name: string | null; photo_url: string | null };
@@ -1310,6 +1337,188 @@ async function adminBanUser(userId: string, action: string, auth: AuthContext) {
   return json({ banned: data?.banned ?? false, hiddenEvents: data?.hidden_events ?? 0 });
 }
 
+// Stage 2.3 ---------------------------------------------------------------
+
+async function viewerCity(userId: string) {
+  const [cities, cityId] = await Promise.all([loadCities(), loadUserCityId(userId)]);
+  return resolveUserCity(cities, cityId);
+}
+
+type VenueQuery = {
+  cityId: string;
+  status: string;
+  filters: VenueListFilters;
+  /** People see only venues of active categories, curated picks first. */
+  categoryIds?: string[];
+  featuredFirst: boolean;
+};
+
+// One row more than a page tells whether another page exists. The curation
+// list is ordered by name only: marking a pick must not move rows between
+// pages the administrator is paging through.
+async function venueRows({ cityId, status, filters, categoryIds, featuredFirst }: VenueQuery) {
+  let query = db.from("venues").select(VENUE_COLUMNS).eq("city_id", cityId).eq("status", status);
+  if (filters.categoryId) query = query.eq("category_id", filters.categoryId);
+  if (categoryIds) query = query.in("category_id", categoryIds);
+  if (filters.search) query = query.ilike("name", titleSearchPattern(filters.search));
+  if (filters.maxPriceLevel !== null)
+    query = query.or(`price_level.is.null,price_level.lte.${filters.maxPriceLevel}`);
+  if (featuredFirst) query = query.order("featured", { ascending: false });
+  const { data, error } = await query
+    .order("name")
+    .order("id")
+    .range(filters.offset, filters.offset + VENUE_PAGE_SIZE);
+  if (error) throw error;
+  const rows = (data ?? []) as unknown as VenueRow[];
+  return { rows: rows.slice(0, VENUE_PAGE_SIZE), nextOffset: nextVenueOffset(filters.offset, rows.length) };
+}
+
+async function venues(request: Request, auth: AuthContext) {
+  const filters = parseVenueListFilters(new URL(request.url).searchParams);
+  const [city, categories] = await Promise.all([viewerCity(auth.user.id), loadCategories()]);
+  const { rows, nextOffset } = await venueRows({
+    cityId: city.id,
+    status: "published",
+    filters,
+    categoryIds: categories.map((category) => category.id),
+    featuredFirst: true,
+  });
+  return json({ items: rows.map(venueResponse), nextOffset, city: publicCity(city), categories });
+}
+
+async function adminVenues(request: Request, auth: AuthContext) {
+  if (!isAdmin(auth)) return adminNotFound();
+  if (request.method === "POST") return await adminCreateVenue(request, auth);
+  const params = new URL(request.url).searchParams;
+  const status = parseVenueStatus(params.get("status") ?? "pending");
+  const filters = parseVenueListFilters(params);
+  const [city, categories] = await Promise.all([viewerCity(auth.user.id), loadCategories()]);
+  const { rows, nextOffset } = await venueRows({ cityId: city.id, status, filters, featuredFirst: false });
+  return json({
+    items: rows.map(adminVenueResponse),
+    nextOffset,
+    city: publicCity(city),
+    categories,
+    importCategories: osmImportCategories(),
+  });
+}
+
+async function adminCreateVenue(request: Request, auth: AuthContext) {
+  const input = parseVenueCreate(await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES));
+  const city = await viewerCity(auth.user.id);
+  const { data, error } = await db.rpc("admin_create_venue", {
+    p_admin_user_id: auth.user.id,
+    p_city_id: city.id,
+    p_category_id: input.categoryId,
+    p_name: input.name,
+    p_address: input.address,
+    p_price_level: input.priceLevel,
+    p_website: input.website,
+  }).single<{ venue_id: string }>();
+  if (error) {
+    logModerationRpcError("admin_create_venue_rpc_failed", error);
+    throw venueHttpError(error);
+  }
+  return json({ venueId: data?.venue_id ?? null }, 201);
+}
+
+async function adminUpdateVenue(request: Request, venueId: string, auth: AuthContext) {
+  if (!isAdmin(auth)) return adminNotFound();
+  const id = parseVenueId(venueId);
+  const update = parseVenueUpdate(await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES));
+  const { error } = await db.rpc("admin_update_venue", {
+    p_admin_user_id: auth.user.id,
+    p_venue_id: id,
+    p_status: update.status,
+    p_category_id: update.categoryId,
+    p_price_level: update.priceLevel,
+    p_featured: update.featured,
+  }).single<{ venue_id: string }>();
+  if (error) {
+    logModerationRpcError("admin_update_venue_rpc_failed", error);
+    throw venueHttpError(error);
+  }
+  return json({ updated: true });
+}
+
+async function adminPublishVenues(request: Request, auth: AuthContext) {
+  if (!isAdmin(auth)) return adminNotFound();
+  const ids = parseVenueIds(await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES));
+  const { data, error } = await db.rpc("admin_publish_venues", {
+    p_admin_user_id: auth.user.id,
+    p_venue_ids: ids,
+  }).single<{ published: number }>();
+  if (error) {
+    logModerationRpcError("admin_publish_venues_rpc_failed", error);
+    throw venueHttpError(error);
+  }
+  return json({ published: data?.published ?? 0 });
+}
+
+const osmUnavailable = () =>
+  Object.assign(new Error("OpenStreetMap сейчас не отвечает. Попробуйте через несколько минут."), { status: 503 });
+
+async function fetchOverpass(query: string) {
+  let response: Response;
+  try {
+    response = await fetch(OVERPASS_URL, {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/x-www-form-urlencoded",
+        "user-agent": `Flockly/1.0 (https://t.me/${botUsername})`,
+      },
+      body: new URLSearchParams({ data: query }),
+      signal: AbortSignal.timeout(110_000),
+    });
+  } catch (error) {
+    console.error("overpass_request_failed", error instanceof Error ? error.name : "unknown");
+    throw osmUnavailable();
+  }
+  if (!response.ok) {
+    await response.body?.cancel();
+    console.error("overpass_status", response.status);
+    throw osmUnavailable();
+  }
+  let answer: unknown;
+  try {
+    answer = await readBoundedJson(response, OVERPASS_MAX_RESPONSE_BYTES);
+  } catch (error) {
+    console.error("overpass_body_failed", error instanceof Error ? error.message : "unknown");
+    throw osmUnavailable();
+  }
+  if (overpassFailed(answer)) {
+    console.error("overpass_remark");
+    throw osmUnavailable();
+  }
+  return answer;
+}
+
+// Imports one category of the administrator's city: new venues wait for
+// curation, known ones get fresh OSM fields.
+async function adminImportVenues(request: Request, auth: AuthContext) {
+  if (!isAdmin(auth)) return adminNotFound();
+  const body = await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES);
+  const [city, categories] = await Promise.all([viewerCity(auth.user.id), loadCategories()]);
+  const { categoryId } = parseOsmImportRequest(body, city.id);
+  if (!categoryById(categories, categoryId)) throw venueHttpError({ code: "P0001", message: "VENUE_CATEGORY_INVALID" });
+  const answer = await fetchOverpass(overpassQuery(city.id, categoryId));
+  const items = venuesFromOverpass(answer, categoryId);
+  let inserted = 0;
+  let updated = 0;
+  for (const part of chunk(items, 500)) {
+    const { data, error } = await db.rpc("admin_import_venues", { p_city_id: city.id, p_items: part })
+      .single<{ inserted: number; updated: number }>();
+    if (error) {
+      logModerationRpcError("admin_import_venues_rpc_failed", error);
+      throw venueHttpError(error);
+    }
+    inserted += data?.inserted ?? 0;
+    updated += data?.updated ?? 0;
+  }
+  return json({ found: items.length, inserted, updated, truncated: overpassTruncated(answer) });
+}
+
 function apiPath(url: URL) {
   const segments = url.pathname.split("/").filter(Boolean);
   const functionIndex = segments.lastIndexOf("telegram-api");
@@ -1329,6 +1538,10 @@ function allowedMethods(path: string) {
   if (/^\/admin\/reports\/[^/]+\/(resolve|dismiss)$/.test(path)) return ["POST"];
   if (/^\/admin\/events\/[^/]+\/(hide|unhide)$/.test(path)) return ["POST"];
   if (/^\/admin\/users\/[^/]+\/(ban|unban)$/.test(path)) return ["POST"];
+  if (path === "/venues") return ["GET"];
+  if (path === "/admin/venues") return ["GET", "POST"];
+  if (path === "/admin/venues/import" || path === "/admin/venues/publish") return ["POST"];
+  if (/^\/admin\/venues\/[^/]+$/.test(path)) return ["PATCH"];
   if (path === "/me/blocks") return ["GET"];
   if (/^\/me\/blocks\/[^/]+$/.test(path)) return ["DELETE"];
   if (path === "/me/community-rules") return ["POST"];
@@ -1399,6 +1612,12 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
   if (path === "/admin/stats") return await adminStats(auth);
   if (path === "/public/events") return await publicEvents(request, auth);
   if (path === "/admin/reports") return await adminReports(request, auth);
+  if (path === "/venues") return await venues(request, auth);
+  if (path === "/admin/venues") return await adminVenues(request, auth);
+  if (path === "/admin/venues/import") return await adminImportVenues(request, auth);
+  if (path === "/admin/venues/publish") return await adminPublishVenues(request, auth);
+  const adminVenueMatch = path.match(/^\/admin\/venues\/([^/]+)$/);
+  if (adminVenueMatch) return await adminUpdateVenue(request, decodeURIComponent(adminVenueMatch[1]), auth);
   if (path === "/me/blocks") return await blockedUsers(auth);
   if (path === "/me/community-rules") return await acceptCommunityRules(auth);
   const unblockMatch = path.match(/^\/me\/blocks\/([^/]+)$/);

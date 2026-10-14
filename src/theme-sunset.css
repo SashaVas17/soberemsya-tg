@@ -178,12 +178,6 @@ h1 {
     transition: none;
   }
 }
-.map-soon .compact-action {
-  align-items: center;
-  display: inline-flex;
-  gap: 8px;
-  margin-top: var(--space-md);
-}
 .bottom-navigation-create:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 3px;
@@ -851,4 +845,255 @@ h1 {
 .category-chip:disabled {
   cursor: default;
   opacity: 0.6;
+}
+
+/* Stage 2.3: venue catalogue ------------------------------------------- */
+.venue-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.venue-featured-badge {
+  align-items: center;
+  background: color-mix(in srgb, var(--accent-warm) 22%, var(--color-surface));
+  border-radius: var(--radius-full);
+  color: var(--color-text);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 4px;
+  line-height: 1;
+  padding: 5px 10px;
+}
+.venue-featured-badge svg {
+  color: var(--accent-warm);
+}
+.venue-meta {
+  color: var(--color-text-secondary);
+  display: grid;
+  font-size: 14px;
+  gap: 6px;
+}
+.venue-meta > span {
+  align-items: flex-start;
+  display: flex;
+  gap: 6px;
+  overflow-wrap: anywhere;
+}
+.venue-meta svg {
+  margin-top: 2px;
+}
+/* One row: the main action stretches, the link keeps its width. */
+.venue-card-actions {
+  display: grid;
+  gap: var(--space-sm);
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.venue-card-actions > :only-child {
+  grid-column: 1 / -1;
+}
+.venue-card-actions button {
+  font-size: 15px;
+  gap: 6px;
+  justify-content: center;
+  min-height: 44px;
+  padding-inline: 12px;
+  white-space: nowrap;
+  width: 100%;
+}
+.admin-venue-section .compact-action {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  width: auto;
+}
+.osm-attribution {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  margin: var(--space-md) 0 0;
+  text-align: center;
+}
+.osm-attribution a {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+.venue-picker {
+  border-top: 1px solid var(--glass-border);
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding-top: var(--space-md);
+}
+.venue-picker[aria-busy="true"] .venue-picker-list {
+  opacity: 0.6;
+}
+.venue-picker-heading h3 {
+  font-size: 16px;
+  margin: 0 0 4px;
+}
+.venue-picker-heading p {
+  margin: 0;
+}
+.venue-picker-list {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  transition: opacity 150ms ease-out;
+}
+.venue-pick {
+  align-items: center;
+  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: var(--space-sm);
+  justify-content: space-between;
+  min-height: 52px;
+  padding: 8px 12px;
+  text-align: left;
+  transition-duration: 150ms;
+  transition-property: background-color, border-color, transform;
+  transition-timing-function: ease-out;
+  width: 100%;
+}
+.venue-pick:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.venue-pick:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+.venue-pick.added {
+  border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+  cursor: default;
+}
+.venue-pick-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.venue-pick-text strong {
+  align-items: center;
+  display: inline-flex;
+  font-size: 15px;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+.venue-pick-text small {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.venue-pick-star {
+  color: var(--accent-warm);
+  flex: none;
+}
+.venue-pick-icon {
+  align-items: center;
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-full);
+  color: var(--color-on-primary-soft);
+  display: inline-flex;
+  flex: none;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+.venue-pick.added .venue-pick-icon {
+  background: var(--action-primary-bg);
+  color: var(--action-primary-fg);
+}
+.venue-picker-more {
+  justify-self: start;
+  width: auto;
+}
+.admin-venue-section summary {
+  cursor: pointer;
+  font-weight: 700;
+  min-height: 44px;
+  padding: 10px 0;
+}
+.admin-venue-section[open] summary {
+  margin-bottom: var(--space-sm);
+}
+.admin-venue-import,
+.admin-venue-form,
+.admin-venue-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.admin-venue-import-log {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+  padding-left: 18px;
+}
+.admin-venue-heading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+.admin-venue-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+.text-link-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--color-primary);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 14px;
+  gap: 4px;
+  min-height: 44px;
+  padding: 0;
+}
+.admin-venue-fields {
+  display: grid;
+  gap: var(--space-sm);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.admin-venue-fields select {
+  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 15px;
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 10px;
+}
+.admin-venue-featured {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-height: 44px;
+}
+.admin-venue-featured input {
+  accent-color: var(--color-primary);
+  height: 20px;
+  width: 20px;
+}
+.admin-venue-done {
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .venue-pick,
+  .venue-picker-list {
+    transition: none;
+  }
 }

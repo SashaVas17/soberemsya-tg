@@ -9,7 +9,12 @@ import type {
   PublicMeetingFeedItem,
   ReportStatus,
   UserCity,
+  AdminVenue,
+  VenueDraft,
+  VenuePriceLevel,
+  VenueStatus,
 } from "./types";
+import { maxPriceLevelForBudget, type VenueFilters } from "./venues";
 import type { ModerationTarget } from "./moderation";
 import { normalizeFeedSearch, type PublicFeedFilters } from "./public-feed";
 import { applyMockResponse, type MockVotingEvent } from "./participant-voting";
@@ -199,6 +204,7 @@ let mockCity: City = mockCities[0];
 // Same list as the meeting_categories migration.
 const mockCategories: MeetingCategory[] = [
   { id: "coffee", name: "Кофе" },
+  { id: "food", name: "Ресторан" },
   { id: "bar", name: "Бар" },
   { id: "sport", name: "Спорт" },
   { id: "boardgames", name: "Настолки" },
@@ -209,6 +215,39 @@ const mockCategories: MeetingCategory[] = [
   { id: "other", name: "Другое" },
 ];
 let mockEventCategoryId: string | null = "bar";
+
+const mockVenue = (
+  id: string, categoryId: string, name: string, address: string,
+  priceLevel: VenuePriceLevel | null, status: VenueStatus, extra: Partial<AdminVenue> = {},
+): AdminVenue => ({
+  id, categoryId, name, address, latitude: 53.9, longitude: 27.56, priceLevel,
+  website: null, openingHours: null, source: "osm",
+  osmUrl: `https://www.openstreetmap.org/node/${id.replace(/\D/g, "") || "1"}`,
+  featured: false, status, ...extra,
+});
+
+let mockVenues: AdminVenue[] = [
+  mockVenue("venue_1", "coffee", "Кофейня на Немиге", "улица Немига, 5", 1, "published", { featured: true, openingHours: "Mo-Su 08:00-22:00" }),
+  mockVenue("venue_2", "bar", "Бар у Ратуши", "площадь Свободы, 2", 2, "published", { website: "https://example.com" }),
+  mockVenue("venue_3", "food", "Ресторан «Старый город»", "улица Интернациональная, 21", 3, "published"),
+  mockVenue("venue_4", "walk", "Парк Горького", "улица Фрунзе, 2", null, "published"),
+  mockVenue("venue_5", "boardgames", "Игротека", "проспект Независимости, 40", 1, "published", { source: "manual", osmUrl: null }),
+  mockVenue("venue_6", "cinema", "Кинотеатр «Центральный»", "проспект Независимости, 13", 1, "published"),
+  mockVenue("venue_7", "bar", "Паб на Зыбицкой", "улица Зыбицкая, 6", 2, "pending"),
+  mockVenue("venue_8", "coffee", "Кофе с собой", "", null, "pending"),
+];
+
+function filterMockVenues(status: VenueStatus, filters: VenueFilters = {}) {
+  const search = normalizeFeedSearch(filters.q ?? "").toLocaleLowerCase("ru");
+  const maxLevel = filters.budget ? maxPriceLevelForBudget(filters.budget) : null;
+  return mockVenues
+    .filter((venue) =>
+      venue.status === status &&
+      (!filters.category || venue.categoryId === filters.category) &&
+      (!search || venue.name.toLocaleLowerCase("ru").includes(search)) &&
+      (maxLevel === null || venue.priceLevel === null || venue.priceLevel <= maxLevel))
+    .sort((left, right) => Number(right.featured) - Number(left.featured) || left.name.localeCompare(right.name, "ru"));
+}
 
 function mockEventCategory() {
   return mockCategories.find((category) => category.id === mockEventCategoryId) ?? null;
@@ -563,6 +602,47 @@ export const mockApi = {
       })),
     },
   }),
+  venues: async (filters?: VenueFilters, offset = 0) => ({
+    items: clone(filterMockVenues("published", filters).slice(offset, offset + 30))
+      .map(({ status, ...venue }) => { void status; return venue; }),
+    nextOffset: null,
+    city: clone(mockCity),
+    categories: mockCategories,
+  }),
+  adminVenues: async (status: VenueStatus, filters?: VenueFilters, offset = 0) => ({
+    items: clone(filterMockVenues(status, filters).slice(offset, offset + 30)),
+    nextOffset: null,
+    city: clone(mockCity),
+    categories: mockCategories,
+    importCategories: mockCategories.filter((category) => category.id !== "other").map((category) => category.id),
+  }),
+  adminCreateVenue: async (draft: VenueDraft) => {
+    const venueId = `venue_${mockVenues.length + 1}`;
+    mockVenues = [...mockVenues, mockVenue(venueId, draft.categoryId, draft.name, draft.address, draft.priceLevel, "published", {
+      source: "manual", osmUrl: null, website: draft.website || null,
+    })];
+    return { venueId };
+  },
+  adminUpdateVenue: async (
+    venueId: string,
+    update: { status: VenueStatus; categoryId: string; priceLevel: VenuePriceLevel | null; featured: boolean },
+  ) => {
+    mockVenues = mockVenues.map((venue) => venue.id === venueId ? { ...venue, ...update } : venue);
+    return { updated: true as const };
+  },
+  adminPublishVenues: async (ids: string[]) => {
+    let published = 0;
+    mockVenues = mockVenues.map((venue) => {
+      if (!ids.includes(venue.id) || venue.status !== "pending") return venue;
+      published += 1;
+      return { ...venue, status: "published" as const };
+    });
+    return { published };
+  },
+  adminImportVenues: async (categoryId: string) => {
+    void categoryId;
+    return { found: 0, inserted: 0, updated: 0, truncated: false };
+  },
   calendarLink: async (eventId: string) => ({
     icsUrl: `https://example.test/calendar/${encodeURIComponent(eventId)}.ics?expires=0&signature=mock`,
   }),

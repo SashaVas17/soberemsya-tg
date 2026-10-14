@@ -5,7 +5,7 @@ import type { MeetingListItem } from "./types";
 export const bottomNavigationItems = [
   { id: "home", label: "Главная", shortLabel: "Главная", path: "/" },
   { id: "open", label: "Открытые встречи", shortLabel: "Открытые", path: "/open" },
-  { id: "map", label: "Карта", shortLabel: "Карта", path: "/map" },
+  { id: "places", label: "Куда сходить", shortLabel: "Места", path: "/places" },
   { id: "meetings", label: "Мои встречи", shortLabel: "Мои", path: "/my-events" },
 ] as const;
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { BarChart3, Bell, CalendarDays, Flag, Plus } from "lucide-react";
+import { BarChart3, Bell, CalendarDays, Flag, Plus, Store } from "lucide-react";
 import { api } from "../api";
 import { BottomNavigation } from "../BottomNavigation";
 import type { ResolvedTheme } from "../theme";
@@ -111,6 +111,16 @@ export function Home({
           >
             <Flag size={18} />
             <span>Жалобы</span>
+          </button>
+        )}
+        {isAdmin && (
+          <button
+            className="home-settings-link"
+            onClick={() => navigate("/admin/venues")}
+            type="button"
+          >
+            <Store size={18} />
+            <span>Каталог мест</span>
           </button>
         )}
         <div className="home-section-heading">

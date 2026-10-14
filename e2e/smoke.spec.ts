@@ -174,3 +174,23 @@ test("organizer reports and blocks a participant", async ({ page }) => {
   await page.getByRole("button", { name: "Разблокировать" }).click();
   await expect(page.getByText("Никого нет")).toBeVisible();
 });
+
+test("a venue card starts a meeting with that place, and the picker adds another", async ({ page }) => {
+  await page.goto("./#/places");
+  await expect(page.getByRole("heading", { name: "Куда сходить" })).toBeVisible();
+  await expect(page.getByText("© участники OpenStreetMap")).toBeVisible();
+  await page.getByRole("button", { name: /Создать встречу/ }).first().click();
+  await page.getByLabel("Название встречи").fill("E2E кофе");
+  await page.getByRole("button", { name: "Продолжить" }).click();
+  await page.getByRole("button", { name: "Добавить время" }).click();
+  await page.getByRole("button", { name: "Добавить", exact: true }).click();
+  await page.getByRole("button", { name: "Продолжить" }).click();
+
+  await expect(page.getByPlaceholder("Название места")).toHaveValue("Кофейня на Немиге");
+  await expect(page.getByRole("button", { name: "«Кофейня на Немиге» уже добавлено" })).toBeDisabled();
+  await page.getByRole("group", { name: "Категория мест" }).getByRole("button", { name: "Все" }).click();
+  await page.getByRole("button", { name: "Добавить «Игротека»" }).click();
+  await expect(page.getByPlaceholder("Название места")).toHaveCount(2);
+  await page.getByRole("button", { name: "Создать встречу" }).click();
+  await expect(page.getByText("Встреча создана 🎉")).toBeVisible();
+});

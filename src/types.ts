@@ -228,3 +228,57 @@ export type AdminReport = {
   } | null;
   openReportsOnTarget: number;
 };
+
+/** Price per person: 1 — до 20 BYN, 2 — 20–50 BYN, 3 — от 50 BYN (stage 2.3). */
+export type VenuePriceLevel = 1 | 2 | 3;
+export type VenueStatus = "pending" | "published" | "hidden";
+
+export type Venue = {
+  id: string;
+  categoryId: string;
+  name: string;
+  address: string;
+  latitude: number | null;
+  longitude: number | null;
+  priceLevel: VenuePriceLevel | null;
+  website: string | null;
+  openingHours: string | null;
+  source: "osm" | "manual";
+  /** The object on openstreetmap.org for imported venues. */
+  osmUrl: string | null;
+  featured: boolean;
+};
+
+export type AdminVenue = Venue & { status: VenueStatus };
+
+export type VenuePage = {
+  items: Venue[];
+  nextOffset: number | null;
+  city?: City;
+  categories?: MeetingCategory[];
+};
+
+export type AdminVenuePage = {
+  items: AdminVenue[];
+  nextOffset: number | null;
+  city?: City;
+  categories?: MeetingCategory[];
+  /** Categories that can be imported from OpenStreetMap. */
+  importCategories?: string[];
+};
+
+export type VenueImportResult = {
+  found: number;
+  inserted: number;
+  updated: number;
+  /** Overpass hit its output limit: some venues may be missing. */
+  truncated?: boolean;
+};
+
+export type VenueDraft = {
+  categoryId: string;
+  name: string;
+  address: string;
+  priceLevel: VenuePriceLevel | null;
+  website: string;
+};

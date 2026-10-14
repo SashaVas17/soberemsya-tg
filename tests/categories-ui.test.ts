@@ -106,7 +106,7 @@ describe("mock feed filters", () => {
   it("filters the demo meeting by category and title", async () => {
     const all = await mockApi.publicMeetings();
     expect(all.items).toHaveLength(1);
-    expect(all.categories).toHaveLength(9);
+    expect(all.categories).toHaveLength(10);
     expect(all.items[0].category).toEqual({ id: "bar", name: "Бар" });
     expect((await mockApi.publicMeetings(undefined, { category: "bar" })).items).toHaveLength(1);
     expect((await mockApi.publicMeetings(undefined, { category: "cinema" })).items).toHaveLength(0);

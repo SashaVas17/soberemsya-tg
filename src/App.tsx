@@ -12,7 +12,8 @@ import { NotificationSettingsScreen } from "./screens/NotificationSettingsScreen
 import { SessionExpired, OutsideTelegram } from "./screens/SystemScreens";
 import { Home } from "./screens/Home";
 import { PublicMeetings } from "./screens/PublicMeetings";
-import { MapScreen } from "./screens/MapScreen";
+import { PlacesScreen } from "./screens/PlacesScreen";
+import { AdminVenuesScreen } from "./screens/AdminVenuesScreen";
 import { CreateEvent } from "./screens/CreateEvent";
 import type { CreatedGroup } from "./app-types";
 import { Created } from "./screens/Created";
@@ -130,10 +131,12 @@ export default function App() {
       />
     );
   if (path === "/open") return <PublicMeetings navigate={navigate} onBack={goBack} />;
-  if (path === "/map") return <MapScreen navigate={navigate} onBack={goBack} />;
+  // "/map" was the placeholder tab before the venue catalogue.
+  if (path === "/places" || path === "/map") return <PlacesScreen navigate={navigate} onBack={goBack} />;
   if (path === "/my-events") return <MyEvents navigate={navigate} onBack={goBack} />;
   if (path === "/settings") return <NotificationSettingsScreen navigate={navigate} onBack={goBack} />;
   if (path === "/admin/stats" && auth.isAdmin) return <AdminStatsScreen navigate={navigate} onBack={goBack} />;
+  if (path === "/admin/venues" && auth.isAdmin) return <AdminVenuesScreen navigate={navigate} onBack={goBack} />;
   if (path === "/admin/reports" && auth.isAdmin) return <AdminReportsScreen navigate={navigate} onBack={goBack} />;
   if (path === "/blocked") return <BlockedUsersScreen navigate={navigate} onBack={goBack} />;
   if (path === "/rules") return <CommunityRulesScreen navigate={navigate} onBack={goBack} />;

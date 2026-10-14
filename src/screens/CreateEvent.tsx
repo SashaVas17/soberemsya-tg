@@ -24,6 +24,8 @@ import { haptic } from "../telegram";
 import type { EventData, MeetingCategory } from "../types";
 import type { Navigate, EditablePlaceDraft, CreatedGroup } from "../app-types";
 import { CategoryChip, Header, ErrorNote } from "../ui/common";
+import { VenuePicker } from "../ui/Venues";
+import { clearVenueForNextMeeting, venueForNextMeeting, venuePlaceDraft } from "../venues";
 
 function SlotBuilder({
   slots,
@@ -211,7 +213,11 @@ export function CreateEvent({
   const [description, setDescription] = useState("");
   const [budgetLimitInput, setBudgetLimitInput] = useState("30");
   const [visibility, setVisibility] = useState<MeetingVisibility>("private");
-  const [category, setCategory] = useState<string | null>(null);
+  // «Создать встречу» on a venue card starts the wizard with that venue as
+  // the first place option and its category chosen.
+  const [startVenue] = useState(venueForNextMeeting);
+  useEffect(() => clearVenueForNextMeeting(), []);
+  const [category, setCategory] = useState<string | null>(startVenue?.categoryId ?? null);
   const [categoryChoices, setCategoryChoices] = useState<MeetingCategory[]>([]);
   useEffect(() => {
     // Optional: without the list the meeting is simply created without a category.
@@ -225,7 +231,9 @@ export function CreateEvent({
   const [hasParticipantLimit, setHasParticipantLimit] = useState(false);
   const [maxParticipantsInput, setMaxParticipantsInput] = useState("6");
   const [timeOptions, setTimeOptions] = useState<string[]>([]);
-  const [places, setPlaces] = useState<EditablePlaceDraft[]>([]);
+  const [places, setPlaces] = useState<EditablePlaceDraft[]>(() =>
+    startVenue ? [venuePlaceDraft(startVenue, budgetLimitInput)] : [],
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const submitLock = useRef(false);
@@ -453,7 +461,7 @@ export function CreateEvent({
           <div className="section-row">
             <div>
               <h2>Места</h2>
-              <p className="create-section-helper">Места необязательны. Добавьте варианты, если участникам нужно выбрать локацию.</p>
+              <p className="create-section-helper">Места необязательны. Выберите из подборки или добавьте своё, если участникам нужно выбрать локацию.</p>
             </div>
             <MapPin aria-hidden="true" size={24} />
           </div>
@@ -531,6 +539,13 @@ export function CreateEvent({
               )}
             </div>
           ))}
+          <VenuePicker
+            budget={budgetLimit}
+            categories={categoryChoices}
+            initialCategoryId={category}
+            onPick={(venue) => setPlaces((current) => [...current, venuePlaceDraft(venue, budgetLimitInput)])}
+            places={places}
+          />
           <button
             className="add-place-action"
             onClick={() =>

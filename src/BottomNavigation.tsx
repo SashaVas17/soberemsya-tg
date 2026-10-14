@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { CalendarDays, Compass, House, MapIcon, Plus } from "lucide-react";
+import { CalendarDays, Compass, House, MapPin, Plus } from "lucide-react";
 import {
   bottomNavigationItems,
   isBottomNavigationSelected,
@@ -9,7 +9,7 @@ import {
 const navigationIcons = {
   home: House,
   open: Compass,
-  map: MapIcon,
+  places: MapPin,
   meetings: CalendarDays,
 } as const;
 

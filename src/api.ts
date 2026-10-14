@@ -1,9 +1,10 @@
 import { apiErrorFromBody } from "./api-error";
 import type { CreateEventRequest } from "./create-wizard";
 import { isSessionExpiredError, notifySessionExpired } from "./session";
-import type { AdminReport, AdminStats, AuthResult, BlockedUser, ReportStatus, EventData, NotificationSettings, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PlaceOption, MeetingCategory, PublicEventPreview, PublicMeetingFeedPage, UserCity } from "./types";
+import type { AdminReport, AdminStats, AuthResult, BlockedUser, ReportStatus, EventData, NotificationSettings, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PlaceOption, MeetingCategory, PublicEventPreview, PublicMeetingFeedPage, UserCity, AdminVenuePage, VenueDraft, VenueImportResult, VenuePage, VenuePriceLevel, VenueStatus } from "./types";
 import { publicFeedPath, type PublicFeedFilters } from "./public-feed";
 import { mockApi } from "./mock-api";
+import { adminVenuesPath, venuesPath, type VenueFilters } from "./venues";
 import { moderationTargetBody, type ModerationTarget, type ReportReason } from "./moderation";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "") ?? "";
@@ -259,6 +260,34 @@ export const api = {
           `/admin/users/${encodeURIComponent(userId)}/${banned ? "ban" : "unban"}`,
           { method: "POST", body: "{}" },
         ),
+  venues: (filters?: VenueFilters, offset = 0) =>
+    useMock ? mockApi.venues(filters, offset) : request<VenuePage>(venuesPath(filters, offset)),
+  adminVenues: (status: VenueStatus, filters?: VenueFilters, offset = 0) =>
+    useMock
+      ? mockApi.adminVenues(status, filters, offset)
+      : request<AdminVenuePage>(adminVenuesPath(status, filters, offset)),
+  adminCreateVenue: (draft: VenueDraft) =>
+    useMock
+      ? mockApi.adminCreateVenue(draft)
+      : request<{ venueId: string }>("/admin/venues", { method: "POST", body: JSON.stringify(draft) }),
+  adminUpdateVenue: (
+    venueId: string,
+    update: { status: VenueStatus; categoryId: string; priceLevel: VenuePriceLevel | null; featured: boolean },
+  ) =>
+    useMock
+      ? mockApi.adminUpdateVenue(venueId, update)
+      : request<{ updated: true }>(`/admin/venues/${encodeURIComponent(venueId)}`, {
+          method: "PATCH",
+          body: JSON.stringify(update),
+        }),
+  adminPublishVenues: (ids: string[]) =>
+    useMock
+      ? mockApi.adminPublishVenues(ids)
+      : request<{ published: number }>("/admin/venues/publish", { method: "POST", body: JSON.stringify({ ids }) }),
+  adminImportVenues: (categoryId: string) =>
+    useMock
+      ? mockApi.adminImportVenues(categoryId)
+      : request<VenueImportResult>("/admin/venues/import", { method: "POST", body: JSON.stringify({ categoryId }) }),
   calendarLink: (id: string) =>
     useMock
       ? mockApi.calendarLink(id)
