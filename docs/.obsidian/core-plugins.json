@@ -15,5 +15,18 @@
   "word-count": true,
   "file-recovery": true,
   "daily-notes": false,
-  "canvas": true
+  "canvas": true,
+  "footnotes": false,
+  "note-composer": true,
+  "slash-command": false,
+  "editor-status": true,
+  "zk-prefixer": false,
+  "random-note": false,
+  "slides": false,
+  "audio-recorder": false,
+  "workspaces": false,
+  "publish": false,
+  "sync": true,
+  "bases": true,
+  "webviewer": false
 }
