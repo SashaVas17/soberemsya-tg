@@ -55,13 +55,21 @@ import {
   resolveUserCity,
   userCityResponse,
 } from "../_shared/cities.ts";
+import {
+  categoriesFromRows,
+  categoryById,
+  type CategoryRow,
+  parseCategoryId,
+  parseFeedSearch,
+  titleSearchPattern,
+} from "../_shared/categories.ts";
 
 type Db = ReturnType<typeof createAdminClient>;
 type AppUser = { id: string; telegram_user_id: string; username: string | null; first_name: string; last_name: string | null; photo_url: string | null };
 type AuthContext = { user: AppUser; startParam: string | null };
-type FullEventRow = { id: string; owner_user_id: string | null; title: string; description: string; budget_limit: number; visibility: string | null; max_participants: number | null; status: Status; final_place_id: string | null; final_time_option_id: string | null; created_at: string; deleted_at: string | null; city_id: string };
-type PreviewEventRow = Pick<FullEventRow, "id" | "owner_user_id" | "title" | "description" | "budget_limit" | "visibility" | "max_participants" | "status" | "deleted_at" | "city_id">;
-type PublicFeedEventRow = Pick<FullEventRow, "id" | "owner_user_id" | "title" | "description" | "budget_limit" | "max_participants" | "status" | "created_at">;
+type FullEventRow = { id: string; owner_user_id: string | null; title: string; description: string; budget_limit: number; visibility: string | null; max_participants: number | null; status: Status; final_place_id: string | null; final_time_option_id: string | null; created_at: string; deleted_at: string | null; city_id: string; category_id: string | null };
+type PreviewEventRow = Pick<FullEventRow, "id" | "owner_user_id" | "title" | "description" | "budget_limit" | "visibility" | "max_participants" | "status" | "deleted_at" | "city_id" | "category_id">;
+type PublicFeedEventRow = Pick<FullEventRow, "id" | "owner_user_id" | "title" | "description" | "budget_limit" | "max_participants" | "status" | "created_at" | "category_id">;
 type MyMeetingsEventRow = Pick<FullEventRow, "id" | "title" | "status" | "final_place_id" | "final_time_option_id" | "created_at">;
 type OrganizerEventRow = Pick<FullEventRow, "owner_user_id" | "visibility">;
 type JoinRequestDecisionRpcRow = { request_id: string; participant_id?: string };
@@ -166,19 +174,31 @@ async function authenticate(request: Request, bodyInitData?: string): Promise<Au
   return { user: data, startParam: validated.startParam };
 }
 
-// Cities change rarely (the owner opens a new one by hand), so a warm
-// function instance reuses them for a minute.
-const CITIES_TTL_MS = 60_000;
-let citiesCache: { loadedAt: number; cities: ReturnType<typeof citiesFromRows> } | null = null;
+// Cities and categories change rarely (the owner edits them by hand), so a
+// warm function instance reuses them for a minute.
+const REFERENCE_DATA_TTL_MS = 60_000;
 
-async function loadCities() {
-  if (citiesCache && Date.now() - citiesCache.loadedAt < CITIES_TTL_MS) return citiesCache.cities;
+function cachedFor<T>(ttlMs: number, load: () => Promise<T>) {
+  let cached: { loadedAt: number; value: T } | null = null;
+  return async () => {
+    if (cached && Date.now() - cached.loadedAt < ttlMs) return cached.value;
+    const value = await load();
+    cached = { loadedAt: Date.now(), value };
+    return value;
+  };
+}
+
+const loadCities = cachedFor(REFERENCE_DATA_TTL_MS, async () => {
   const { data, error } = await db.from("cities").select("id,name,timezone,is_active,sort_order");
   if (error) throw error;
-  const cities = citiesFromRows((data ?? []) as CityRow[]);
-  citiesCache = { loadedAt: Date.now(), cities };
-  return cities;
-}
+  return citiesFromRows((data ?? []) as CityRow[]);
+});
+
+const loadCategories = cachedFor(REFERENCE_DATA_TTL_MS, async () => {
+  const { data, error } = await db.from("meeting_categories").select("id,name,sort_order,is_active");
+  if (error) throw error;
+  return categoriesFromRows((data ?? []) as CategoryRow[]);
+});
 
 async function loadUserCityId(userId: string) {
   const { data, error } = await db.from("users").select("city_id").eq("id", userId).maybeSingle();
@@ -205,7 +225,7 @@ async function health() {
 }
 
 async function loadFullEventRow(eventId: string) {
-  const { data: event, error } = await db.from("events").select("id,owner_user_id,title,description,budget_limit,visibility,max_participants,status,final_place_id,final_time_option_id,created_at,deleted_at,city_id").eq("id", eventId).is("deleted_at", null).maybeSingle<FullEventRow>();
+  const { data: event, error } = await db.from("events").select("id,owner_user_id,title,description,budget_limit,visibility,max_participants,status,final_place_id,final_time_option_id,created_at,deleted_at,city_id,category_id").eq("id", eventId).is("deleted_at", null).maybeSingle<FullEventRow>();
   if (error) throw error;
   assertEventAvailable(event);
   return event;
@@ -283,16 +303,17 @@ async function fullEventForRequest(eventId: string, userId: string) {
 }
 
 async function publicEventPreview(eventId: string, userId: string) {
-  const { data: event, error } = await db.from("events").select("id,owner_user_id,title,description,budget_limit,visibility,max_participants,status,deleted_at,city_id").eq("id", eventId).is("deleted_at", null).maybeSingle<PreviewEventRow>();
+  const { data: event, error } = await db.from("events").select("id,owner_user_id,title,description,budget_limit,visibility,max_participants,status,deleted_at,city_id,category_id").eq("id", eventId).is("deleted_at", null).maybeSingle<PreviewEventRow>();
   if (error) throw error;
   assertEventAvailable(event);
   if (event.visibility !== "public")
     throw Object.assign(new Error("Встреча не найдена или удалена."), { status: 404 });
 
-  const [{ data: times, error: timeError }, { data: people, error: peopleError }, cities] = await Promise.all([
+  const [{ data: times, error: timeError }, { data: people, error: peopleError }, cities, categories] = await Promise.all([
     db.from("time_options").select("starts_at").eq("event_id", eventId),
     db.from("participants").select("user_id").eq("event_id", eventId),
     loadCities(),
+    loadCategories(),
   ]);
   if (timeError || peopleError) throw timeError ?? peopleError;
   const participantUserIds = (people ?? []).map((person) => person.user_id as string | null);
@@ -312,6 +333,7 @@ async function publicEventPreview(eventId: string, userId: string) {
     participantExists,
     requestStatus,
     timeZone: cityTimeZone(cities, event.city_id),
+    category: categoryById(categories, event.category_id),
   });
 }
 
@@ -344,6 +366,9 @@ async function createEvent(request: Request, auth: AuthContext) {
     }];
   });
   const clientRequestId = parseClientRequestId(payload.clientRequestId);
+  // Only the format here: the RPC checks that the category is active, and
+  // skips the check for a replay, which must return the meeting it created.
+  const categoryId = parseCategoryId(payload.category);
   // Checked only after the meeting exists: rejecting a replayed create with
   // a 4xx would make the client forget its idempotency key.
   const groupToken = parseGroupToken(payload.groupToken);
@@ -359,8 +384,11 @@ async function createEvent(request: Request, auth: AuthContext) {
     p_max_participants: maxParticipants,
     p_time_options: times.map((startsAt) => ({ id: id("time"), startsAt })),
     p_place_options: places,
+    p_category_id: categoryId,
   };
-  const rpcName = clientRequestId ? "create_event_idempotent" : "create_event_atomic";
+  // The categorized wrappers call create_event_idempotent / create_event_atomic
+  // and set the category in the same transaction.
+  const rpcName = clientRequestId ? "create_event_idempotent_categorized" : "create_event_categorized";
   const { data, error } = await db.rpc(
     rpcName,
     clientRequestId
@@ -374,6 +402,7 @@ async function createEvent(request: Request, auth: AuthContext) {
           maxParticipants,
           startsAt: times,
           places,
+          categoryId,
         }),
         ...rpcArgs,
       }
@@ -861,14 +890,24 @@ async function publicEvents(request: Request, auth: AuthContext) {
   const url = new URL(request.url);
   const limit = parsePublicFeedLimit(url.searchParams.get("limit"));
   const cursor = parsePublicFeedCursor(url.searchParams.get("cursor"));
-  // The feed shows the viewer's city; the response also lists the cities
-  // to choose from, so the screen needs no extra request.
-  const [cities, chosenCityId] = await Promise.all([loadCities(), loadUserCityId(auth.user.id)]);
+  const requestedCategoryId = parseCategoryId(url.searchParams.get("category"));
+  const search = parseFeedSearch(url.searchParams.get("q"));
+  // The feed shows the viewer's city; the response also lists the cities and
+  // categories to choose from, so the screen needs no extra request.
+  const [cities, chosenCityId, categories] = await Promise.all([
+    loadCities(),
+    loadUserCityId(auth.user.id),
+    loadCategories(),
+  ]);
   const city = resolveUserCity(cities, chosenCityId);
-  const cityFields = userCityResponse(cities, city.id);
+  const category = requestedCategoryId ? categoryById(categories, requestedCategoryId) : null;
+  const cityFields = { ...userCityResponse(cities, city.id), categories };
+  // A deactivated category matches nothing; the current list in the response
+  // lets the app drop it instead of retrying an error.
+  if (requestedCategoryId && !category) return json({ items: [], nextCursor: null, ...cityFields });
   let eventQuery = db
     .from("events")
-    .select("id,owner_user_id,title,description,budget_limit,max_participants,status,created_at")
+    .select("id,owner_user_id,title,description,budget_limit,max_participants,status,created_at,category_id")
     .eq("city_id", city.id)
     .eq("visibility", "public")
     .is("deleted_at", null)
@@ -876,6 +915,8 @@ async function publicEvents(request: Request, auth: AuthContext) {
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .limit(limit + 1);
+  if (category) eventQuery = eventQuery.eq("category_id", category.id);
+  if (search) eventQuery = eventQuery.ilike("title", titleSearchPattern(search));
   if (cursor)
     eventQuery = eventQuery.or(
       `created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`,
@@ -922,6 +963,7 @@ async function publicEvents(request: Request, auth: AuthContext) {
         startsAtValues: startsByEvent.get(event.id) ?? [],
         participantUserIds: participantsByEvent.get(event.id) ?? [],
         timeZone: city.timeZone,
+        category: categoryById(categories, event.category_id),
       }),
     ),
     nextCursor:
@@ -1110,6 +1152,7 @@ function allowedMethods(path: string) {
   if (path === "/me/meetings" || path === "/me/meetings/page" || path === "/public/events") return ["GET"];
   if (path === "/me/notification-settings") return ["GET", "PUT"];
   if (path === "/me/city") return ["GET", "PUT"];
+  if (path === "/categories") return ["GET"];
   if (path === "/me/analytics") return ["POST"];
   if (path === "/admin/stats") return ["GET"];
   if (/^\/events\/[^/]+\/response$/.test(path)) return ["POST"];
@@ -1173,6 +1216,7 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
   if (path === "/me/meetings/page") return await meetingListPage(request, auth);
   if (path === "/me/notification-settings") return await notificationSettings(request, auth);
   if (path === "/me/city") return await userCity(request, auth);
+  if (path === "/categories") return json({ categories: await loadCategories() });
   if (path === "/me/analytics") return await clientAnalytics(request, auth);
   if (path === "/admin/stats") return await adminStats(auth);
   if (path === "/public/events") return await publicEvents(request, auth);

@@ -10,10 +10,11 @@ import {
   Sun,
   Users,
 } from "lucide-react";
+import { categoryIcon } from "../categories";
 import { formatSlot, plural } from "../domain";
 import { meetingCardData, meetingDestination } from "../navigation";
 import type { ResolvedTheme } from "../theme";
-import type { EventStatus, MeetingListItem } from "../types";
+import type { EventStatus, MeetingCategory, MeetingListItem } from "../types";
 import type { Navigate } from "../app-types";
 
 const statusLabels: Record<EventStatus, string> = {
@@ -131,14 +132,16 @@ export function EmptyState({
   title,
   text,
   action,
+  icon,
 }: {
   title: string;
   text: string;
   action?: React.ReactNode;
+  icon?: React.ReactNode;
 }) {
   return (
     <section className="state-card empty-state">
-      <span className="state-icon empty-state-icon"><CalendarDays size={32} /></span>
+      <span className="state-icon empty-state-icon">{icon ?? <CalendarDays size={32} />}</span>
       <div className="state-copy">
         <strong>{title}</strong>
         <p>{text}</p>
@@ -243,5 +246,39 @@ export function Refresh({
           : ""}
       </span>
     </div>
+  );
+}
+
+export function CategoryBadge({ category }: { category: MeetingCategory }) {
+  const Icon = categoryIcon(category.id);
+  return (
+    <span className="category-badge">
+      <Icon aria-hidden="true" size={14} />
+      {category.name}
+    </span>
+  );
+}
+
+/** A category toggle used in the open meetings filter and in the create wizard. */
+export function CategoryChip({
+  category,
+  selected,
+  onToggle,
+}: {
+  category: MeetingCategory;
+  selected: boolean;
+  onToggle: () => void;
+}) {
+  const Icon = categoryIcon(category.id);
+  return (
+    <button
+      aria-pressed={selected}
+      className={`category-chip${selected ? " selected" : ""}`}
+      onClick={onToggle}
+      type="button"
+    >
+      <Icon aria-hidden="true" size={16} />
+      {category.name}
+    </button>
   );
 }

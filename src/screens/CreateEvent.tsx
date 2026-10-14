@@ -21,9 +21,9 @@ import {
   requiredNonNegativeIntegerFromInput,
 } from "../numeric-input";
 import { haptic } from "../telegram";
-import type { EventData } from "../types";
+import type { EventData, MeetingCategory } from "../types";
 import type { Navigate, EditablePlaceDraft, CreatedGroup } from "../app-types";
-import { Header, ErrorNote } from "../ui/common";
+import { CategoryChip, Header, ErrorNote } from "../ui/common";
 
 function SlotBuilder({
   slots,
@@ -211,6 +211,17 @@ export function CreateEvent({
   const [description, setDescription] = useState("");
   const [budgetLimitInput, setBudgetLimitInput] = useState("30");
   const [visibility, setVisibility] = useState<MeetingVisibility>("private");
+  const [category, setCategory] = useState<string | null>(null);
+  const [categoryChoices, setCategoryChoices] = useState<MeetingCategory[]>([]);
+  useEffect(() => {
+    // Optional: without the list the meeting is simply created without a category.
+    let active = true;
+    api.categories().then(
+      ({ categories }) => { if (active) setCategoryChoices(categories); },
+      (reason) => console.error("categories_load_failed", reason),
+    );
+    return () => { active = false; };
+  }, []);
   const [hasParticipantLimit, setHasParticipantLimit] = useState(false);
   const [maxParticipantsInput, setMaxParticipantsInput] = useState("6");
   const [timeOptions, setTimeOptions] = useState<string[]>([]);
@@ -232,6 +243,7 @@ export function CreateEvent({
     visibility,
     maxParticipants,
     timeOptions,
+    category,
     places: places.map((place) => ({
       ...place,
       estimatedBudget: nonNegativeIntegerFromInput(place.estimatedBudget),
@@ -282,7 +294,7 @@ export function CreateEvent({
     );
     void askWriteAccessOnce(() => api.notificationSettings({ writeAccessGranted: true }));
     navigate(createdEventPath(result.event.id), true);
-  }, [budgetLimit, description, groupTitle, groupToken, hasParticipantLimit, maxParticipants, maxParticipantsInput, navigate, onCreated, places, saving, timeOptions, title, visibility]);
+  }, [budgetLimit, category, description, groupTitle, groupToken, hasParticipantLimit, maxParticipants, maxParticipantsInput, navigate, onCreated, places, saving, timeOptions, title, visibility]);
   return (
     <main className="create-screen">
       <Header navigate={navigate} onBack={onBack} title="Создание встречи" variant="nested" />
@@ -332,6 +344,21 @@ export function CreateEvent({
               onChange={(event) => setDescription(event.target.value)}
             />
           </label>
+          {categoryChoices.length > 0 && (
+            <fieldset className="category-picker">
+              <legend>Категория <span>необязательно</span></legend>
+              <div className="category-chips category-chips-wrap">
+                {categoryChoices.map((choice) => (
+                  <CategoryChip
+                    category={choice}
+                    key={choice.id}
+                    onToggle={() => setCategory(category === choice.id ? null : choice.id)}
+                    selected={category === choice.id}
+                  />
+                ))}
+              </div>
+            </fieldset>
+          )}
           <fieldset className="visibility-selector">
             <legend>Кто сможет присоединиться?</legend>
             <button

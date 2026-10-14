@@ -86,3 +86,46 @@ test("administrator opens the statistics screen", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Активные пользователи" })).toBeVisible();
   await expect(page.getByText("63% (5 из 8)")).toBeVisible();
 });
+
+test("visitor filters open meetings by category and title", async ({ page }) => {
+  await page.goto("./#/open");
+  const card = page.getByRole("button", { name: /Ужин с друзьями после работы/ });
+  await expect(card).toBeVisible();
+  await expect(card.getByText("Бар", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Кино" }).click();
+  await expect(page.getByText("Ничего не нашлось")).toBeVisible();
+  await page.getByRole("button", { name: "Сбросить фильтры" }).click();
+  await expect(card).toBeVisible();
+
+  const search = page.getByRole("searchbox", { name: "Поиск по названию" });
+  await search.fill("ужин");
+  await expect(card).toBeVisible();
+  await search.fill("теннис");
+  await expect(page.getByText("Ничего не нашлось")).toBeVisible();
+  await page.getByRole("button", { name: "Очистить поиск" }).click();
+  await expect(card).toBeVisible();
+});
+
+test("organizer chooses a category and the open feed shows it", async ({ page }) => {
+  await page.goto("./");
+  await page.getByRole("button", { name: /Создать встречу/ }).click();
+  await page.getByLabel("Название встречи").fill("E2E настолки");
+  const boardgames = page.getByRole("button", { name: "Настолки" });
+  await boardgames.click();
+  await expect(boardgames).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: /Открытая встреча/ }).click();
+  await page.getByRole("button", { name: "Продолжить" }).click();
+  await page.getByRole("button", { name: "Добавить время" }).click();
+  await page.getByRole("button", { name: "Добавить", exact: true }).click();
+  await page.getByRole("button", { name: "Продолжить" }).click();
+  await page.getByRole("button", { name: "Создать встречу" }).click();
+  await expect(page.getByText("Встреча создана 🎉")).toBeVisible();
+
+  await page.goto("./#/open");
+  const card = page.getByRole("button", { name: /E2E настолки/ });
+  await expect(card).toBeVisible();
+  await expect(card.getByText("Настолки", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Настолки", exact: true }).click();
+  await expect(card).toBeVisible();
+});

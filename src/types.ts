@@ -105,9 +105,15 @@ export type PublicEventPreview = {
   participantCount: number;
   maxParticipants: number | null;
   joinRequestStatus: JoinRequestStatus;
+  category?: MeetingCategory | null;
 };
 
 export type City = {
+  id: string;
+  name: string;
+};
+
+export type MeetingCategory = {
   id: string;
   name: string;
 };
@@ -123,6 +129,7 @@ export type PublicMeetingFeedPage = {
   nextCursor: string | null;
   city?: City;
   cities?: City[];
+  categories?: MeetingCategory[];
 };
 
 export type PublicMeetingFeedItem = {
@@ -134,6 +141,7 @@ export type PublicMeetingFeedItem = {
   budgetLimit: number;
   participantCount: number;
   maxParticipants: number | null;
+  category?: MeetingCategory | null;
 };
 
 export type MeetingListItem = {

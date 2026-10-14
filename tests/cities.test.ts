@@ -114,14 +114,15 @@ describe("cities in the API and the app", () => {
 
   it("filters the open meetings feed by the viewer's city and lists the choices", () => {
     expect(backend).toContain('.eq("city_id", city.id)');
-    expect(backend).toContain("const cityFields = userCityResponse(cities, city.id);");
+    expect(backend).toContain("const cityFields = { ...userCityResponse(cities, city.id), categories };");
     expect(backend).toContain("...cityFields,");
     expect(backend).toContain("timeZone: city.timeZone,");
     expect(backend).not.toContain('searchParams.get("city")');
   });
 
   it("caches the rarely changing cities list in a warm function", () => {
-    expect(backend).toContain("const CITIES_TTL_MS = 60_000;");
+    expect(backend).toContain("const REFERENCE_DATA_TTL_MS = 60_000;");
+    expect(backend).toContain("const loadCities = cachedFor(REFERENCE_DATA_TTL_MS, async () => {");
   });
 
   it("shows the city in the feed and lets users switch when several are open", () => {

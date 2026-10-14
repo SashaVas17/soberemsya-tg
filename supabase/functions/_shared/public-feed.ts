@@ -1,4 +1,5 @@
 import type { Status } from "./domain.ts";
+import type { Category } from "./categories.ts";
 import { publicDateSummary, publicParticipantCount } from "./public-preview.ts";
 
 const DEFAULT_LIMIT = 20;
@@ -31,6 +32,7 @@ export type PublicFeedItem = {
   budgetLimit: number;
   participantCount: number;
   maxParticipants: number | null;
+  category: Category | null;
 };
 
 function invalidCursor(): never {
@@ -120,6 +122,7 @@ export function buildPublicFeedItem(input: {
   startsAtValues: string[];
   participantUserIds: Array<string | null>;
   timeZone?: string;
+  category?: Category | null;
 }): PublicFeedItem {
   return {
     id: input.event.id,
@@ -133,5 +136,6 @@ export function buildPublicFeedItem(input: {
       input.participantUserIds,
     ),
     maxParticipants: input.event.maxParticipants,
+    category: input.category ?? null,
   };
 }

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { mergePublicMeetings } from "../src/public-feed";
+import { mergePublicMeetings, publicFeedPath } from "../src/public-feed";
 import type { PublicMeetingFeedItem } from "../src/types";
 import { readAppSource } from "./app-source";
 
@@ -27,11 +27,15 @@ describe("public feed frontend contract", () => {
     expect(appSource).toContain('path === "/open"');
   });
 
-  it("calls the authenticated public feed endpoint with an optional cursor", () => {
-    expect(apiSource).toContain("publicMeetings: (cursor?: string)");
-    expect(apiSource).toContain(
-      '`/public/events${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`',
+  it("calls the authenticated public feed endpoint with an optional cursor and filters", () => {
+    expect(apiSource).toContain("publicMeetings: (cursor?: string, filters?: PublicFeedFilters)");
+    expect(apiSource).toContain("request<PublicMeetingFeedPage>(publicFeedPath(cursor, filters))");
+    expect(publicFeedPath()).toBe("/public/events");
+    expect(publicFeedPath("abc+/=")).toBe("/public/events?cursor=abc%2B%2F%3D");
+    expect(publicFeedPath(undefined, { category: "coffee", q: "  кофе   и  десерты " })).toBe(
+      "/public/events?category=coffee&q=%D0%BA%D0%BE%D1%84%D0%B5+%D0%B8+%D0%B4%D0%B5%D1%81%D0%B5%D1%80%D1%82%D1%8B",
     );
+    expect(publicFeedPath("c1", { category: null, q: "   " })).toBe("/public/events?cursor=c1");
   });
 
   it("renders only the safe feed fields", () => {

@@ -12,6 +12,7 @@ const eventCreationTokens = new Set([
   "CREATE_EVENT_PLACE_OPTIONS_INVALID",
   "CREATE_EVENT_PLACE_OPTIONS_LIMIT",
   "CREATE_EVENT_IDEMPOTENCY_CONFLICT",
+  "CREATE_EVENT_CATEGORY_INVALID",
 ]);
 
 const clientRequestIdPattern =
@@ -25,6 +26,7 @@ export type EventCreationFingerprint = {
   maxParticipants: number | null;
   startsAt: string[];
   places: { title: string; area: string; estimatedBudget: number }[];
+  categoryId?: string | null;
 };
 
 export function parseClientRequestId(value: unknown) {
@@ -44,6 +46,9 @@ export async function eventCreationRequestHash(input: EventCreationFingerprint) 
     input.maxParticipants,
     input.startsAt,
     input.places.map((place) => [place.title, place.area, place.estimatedBudget]),
+    // Appended only when set, so hashes of requests without a category stay
+    // the same as before categories existed.
+    ...(input.categoryId ? [input.categoryId] : []),
   ]);
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
   return bytesToHex(digest);
@@ -86,6 +91,8 @@ export function eventCreationHttpError(error: unknown) {
         new Error("Укажите не более 50 вариантов мест."),
         { status: 400 },
       );
+    case "CREATE_EVENT_CATEGORY_INVALID":
+      return Object.assign(new Error("Эта категория недоступна."), { status: 400 });
     case "CREATE_EVENT_IDEMPOTENCY_CONFLICT":
       return Object.assign(
         new Error("Этот запрос уже использован для другой встречи. Попробуйте создать встречу ещё раз."),

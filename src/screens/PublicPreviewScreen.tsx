@@ -3,7 +3,7 @@ import { plural } from "../domain";
 import { publicJoinRequestView } from "../join-request";
 import type { PublicEventPreview } from "../types";
 import type { Navigate } from "../app-types";
-import { Header, ErrorNote, StatusBadge } from "../ui/common";
+import { CategoryBadge, Header, ErrorNote, StatusBadge } from "../ui/common";
 
 export function PublicPreviewScreen({
   error,
@@ -32,6 +32,7 @@ export function PublicPreviewScreen({
           <div className="event-meta">
             <span className="visibility-badge">Открытая</span>
             <StatusBadge status={preview.status} />
+            {preview.category && <CategoryBadge category={preview.category} />}
           </div>
           <h1>{preview.title}</h1>
           {preview.description && <p>{preview.description}</p>}

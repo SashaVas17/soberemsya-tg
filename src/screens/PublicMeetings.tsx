@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronDown, Clock3, MapPin, Users } from "lucide-react";
+import { ChevronDown, Clock3, MapPin, Search, SearchX, Users, X } from "lucide-react";
 import { api } from "../api";
 import { BottomNavigation } from "../BottomNavigation";
 import { plural } from "../domain";
-import { mergePublicMeetings } from "../public-feed";
-import type { City, PublicMeetingFeedItem } from "../types";
+import {
+  FEED_SEARCH_MAX_LENGTH,
+  hasPublicFeedFilters,
+  mergePublicMeetings,
+  normalizeFeedSearch,
+} from "../public-feed";
+import type { City, MeetingCategory, PublicMeetingFeedItem } from "../types";
 import type { Navigate } from "../app-types";
-import { Header, Loading, RetryState, EmptyState } from "../ui/common";
+import { CategoryBadge, CategoryChip, Header, Loading, RetryState, EmptyState } from "../ui/common";
 
 export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBack: () => void }) {
   const [items, setItems] = useState<PublicMeetingFeedItem[]>([]);
@@ -21,15 +26,30 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
   // late answer for the previous city must not overwrite the new one.
   const latestRequest = useRef(0);
   const [cityError, setCityError] = useState("");
+  const [categoryChoices, setCategoryChoices] = useState<MeetingCategory[]>([]);
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  // What the user types, and the search actually sent (settled after a pause).
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearch(normalizeFeedSearch(searchInput)), 350);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
+  // A new category or search re-creates load, and the effect below reloads
+  // the first page; the cursor of the previous filter is dropped at once.
   const load = useCallback(async (cursor?: string) => {
     const requestId = ++latestRequest.current;
     const isLoadingMore = Boolean(cursor);
     if (isLoadingMore) setLoadingMore(true);
-    else setLoading(true);
+    else {
+      setLoading(true);
+      setNextCursor(null);
+    }
     setError("");
     try {
-      const result = await api.publicMeetings(cursor);
+      const result = await api.publicMeetings(cursor, { category: categoryId, q: search });
       if (requestId !== latestRequest.current) return;
       if (isLoadingMore) {
         setItems((current) => mergePublicMeetings(current, result.items));
@@ -39,9 +59,17 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
       setNextCursor(result.nextCursor);
       if (result.city) setCity(result.city);
       if (result.cities) setCityChoices(result.cities);
+      if (result.categories) {
+        setCategoryChoices(result.categories);
+        // The chosen category was deactivated: show all meetings instead.
+        if (categoryId && !result.categories.some((choice) => choice.id === categoryId))
+          setCategoryId(null);
+      }
     } catch (reason) {
       if (requestId !== latestRequest.current) return;
       console.error("public_meetings_load_failed", reason);
+      // Items of the previous filter must not stay under the new one.
+      if (!isLoadingMore) setItems([]);
       setError("Не удалось загрузить открытые встречи.");
     } finally {
       if (requestId === latestRequest.current) {
@@ -49,7 +77,7 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
         setLoading(false);
       }
     }
-  }, []);
+  }, [categoryId, search]);
 
   useEffect(() => {
     void load();
@@ -97,8 +125,71 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
     )
   );
 
+  const filtered = hasPublicFeedFilters({ category: categoryId, q: search });
+  const resetFilters = () => {
+    setCategoryId(null);
+    setSearchInput("");
+    setSearch("");
+  };
+  const clearSearch = () => {
+    setSearchInput("");
+    setSearch("");
+  };
+
+  const filters = (
+    <div className="public-feed-filters">
+      <div className="feed-search">
+        <Search aria-hidden="true" size={18} />
+        <input
+          aria-label="Поиск по названию"
+          enterKeyHint="search"
+          maxLength={FEED_SEARCH_MAX_LENGTH}
+          onChange={(event) => setSearchInput(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter") return;
+            setSearch(normalizeFeedSearch(searchInput));
+            event.currentTarget.blur();
+          }}
+          placeholder="Поиск по названию"
+          type="search"
+          value={searchInput}
+        />
+        {searchInput && (
+          <button
+            aria-label="Очистить поиск"
+            className="feed-search-clear"
+            onClick={clearSearch}
+            type="button"
+          >
+            <X aria-hidden="true" size={16} />
+          </button>
+        )}
+      </div>
+      {categoryChoices.length > 0 && (
+        <div aria-label="Категории" className="category-chips" role="group">
+          <button
+            aria-pressed={categoryId === null}
+            className={`category-chip${categoryId === null ? " selected" : ""}`}
+            onClick={() => setCategoryId(null)}
+            type="button"
+          >
+            Все
+          </button>
+          {categoryChoices.map((choice) => (
+            <CategoryChip
+              category={choice}
+              key={choice.id}
+              onToggle={() => setCategoryId(categoryId === choice.id ? null : choice.id)}
+              selected={categoryId === choice.id}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   const cards = items.length > 0 && (
-    <div className="meeting-group public-meeting-list">
+    <div aria-busy={loading} className="meeting-group public-meeting-list">
       {items.map((item) => (
         <button
           className="meeting-card public-meeting-card"
@@ -107,6 +198,7 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
           type="button"
         >
           <div className="public-meeting-card-heading">
+            {item.category && <CategoryBadge category={item.category} />}
             <strong className="meeting-card-title">{item.title}</strong>
             {item.description && (
               <p className="public-meeting-description">{item.description}</p>
@@ -147,15 +239,27 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
           {cityControl}
           {cityError && <p className="city-error" role="alert">{cityError}</p>}
         </div>
+        {filters}
         {loading && !items.length && (
           <Loading label="Загружаем открытые встречи…" />
         )}
-        {!loading && !items.length && !error && (
+        {!loading && !items.length && !error && (filtered ? (
+          <EmptyState
+            action={
+              <button className="secondary-action compact-action" onClick={resetFilters} type="button">
+                Сбросить фильтры
+              </button>
+            }
+            icon={<SearchX aria-hidden="true" size={32} />}
+            title="Ничего не нашлось"
+            text="Попробуйте другую категорию или другой запрос."
+          />
+        ) : (
           <EmptyState
             title="Пока нет открытых встреч"
             text="Открытые встречи появятся здесь, когда организаторы начнут их собирать."
           />
-        )}
+        ))}
         {error && !items.length && (
           <RetryState
             message={error}
