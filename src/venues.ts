@@ -73,6 +73,7 @@ export function venuePlaceDraft(venue: Venue, meetingBudget: string): EditablePl
     title: venue.name,
     area: venue.address,
     estimatedBudget: estimate === undefined ? meetingBudget : String(estimate),
+    venueId: venue.id,
   };
 }
 

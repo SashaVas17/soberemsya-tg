@@ -11,7 +11,7 @@ tags: [flockly, бэкенд, api]
 | --- | --- | --- |
 | GET | `/health` | Проверка живости |
 | POST | `/telegram/auth` | Вход по `initData` |
-| POST | `/events` | Создать встречу (необязательные `clientRequestId` — идемпотентность, `category` — id категории) |
+| POST | `/events` | Создать встречу (необязательные `clientRequestId` — идемпотентность, `category` — id категории, у вариантов места `venueId` — место из каталога) |
 | GET | `/events/:id` | Встреча для участника |
 | GET | `/events/:id/preview` | Предпросмотр открытой встречи |
 | PATCH, DELETE | `/events/:id/manage` | Изменить / удалить (организатор); действия: `update_details`, `set_category`, `add_time`, `remove_time`, `add_place`, `remove_place`, `close`, `reopen`, `cancel`, `decide` |
@@ -34,6 +34,8 @@ tags: [flockly, бэкенд, api]
 | GET | `/categories` | Активные категории встреч (для мастера создания) |
 | GET | `/admin/stats` | Статистика (только администратор) |
 | GET | `/venues` | Каталог мест города пользователя (только опубликованные): `?category=<id>`, `?q=<текст>`, `?budget=<BYN>` (уровни цен, которые начинаются не дороже бюджета; места без уровня подходят всегда), `?offset=` (по 30, до 1000). Порядок: «Рекомендуем», затем по названию. В ответе — `items`, `nextOffset`, `city`, `categories` |
+| GET | `/venues/:id` | Одно опубликованное место (карточка на карте) |
+| GET | `/map` | Точки карты города пользователя: `venues` — `[id, широта, долгота, категория, «Рекомендуем»]` (опубликованные места с координатами, до 3000), `meetings` — открытые встречи, у которых вариант места выбран из каталога (те же правила видимости, что у ленты, до 500), `bounds` — рамка города, `city`, `categories`; `?category=<id>` |
 | GET, POST | `/admin/venues` | Места на курации `?status=pending\|published\|hidden` с теми же фильтрами (в ответе ещё `importCategories`); POST `{ categoryId, name, address?, priceLevel?, website? }` — добавить место вручную (сразу опубликовано) |
 | PATCH | `/admin/venues/:id` | `{ status, categoryId, priceLevel, featured }` — все поля курации сразу |
 | POST | `/admin/venues/publish` | `{ ids }` (до 200) — опубликовать новые места |

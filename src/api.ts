@@ -1,7 +1,7 @@
 import { apiErrorFromBody } from "./api-error";
 import type { CreateEventRequest } from "./create-wizard";
 import { isSessionExpiredError, notifySessionExpired } from "./session";
-import type { AdminReport, AdminStats, AuthResult, BlockedUser, ReportStatus, EventData, NotificationSettings, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PlaceOption, MeetingCategory, PublicEventPreview, PublicMeetingFeedPage, UserCity, AdminVenuePage, VenueDraft, VenueImportResult, VenuePage, VenuePriceLevel, VenueStatus } from "./types";
+import type { AdminReport, AdminStats, AuthResult, BlockedUser, ReportStatus, EventData, NotificationSettings, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PlaceOption, MeetingCategory, PublicEventPreview, PublicMeetingFeedPage, UserCity, AdminVenuePage, VenueDraft, VenueImportResult, VenuePage, VenuePriceLevel, VenueStatus, MapPoints, Venue } from "./types";
 import { publicFeedPath, type PublicFeedFilters } from "./public-feed";
 import { mockApi } from "./mock-api";
 import { adminVenuesPath, venuesPath, type VenueFilters } from "./venues";
@@ -262,6 +262,12 @@ export const api = {
         ),
   venues: (filters?: VenueFilters, offset = 0) =>
     useMock ? mockApi.venues(filters, offset) : request<VenuePage>(venuesPath(filters, offset)),
+  venue: (venueId: string) =>
+    useMock ? mockApi.venue(venueId) : request<{ venue: Venue }>(`/venues/${encodeURIComponent(venueId)}`),
+  mapPoints: (category?: string | null) =>
+    useMock
+      ? mockApi.mapPoints(category)
+      : request<MapPoints>(`/map${category ? `?category=${encodeURIComponent(category)}` : ""}`),
   adminVenues: (status: VenueStatus, filters?: VenueFilters, offset = 0) =>
     useMock
       ? mockApi.adminVenues(status, filters, offset)

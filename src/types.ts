@@ -282,3 +282,27 @@ export type VenueDraft = {
   priceLevel: VenuePriceLevel | null;
   website: string;
 };
+
+/** A venue on the map: [id, latitude, longitude, categoryId, featured]. */
+export type MapVenuePoint = [string, number, number, string, boolean];
+
+/** An open meeting on the map, placed at its catalogue venue. */
+export type MapMeeting = {
+  id: string;
+  title: string;
+  categoryId: string | null;
+  latitude: number;
+  longitude: number;
+  venueName: string;
+  startsAt: string | null;
+};
+
+export type MapBounds = { south: number; west: number; north: number; east: number };
+
+export type MapPoints = {
+  venues: MapVenuePoint[];
+  meetings: MapMeeting[];
+  city?: City;
+  bounds: MapBounds;
+  categories?: MeetingCategory[];
+};

@@ -25,7 +25,7 @@ export type EventCreationFingerprint = {
   visibility: string;
   maxParticipants: number | null;
   startsAt: string[];
-  places: { title: string; area: string; estimatedBudget: number }[];
+  places: { title: string; area: string; estimatedBudget: number; venueId?: string | null }[];
   categoryId?: string | null;
 };
 
@@ -45,7 +45,13 @@ export async function eventCreationRequestHash(input: EventCreationFingerprint) 
     input.visibility,
     input.maxParticipants,
     input.startsAt,
-    input.places.map((place) => [place.title, place.area, place.estimatedBudget]),
+    // A catalogue venue is appended only when chosen, as the category below.
+    input.places.map((place) => [
+      place.title,
+      place.area,
+      place.estimatedBudget,
+      ...(place.venueId ? [place.venueId] : []),
+    ]),
     // Appended only when set, so hashes of requests without a category stay
     // the same as before categories existed.
     ...(input.categoryId ? [input.categoryId] : []),

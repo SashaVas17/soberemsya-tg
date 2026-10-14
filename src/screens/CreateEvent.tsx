@@ -231,6 +231,8 @@ export function CreateEvent({
   const [hasParticipantLimit, setHasParticipantLimit] = useState(false);
   const [maxParticipantsInput, setMaxParticipantsInput] = useState("6");
   const [timeOptions, setTimeOptions] = useState<string[]>([]);
+  // An edited name or address is no longer the catalogue venue: its link
+  // (which puts an open meeting on the map) is dropped.
   const [places, setPlaces] = useState<EditablePlaceDraft[]>(() =>
     startVenue ? [venuePlaceDraft(startVenue, budgetLimitInput)] : [],
   );
@@ -479,7 +481,7 @@ export function CreateEvent({
                     setPlaces(
                       places.map((item, i) =>
                         i === index
-                          ? { ...item, title: event.target.value }
+                          ? { ...item, title: event.target.value, venueId: undefined }
                           : item,
                       ),
                     )
@@ -495,7 +497,7 @@ export function CreateEvent({
                     setPlaces(
                       places.map((item, i) =>
                         i === index
-                          ? { ...item, area: event.target.value }
+                          ? { ...item, area: event.target.value, venueId: undefined }
                           : item,
                       ),
                     )

@@ -158,8 +158,12 @@ describe("create-event idempotency edge helpers", () => {
 describe("telegram-api create-event idempotency integration", () => {
   it("uses the idempotent RPC only when the client sends a key", () => {
     expect(createEvent).toContain("const clientRequestId = parseClientRequestId(payload.clientRequestId);");
+    // With catalogue places the *_with_venues wrappers are used, keyed the same way.
     expect(createEvent).toContain(
-      'const rpcName = clientRequestId ? "create_event_idempotent_categorized" : "create_event_categorized";',
+      '? clientRequestId ? "create_event_idempotent_with_venues" : "create_event_with_venues"',
+    );
+    expect(createEvent).toContain(
+      ': clientRequestId ? "create_event_idempotent_categorized" : "create_event_categorized";',
     );
     expect(createEvent.match(/db\.rpc\(/g)).toHaveLength(1);
   });

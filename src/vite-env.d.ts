@@ -9,6 +9,8 @@ interface ImportMetaEnv {
   readonly VITE_USE_MOCK_TELEGRAM?: string;
   readonly VITE_MOCK_INIT_DATA?: string;
   readonly VITE_USE_MOCK_API?: string;
+  readonly VITE_MAP_STYLE_URL?: string;
+  readonly VITE_MAP_STYLE_DARK_URL?: string;
 }
 
 interface ImportMeta { readonly env: ImportMetaEnv }

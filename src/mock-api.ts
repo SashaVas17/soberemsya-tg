@@ -10,6 +10,7 @@ import type {
   ReportStatus,
   UserCity,
   AdminVenue,
+  MapPoints,
   VenueDraft,
   VenuePriceLevel,
   VenueStatus,
@@ -227,12 +228,12 @@ const mockVenue = (
 });
 
 let mockVenues: AdminVenue[] = [
-  mockVenue("venue_1", "coffee", "Кофейня на Немиге", "улица Немига, 5", 1, "published", { featured: true, openingHours: "Mo-Su 08:00-22:00" }),
-  mockVenue("venue_2", "bar", "Бар у Ратуши", "площадь Свободы, 2", 2, "published", { website: "https://example.com" }),
-  mockVenue("venue_3", "food", "Ресторан «Старый город»", "улица Интернациональная, 21", 3, "published"),
-  mockVenue("venue_4", "walk", "Парк Горького", "улица Фрунзе, 2", null, "published"),
-  mockVenue("venue_5", "boardgames", "Игротека", "проспект Независимости, 40", 1, "published", { source: "manual", osmUrl: null }),
-  mockVenue("venue_6", "cinema", "Кинотеатр «Центральный»", "проспект Независимости, 13", 1, "published"),
+  mockVenue("venue_1", "coffee", "Кофейня на Немиге", "улица Немига, 5", 1, "published", { featured: true, openingHours: "Mo-Su 08:00-22:00", latitude: 53.9045, longitude: 27.5521 }),
+  mockVenue("venue_2", "bar", "Бар у Ратуши", "площадь Свободы, 2", 2, "published", { website: "https://example.com", latitude: 53.9037, longitude: 27.5562 }),
+  mockVenue("venue_3", "food", "Ресторан «Старый город»", "улица Интернациональная, 21", 3, "published", { latitude: 53.9007, longitude: 27.5572 }),
+  mockVenue("venue_4", "walk", "Парк Горького", "улица Фрунзе, 2", null, "published", { latitude: 53.9033, longitude: 27.5770 }),
+  mockVenue("venue_5", "boardgames", "Игротека", "проспект Независимости, 40", 1, "published", { source: "manual", osmUrl: null, latitude: null, longitude: null }),
+  mockVenue("venue_6", "cinema", "Кинотеатр «Центральный»", "проспект Независимости, 13", 1, "published", { latitude: 53.8986, longitude: 27.5590 }),
   mockVenue("venue_7", "bar", "Паб на Зыбицкой", "улица Зыбицкая, 6", 2, "pending"),
   mockVenue("venue_8", "coffee", "Кофе с собой", "", null, "pending"),
 ];
@@ -607,6 +608,30 @@ export const mockApi = {
       .map(({ status, ...venue }) => { void status; return venue; }),
     nextOffset: null,
     city: clone(mockCity),
+    categories: mockCategories,
+  }),
+  venue: async (venueId: string) => {
+    const found = mockVenues.find((venue) => venue.id === venueId && venue.status === "published");
+    if (!found) throw new Error("Место не найдено.");
+    const { status, ...venue } = clone(found);
+    void status;
+    return { venue };
+  },
+  mapPoints: async (category?: string | null): Promise<MapPoints> => ({
+    venues: filterMockVenues("published", { category })
+      .filter((venue) => venue.latitude !== null && venue.longitude !== null)
+      .map((venue) => [venue.id, venue.latitude ?? 0, venue.longitude ?? 0, venue.categoryId, venue.featured]),
+    meetings: !category || category === mockEventCategoryId ? [{
+      id: event.id,
+      title: event.title,
+      categoryId: mockEventCategoryId,
+      latitude: 53.9037,
+      longitude: 27.5562,
+      venueName: "Бар у Ратуши",
+      startsAt: event.timeOptions[0]?.startsAt ?? null,
+    }] : [],
+    city: clone(mockCity),
+    bounds: { south: 53.8, west: 27.37, north: 53.99, east: 27.76 },
     categories: mockCategories,
   }),
   adminVenues: async (status: VenueStatus, filters?: VenueFilters, offset = 0) => ({
