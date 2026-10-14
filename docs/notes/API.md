@@ -28,8 +28,9 @@ tags: [flockly, бэкенд, api]
 | GET | `/group-links/:token` | Ссылка `/new` из группы |
 | GET | `/me/meetings`, `/me/meetings/page` | Мои встречи |
 | GET, PUT | `/me/notification-settings` | Настройки уведомлений |
+| GET, PUT | `/me/city` | Город пользователя и список доступных (`{ city, cities }`); PUT `{ cityId }` — только активный город |
 | POST | `/me/analytics` | Событие аналитики с клиента |
-| GET | `/public/events` | Лента открытых встреч |
+| GET | `/public/events` | Лента открытых встреч города пользователя; в ответе также `city` и `cities` |
 | GET | `/admin/stats` | Статистика (только администратор) |
 
 Источник: `allowedMethods()` в `supabase/functions/telegram-api/index.ts`; логика — в `_shared/`.

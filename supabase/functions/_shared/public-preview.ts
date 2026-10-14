@@ -1,4 +1,5 @@
 import type { Status } from "./domain.ts";
+import { DEFAULT_TIME_ZONE } from "./cities.ts";
 
 export type JoinRequestStatus = "none" | "pending" | "approved" | "rejected";
 
@@ -24,18 +25,24 @@ type PreviewEvent = {
   maxParticipants: number | null;
 };
 
-const timeZone = "Europe/Minsk";
-const dateFormatter = new Intl.DateTimeFormat("ru-RU", {
-  day: "numeric",
-  month: "long",
-  timeZone,
-});
-const datePartsFormatter = new Intl.DateTimeFormat("en-CA", {
-  day: "2-digit",
-  month: "2-digit",
-  timeZone,
-  year: "numeric",
-});
+const formattersByZone = new Map<string, { date: Intl.DateTimeFormat; parts: Intl.DateTimeFormat }>();
+
+function formattersFor(timeZone: string) {
+  let formatters = formattersByZone.get(timeZone);
+  if (!formatters) {
+    formatters = {
+      date: new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", timeZone }),
+      parts: new Intl.DateTimeFormat("en-CA", {
+        day: "2-digit",
+        month: "2-digit",
+        timeZone,
+        year: "numeric",
+      }),
+    };
+    formattersByZone.set(timeZone, formatters);
+  }
+  return formatters;
+}
 
 type PreviewDate = {
   day: string;
@@ -45,10 +52,11 @@ type PreviewDate = {
   monthKey: string;
 };
 
-function previewDate(startsAt: string): PreviewDate | null {
+function previewDate(startsAt: string, timeZone: string): PreviewDate | null {
   const value = new Date(startsAt);
   if (Number.isNaN(value.getTime())) return null;
 
+  const { date: dateFormatter, parts: datePartsFormatter } = formattersFor(timeZone);
   const parts = Object.fromEntries(
     datePartsFormatter
       .formatToParts(value)
@@ -67,9 +75,12 @@ function previewDate(startsAt: string): PreviewDate | null {
   };
 }
 
-export function publicDateSummary(startsAtValues: string[]) {
+export function publicDateSummary(
+  startsAtValues: string[],
+  timeZone: string = DEFAULT_TIME_ZONE,
+) {
   const dates = [...new Set(startsAtValues)]
-    .map(previewDate)
+    .map((startsAt) => previewDate(startsAt, timeZone))
     .filter((date): date is PreviewDate => date !== null)
     .sort((left, right) => left.key.localeCompare(right.key))
     .filter((date, index, all) => index === 0 || date.key !== all[index - 1].key);
@@ -113,6 +124,7 @@ export function buildPublicEventPreview(input: {
   ownerUserId: string | null;
   participantExists: boolean;
   requestStatus: string | null | undefined;
+  timeZone?: string;
 }): PublicEventPreview {
   return {
     id: input.event.id,
@@ -120,7 +132,7 @@ export function buildPublicEventPreview(input: {
     title: input.event.title,
     description: input.event.description,
     status: input.event.status,
-    dateSummary: publicDateSummary(input.startsAtValues),
+    dateSummary: publicDateSummary(input.startsAtValues, input.timeZone),
     budgetLimit: input.event.budgetLimit,
     participantCount: publicParticipantCount(
       input.ownerUserId,

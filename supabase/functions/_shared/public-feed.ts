@@ -119,13 +119,14 @@ export function buildPublicFeedItem(input: {
   event: PublicFeedEvent;
   startsAtValues: string[];
   participantUserIds: Array<string | null>;
+  timeZone?: string;
 }): PublicFeedItem {
   return {
     id: input.event.id,
     title: input.event.title,
     description: input.event.description,
     status: "collecting",
-    dateSummary: publicDateSummary(input.startsAtValues),
+    dateSummary: publicDateSummary(input.startsAtValues, input.timeZone),
     budgetLimit: input.event.budgetLimit,
     participantCount: publicParticipantCount(
       input.event.ownerUserId,

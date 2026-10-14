@@ -107,6 +107,24 @@ export type PublicEventPreview = {
   joinRequestStatus: JoinRequestStatus;
 };
 
+export type City = {
+  id: string;
+  name: string;
+};
+
+/** The viewer's city and the cities that can be chosen. */
+export type UserCity = {
+  city: City;
+  cities: City[];
+};
+
+export type PublicMeetingFeedPage = {
+  items: PublicMeetingFeedItem[];
+  nextCursor: string | null;
+  city?: City;
+  cities?: City[];
+};
+
 export type PublicMeetingFeedItem = {
   id: string;
   title: string;

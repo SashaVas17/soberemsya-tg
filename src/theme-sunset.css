@@ -640,3 +640,45 @@ h1 {
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-surface);
 }
+
+/* City of the open meetings feed: a label, or a picker when several cities are open. */
+.city-chip {
+  align-items: center;
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text);
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 600;
+  gap: 6px;
+  margin-top: var(--space-sm);
+  min-height: 36px;
+  padding: 0 14px;
+  position: relative;
+}
+.city-chip svg {
+  color: var(--color-primary);
+  flex: none;
+}
+.city-picker select {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  min-height: 44px;
+  padding: 0;
+}
+.city-picker select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+.city-error {
+  color: var(--color-error);
+  font-size: 14px;
+  margin-top: var(--space-xs);
+}

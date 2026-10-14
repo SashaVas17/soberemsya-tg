@@ -46,12 +46,21 @@ import { groupLinkExpiredError, groupLinkNotIssuerError, parseGroupToken } from 
 import { eventDeepLink } from "../_shared/notification-messages.ts";
 import { isAdminTelegramId, parseAdminIds, parseClientAnalyticsEvent, startParamSource } from "../_shared/admin-stats.ts";
 import { buildShareCard, parseShareCardKind } from "../_shared/share-card.ts";
+import {
+  cityTimeZone,
+  citiesFromRows,
+  type CityRow,
+  parseCityId,
+  requireActiveCity,
+  resolveUserCity,
+  userCityResponse,
+} from "../_shared/cities.ts";
 
 type Db = ReturnType<typeof createAdminClient>;
 type AppUser = { id: string; telegram_user_id: string; username: string | null; first_name: string; last_name: string | null; photo_url: string | null };
 type AuthContext = { user: AppUser; startParam: string | null };
-type FullEventRow = { id: string; owner_user_id: string | null; title: string; description: string; budget_limit: number; visibility: string | null; max_participants: number | null; status: Status; final_place_id: string | null; final_time_option_id: string | null; created_at: string; deleted_at: string | null };
-type PreviewEventRow = Pick<FullEventRow, "id" | "owner_user_id" | "title" | "description" | "budget_limit" | "visibility" | "max_participants" | "status" | "deleted_at">;
+type FullEventRow = { id: string; owner_user_id: string | null; title: string; description: string; budget_limit: number; visibility: string | null; max_participants: number | null; status: Status; final_place_id: string | null; final_time_option_id: string | null; created_at: string; deleted_at: string | null; city_id: string };
+type PreviewEventRow = Pick<FullEventRow, "id" | "owner_user_id" | "title" | "description" | "budget_limit" | "visibility" | "max_participants" | "status" | "deleted_at" | "city_id">;
 type PublicFeedEventRow = Pick<FullEventRow, "id" | "owner_user_id" | "title" | "description" | "budget_limit" | "max_participants" | "status" | "created_at">;
 type MyMeetingsEventRow = Pick<FullEventRow, "id" | "title" | "status" | "final_place_id" | "final_time_option_id" | "created_at">;
 type OrganizerEventRow = Pick<FullEventRow, "owner_user_id" | "visibility">;
@@ -157,12 +166,46 @@ async function authenticate(request: Request, bodyInitData?: string): Promise<Au
   return { user: data, startParam: validated.startParam };
 }
 
+// Cities change rarely (the owner opens a new one by hand), so a warm
+// function instance reuses them for a minute.
+const CITIES_TTL_MS = 60_000;
+let citiesCache: { loadedAt: number; cities: ReturnType<typeof citiesFromRows> } | null = null;
+
+async function loadCities() {
+  if (citiesCache && Date.now() - citiesCache.loadedAt < CITIES_TTL_MS) return citiesCache.cities;
+  const { data, error } = await db.from("cities").select("id,name,timezone,is_active,sort_order");
+  if (error) throw error;
+  const cities = citiesFromRows((data ?? []) as CityRow[]);
+  citiesCache = { loadedAt: Date.now(), cities };
+  return cities;
+}
+
+async function loadUserCityId(userId: string) {
+  const { data, error } = await db.from("users").select("city_id").eq("id", userId).maybeSingle();
+  if (error) throw error;
+  return (data?.city_id as string | null | undefined) ?? null;
+}
+
+async function userCity(request: Request, auth: AuthContext) {
+  if (request.method === "PUT") {
+    const body = await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES);
+    const cityId = parseCityId(body.cityId);
+    const cities = await loadCities();
+    const city = requireActiveCity(cities, cityId);
+    const { error } = await db.from("users").update({ city_id: city.id }).eq("id", auth.user.id);
+    if (error) throw error;
+    return json(userCityResponse(cities, city.id));
+  }
+  const [cities, chosenCityId] = await Promise.all([loadCities(), loadUserCityId(auth.user.id)]);
+  return json(userCityResponse(cities, chosenCityId));
+}
+
 async function health() {
   return json({ ok: true });
 }
 
 async function loadFullEventRow(eventId: string) {
-  const { data: event, error } = await db.from("events").select("id,owner_user_id,title,description,budget_limit,visibility,max_participants,status,final_place_id,final_time_option_id,created_at,deleted_at").eq("id", eventId).is("deleted_at", null).maybeSingle<FullEventRow>();
+  const { data: event, error } = await db.from("events").select("id,owner_user_id,title,description,budget_limit,visibility,max_participants,status,final_place_id,final_time_option_id,created_at,deleted_at,city_id").eq("id", eventId).is("deleted_at", null).maybeSingle<FullEventRow>();
   if (error) throw error;
   assertEventAvailable(event);
   return event;
@@ -240,15 +283,16 @@ async function fullEventForRequest(eventId: string, userId: string) {
 }
 
 async function publicEventPreview(eventId: string, userId: string) {
-  const { data: event, error } = await db.from("events").select("id,owner_user_id,title,description,budget_limit,visibility,max_participants,status,deleted_at").eq("id", eventId).is("deleted_at", null).maybeSingle<PreviewEventRow>();
+  const { data: event, error } = await db.from("events").select("id,owner_user_id,title,description,budget_limit,visibility,max_participants,status,deleted_at,city_id").eq("id", eventId).is("deleted_at", null).maybeSingle<PreviewEventRow>();
   if (error) throw error;
   assertEventAvailable(event);
   if (event.visibility !== "public")
     throw Object.assign(new Error("Встреча не найдена или удалена."), { status: 404 });
 
-  const [{ data: times, error: timeError }, { data: people, error: peopleError }] = await Promise.all([
+  const [{ data: times, error: timeError }, { data: people, error: peopleError }, cities] = await Promise.all([
     db.from("time_options").select("starts_at").eq("event_id", eventId),
     db.from("participants").select("user_id").eq("event_id", eventId),
+    loadCities(),
   ]);
   if (timeError || peopleError) throw timeError ?? peopleError;
   const participantUserIds = (people ?? []).map((person) => person.user_id as string | null);
@@ -267,6 +311,7 @@ async function publicEventPreview(eventId: string, userId: string) {
     ownerUserId: event.owner_user_id,
     participantExists,
     requestStatus,
+    timeZone: cityTimeZone(cities, event.city_id),
   });
 }
 
@@ -813,13 +858,18 @@ async function removeEventParticipant(
 }
 
 async function publicEvents(request: Request, auth: AuthContext) {
-  void auth;
   const url = new URL(request.url);
   const limit = parsePublicFeedLimit(url.searchParams.get("limit"));
   const cursor = parsePublicFeedCursor(url.searchParams.get("cursor"));
+  // The feed shows the viewer's city; the response also lists the cities
+  // to choose from, so the screen needs no extra request.
+  const [cities, chosenCityId] = await Promise.all([loadCities(), loadUserCityId(auth.user.id)]);
+  const city = resolveUserCity(cities, chosenCityId);
+  const cityFields = userCityResponse(cities, city.id);
   let eventQuery = db
     .from("events")
     .select("id,owner_user_id,title,description,budget_limit,max_participants,status,created_at")
+    .eq("city_id", city.id)
     .eq("visibility", "public")
     .is("deleted_at", null)
     .eq("status", "collecting")
@@ -835,7 +885,7 @@ async function publicEvents(request: Request, auth: AuthContext) {
   const page = ((data ?? []) as PublicFeedEventRow[]).slice(0, limit);
   const eventIds = page.map((event) => event.id);
   const hasNextPage = (data ?? []).length > limit;
-  if (!eventIds.length) return json({ items: [], nextCursor: null });
+  if (!eventIds.length) return json({ items: [], nextCursor: null, ...cityFields });
 
   const [{ data: times, error: timeError }, { data: people, error: peopleError }] =
     await Promise.all([
@@ -871,6 +921,7 @@ async function publicEvents(request: Request, auth: AuthContext) {
         } satisfies PublicFeedEvent,
         startsAtValues: startsByEvent.get(event.id) ?? [],
         participantUserIds: participantsByEvent.get(event.id) ?? [],
+        timeZone: city.timeZone,
       }),
     ),
     nextCursor:
@@ -880,6 +931,7 @@ async function publicEvents(request: Request, auth: AuthContext) {
             id: lastEvent.id,
           })
         : null,
+    ...cityFields,
   });
 }
 
@@ -1057,6 +1109,7 @@ function allowedMethods(path: string) {
   if (path === "/telegram/auth" || path === "/events") return ["POST"];
   if (path === "/me/meetings" || path === "/me/meetings/page" || path === "/public/events") return ["GET"];
   if (path === "/me/notification-settings") return ["GET", "PUT"];
+  if (path === "/me/city") return ["GET", "PUT"];
   if (path === "/me/analytics") return ["POST"];
   if (path === "/admin/stats") return ["GET"];
   if (/^\/events\/[^/]+\/response$/.test(path)) return ["POST"];
@@ -1119,6 +1172,7 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
   if (path === "/me/meetings") return await meetings(auth);
   if (path === "/me/meetings/page") return await meetingListPage(request, auth);
   if (path === "/me/notification-settings") return await notificationSettings(request, auth);
+  if (path === "/me/city") return await userCity(request, auth);
   if (path === "/me/analytics") return await clientAnalytics(request, auth);
   if (path === "/admin/stats") return await adminStats(auth);
   if (path === "/public/events") return await publicEvents(request, auth);

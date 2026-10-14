@@ -69,7 +69,7 @@ describe("public feed frontend contract", () => {
 
   it("shows and disables the explicit pagination action while loading", () => {
     expect(appSource).toContain("Загрузить ещё");
-    expect(appSource).toContain("disabled={loadingMore}");
+    expect(appSource).toContain("disabled={loadingMore || savingCity}");
     expect(appSource).toContain("load(nextCursor)");
   });
 

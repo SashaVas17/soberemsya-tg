@@ -1,7 +1,7 @@
 import { apiErrorFromBody } from "./api-error";
 import type { CreateEventRequest } from "./create-wizard";
 import { isSessionExpiredError, notifySessionExpired } from "./session";
-import type { AdminStats, AuthResult, EventData, NotificationSettings, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PlaceOption, PublicEventPreview, PublicMeetingFeedItem } from "./types";
+import type { AdminStats, AuthResult, EventData, NotificationSettings, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PlaceOption, PublicEventPreview, PublicMeetingFeedPage, UserCity } from "./types";
 import { mockApi } from "./mock-api";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "") ?? "";
@@ -70,7 +70,7 @@ export const api = {
   publicMeetings: (cursor?: string) =>
     useMock
       ? mockApi.publicMeetings(cursor)
-      : request<{ items: PublicMeetingFeedItem[]; nextCursor: string | null }>(
+      : request<PublicMeetingFeedPage>(
           `/public/events${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
         ),
   createJoinRequest: (id: string) =>
@@ -158,6 +158,12 @@ export const api = {
       : request<{ items: MeetingListItem[]; nextCursor: string | null }>(
           `/me/meetings/page?role=${encodeURIComponent(role)}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
         ),
+  userCity: (cityId?: string) =>
+    useMock
+      ? mockApi.userCity(cityId)
+      : request<UserCity>("/me/city", cityId
+        ? { method: "PUT", body: JSON.stringify({ cityId }) }
+        : undefined),
   notificationSettings: (
     update?: Partial<Omit<NotificationSettings, "canMessage">> & { writeAccessGranted?: boolean },
   ) =>

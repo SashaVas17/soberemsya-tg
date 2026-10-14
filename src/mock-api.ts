@@ -1,8 +1,10 @@
 import type {
   AuthResult,
+  City,
   MeetingListItem,
   NotificationSettings,
   PublicMeetingFeedItem,
+  UserCity,
 } from "./types";
 import { applyMockResponse, type MockVotingEvent } from "./participant-voting";
 import { mockCreateJoinRequest } from "./join-request";
@@ -184,6 +186,10 @@ function assertMockParticipantProposalAllowed(eventId: string) {
     );
 }
 
+// Like production: only Minsk is open for now.
+const mockCities: City[] = [{ id: "minsk", name: "Минск" }];
+let mockCity: City = mockCities[0];
+
 let mockNotificationSettings: NotificationSettings = {
   responseMode: "summary",
   reminder24h: true,
@@ -223,7 +229,15 @@ export const mockApi = {
         } satisfies PublicMeetingFeedItem,
       ],
       nextCursor: null,
+      city: mockCity,
+      cities: mockCities,
     };
+  },
+  userCity: async (cityId?: string) => {
+    const city = mockCities.find((item) => item.id === cityId);
+    if (cityId && !city) throw new Error("Этот город пока недоступен.");
+    if (city) mockCity = city;
+    return { city: mockCity, cities: mockCities } satisfies UserCity;
   },
   createJoinRequest: async (eventId: string) => {
     void eventId;
