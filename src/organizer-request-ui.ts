@@ -1,5 +1,6 @@
 import { ApiError, hasApiErrorCode } from "./api-error";
 import type { OrganizerJoinRequest } from "./types";
+import { locale, t } from "./i18n";
 
 export type OrganizerRequestActionLock = {
   current: Set<string>;
@@ -7,8 +8,8 @@ export type OrganizerRequestActionLock = {
 
 export function formatJoinRequestCreatedAt(value: string) {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Дата не указана";
-  return new Intl.DateTimeFormat("ru-RU", {
+  if (Number.isNaN(date.getTime())) return t("Дата не указана");
+  return new Intl.DateTimeFormat(locale(), {
     day: "numeric",
     month: "short",
     hour: "2-digit",
@@ -37,16 +38,16 @@ export function shouldReloadJoinRequests(error: unknown) {
 
 export function joinRequestActionErrorMessage(error: unknown) {
   if (hasApiErrorCode(error, "EVENT_FULL"))
-    return "На встрече уже нет свободных мест";
+    return t("На встрече уже нет свободных мест");
   if (hasApiErrorCode(error, "JOIN_REQUESTS_CLOSED"))
-    return "Сбор ответов уже завершён";
+    return t("Сбор ответов уже завершён");
   if (hasApiErrorCode(error, "NOT_EVENT_OWNER"))
-    return "У вас больше нет доступа к управлению встречей.";
+    return t("У вас больше нет доступа к управлению встречей.");
   if (hasApiErrorCode(error, "JOIN_REQUEST_NOT_ALLOWED"))
-    return "Заявки для этой встречи недоступны.";
+    return t("Заявки для этой встречи недоступны.");
   if (hasApiErrorCode(error, "OWNER_CANNOT_JOIN"))
-    return "Организатора нельзя добавить как участника.";
-  return "Не удалось выполнить действие. Попробуйте ещё раз.";
+    return t("Организатора нельзя добавить как участника.");
+  return t("Не удалось выполнить действие. Попробуйте ещё раз.");
 }
 
 export async function runOrganizerRequestActionOnce<T>(

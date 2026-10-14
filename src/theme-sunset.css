@@ -1223,3 +1223,65 @@ h1 {
   padding: 24px;
   text-align: center;
 }
+
+/* Settings: language, theme, notifications ------------------------------- */
+.settings-section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.settings-section + .settings-section {
+  border-top: 1px solid var(--glass-border);
+  margin-top: 8px;
+  padding-top: 20px;
+}
+.settings-section > h2 {
+  font-size: 18px;
+  margin: 0;
+}
+.settings-choices {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.settings-choice {
+  align-items: center;
+  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  gap: 6px;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 10px;
+  text-align: center;
+  transition-duration: 150ms;
+  transition-property: background-color, border-color, color, transform;
+  transition-timing-function: ease-out;
+}
+.settings-choice span {
+  overflow-wrap: anywhere;
+}
+.settings-choice:active {
+  transform: scale(0.97);
+}
+.settings-choice.selected {
+  background: var(--action-primary-bg);
+  border-color: transparent;
+  color: var(--action-primary-fg);
+}
+.settings-choice:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-choice {
+    transition: none;
+  }
+}

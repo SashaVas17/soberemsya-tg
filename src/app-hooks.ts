@@ -14,6 +14,7 @@ import {
 } from "./theme";
 import type { EventData, PublicEventPreview } from "./types";
 import type { Navigate } from "./app-types";
+import { t } from "./i18n";
 
 export function usePath() {
   const readPath = () => {
@@ -122,17 +123,15 @@ export function useAppTheme() {
       ),
     [],
   );
-  const toggleTheme = useCallback(() => {
-    const current = resolveTheme(
-      preference.current,
-      telegram()?.colorScheme ?? null,
-    );
-    const next: ThemePreference = current === "dark" ? "light" : "dark";
+  const [themePreference, setPreferenceState] = useState<ThemePreference>(preference.current);
+  // "auto" follows Telegram again; light or dark is kept on this device.
+  const setThemePreference = useCallback((next: ThemePreference) => {
     preference.current = next;
     saveThemePreference(next);
-    setResolvedTheme(next);
+    setPreferenceState(next);
+    setResolvedTheme(resolveTheme(next, telegram()?.colorScheme ?? null));
   }, []);
-  return { resolvedTheme, toggleTheme };
+  return { resolvedTheme, themePreference, setThemePreference };
 }
 
 export function useEvent(eventId: string) {
@@ -152,7 +151,7 @@ export function useEvent(eventId: string) {
         setError(
           reason instanceof Error
             ? reason.message
-            : "Не удалось загрузить встречу.",
+            : t("Не удалось загрузить встречу."),
         );
       } finally {
         setRefreshing(false);
@@ -183,7 +182,7 @@ export function useParticipantEvent(eventId: string) {
         setError(
           reason instanceof Error
             ? reason.message
-            : "Не удалось загрузить встречу.",
+            : t("Не удалось загрузить встречу."),
         );
         return;
       }
@@ -196,7 +195,7 @@ export function useParticipantEvent(eventId: string) {
         setError(
           previewError instanceof Error
             ? previewError.message
-            : "Не удалось загрузить встречу.",
+            : t("Не удалось загрузить встречу."),
         );
       }
     } finally {

@@ -1,14 +1,11 @@
+import { locale } from "./i18n";
 import type { EventData, TimeOption } from "./types";
 
 export function formatSlot(startsAt: string) {
-  return new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(new Date(startsAt));
+  return new Intl.DateTimeFormat(locale(), { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(new Date(startsAt));
 }
 
-export function plural(count: number, one: string, few: string, many: string) {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-  return `${count} ${mod10 === 1 && mod100 !== 11 ? one : mod10 >= 2 && mod10 <= 4 && !(mod100 >= 12 && mod100 <= 14) ? few : many}`;
-}
+export { plural } from "./i18n";
 
 export function bestSlot(event: Pick<EventData, "timeOptions">): TimeOption | null {
   return event.timeOptions.slice().sort((a, b) => b.availableCount - a.availableCount || a.startsAt.localeCompare(b.startsAt))[0] ?? null;

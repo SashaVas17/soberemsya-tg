@@ -4,6 +4,7 @@ import type { EventData } from "../types";
 import type { Navigate, CreatedGroup } from "../app-types";
 import { Header } from "../ui/common";
 import { miniAppLink, usePreparedShare, shareEvent } from "../share";
+import { t } from "../i18n";
 
 export function Created({
   eventId,
@@ -20,27 +21,26 @@ export function Created({
 }) {
   const link = miniAppLink(eventId);
   const invitePrepared = usePreparedShare(eventId, "invite");
-  const chat = group?.chatTitle ? `в чате «${group.chatTitle}»` : "в чате";
+  const chat = group?.chatTitle ? t("в чате «{chat}»", { chat: group.chatTitle }) : t("в чате");
   return (
     <main className="created-screen">
-      <Header navigate={navigate} onBack={onBack} title="Встреча создана" variant="nested" />
+      <Header navigate={navigate} onBack={onBack} title={t("Встреча создана")} variant="nested" />
       <section className="created-page">
         <span className="created-success-icon"><Check size={52} strokeWidth={2.4} /></span>
         <div className="created-copy">
-          <h1>Встреча создана 🎉</h1>
-          {event?.visibility === "public" && <span className="visibility-badge">Открытая</span>}
-          <p>Всё готово! Теперь можно приглашать друзей.</p>
+          <h1>{t("Встреча создана 🎉")}</h1>
+          {event?.visibility === "public" && <span className="visibility-badge">{t("Открытая")}</span>}
+          <p>{t("Всё готово! Теперь можно приглашать друзей.")}</p>
           {group?.attached && (
-            <p className="group-create-note">Карточка встречи появится {chat} в течение минуты.</p>
+            <p className="group-create-note">{t("Карточка встречи появится")} {chat}  {t("в течение минуты.")}</p>
           )}
           {group && !group.attached && (
             <p className="group-create-note group-create-note-error">
-              Не удалось опубликовать встречу {chat}. Отправьте приглашение вручную.
-            </p>
+              {t("Не удалось опубликовать встречу")} {chat}{t(". Отправьте приглашение вручную.")}</p>
           )}
         </div>
         <div className="created-link-card">
-          <span>Ссылка-приглашение</span>
+          <span>{t("Ссылка-приглашение")}</span>
           <code>{link}</code>
         </div>
         <div className="created-actions">
@@ -50,15 +50,13 @@ export function Created({
             type="button"
           >
             <Send size={20} />
-            Поделиться в Telegram
-          </button>
+            {t("Поделиться в Telegram")}</button>
           <button
             className="secondary-action"
             onClick={() => navigate(managementPath(eventId))}
             type="button"
           >
-            Перейти к встрече
-          </button>
+            {t("Перейти к встрече")}</button>
         </div>
       </section>
     </main>

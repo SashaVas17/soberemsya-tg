@@ -13,6 +13,7 @@ import mapWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { holdVerticalSwipes } from "../telegram";
 import { initialMapBounds, MAP_COLORS, MAP_STYLE_LIGHT, mapStyleFor, meetingFeatures, venueFeatures } from "../map";
 import type { MapMeeting, MapPoints } from "../types";
+import { t } from "../i18n";
 
 type Props = {
   points: MapPoints;
@@ -154,10 +155,9 @@ export default function VenueMap({ points, onVenue, onMeetings }: Props) {
   if (unsupported)
     return (
       <p className="venue-map venue-map-unsupported" role="status">
-        Карта не открывается на этом устройстве. Места и встречи можно посмотреть списком.
-      </p>
+        {t("Карта не открывается на этом устройстве. Места и встречи можно посмотреть списком.")}</p>
     );
-  return <div aria-label="Карта мест и открытых встреч" className="venue-map" ref={container} role="region" />;
+  return <div aria-label={t("Карта мест и открытых встреч")} className="venue-map" ref={container} role="region" />;
 
   function addPointLayers(instance: MapLibreMap, mode: "light" | "dark") {
     const colors = MAP_COLORS[mode];

@@ -1,9 +1,10 @@
 import type { AdminStats } from "./types";
+import { t } from "./i18n";
 
 /** "45% (9 из 20)", or "нет данных" when there is nothing to divide by. */
 export function shareText(part: number, total: number) {
-  if (total <= 0) return "нет данных";
-  return `${Math.round((part / total) * 100)}% (${part} из ${total})`;
+  if (total <= 0) return t("нет данных");
+  return t("{percent}% ({part} из {total})", { percent: Math.round((part / total) * 100), part, total });
 }
 
 /** "2026-10-13" → "13.10" */

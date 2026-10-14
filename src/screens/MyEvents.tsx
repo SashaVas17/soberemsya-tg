@@ -5,6 +5,7 @@ import { BottomNavigation } from "../BottomNavigation";
 import type { MeetingListItem } from "../types";
 import type { Navigate } from "../app-types";
 import { Header, Loading, RetryState, MeetingGroup } from "../ui/common";
+import { t } from "../i18n";
 
 export function MyEvents({ navigate, onBack }: { navigate: Navigate; onBack: () => void }) {
   type MeetingPageState = {
@@ -68,7 +69,7 @@ export function MyEvents({ navigate, onBack }: { navigate: Navigate; onBack: () 
           error:
             reason instanceof Error
               ? reason.message
-              : "Не удалось загрузить встречи.",
+              : t("Не удалось загрузить встречи."),
         },
       }));
     }
@@ -86,8 +87,8 @@ export function MyEvents({ navigate, onBack }: { navigate: Navigate; onBack: () 
     <main className="screen-with-bottom-navigation">
       <Header navigate={navigate} onBack={onBack} title="Flockly" variant="root" />
       <section className="my-meetings-page">
-        <h1>Мои встречи</h1>
-        <div aria-label="Тип встреч" className="meeting-segments" role="tablist">
+        <h1>{t("Мои встречи")}</h1>
+        <div aria-label={t("Тип встреч")} className="meeting-segments" role="tablist">
           <button
             aria-selected={selectedRole === "owner"}
             className={selectedRole === "owner" ? "selected" : ""}
@@ -95,8 +96,7 @@ export function MyEvents({ navigate, onBack }: { navigate: Navigate; onBack: () 
             role="tab"
             type="button"
           >
-            Организую
-          </button>
+            {t("Организую")}</button>
           <button
             aria-selected={selectedRole === "participant"}
             className={selectedRole === "participant" ? "selected" : ""}
@@ -104,23 +104,22 @@ export function MyEvents({ navigate, onBack }: { navigate: Navigate; onBack: () 
             role="tab"
             type="button"
           >
-            Участвую
-          </button>
+            {t("Участвую")}</button>
         </div>
         {selectedPage.loading && !selectedPage.items.length && <Loading />}
         {selectedPage.error && !selectedPage.items.length && (
           <RetryState
             message={selectedPage.error}
             onRetry={() => void load(selectedRole)}
-            title="Не удалось загрузить список"
+            title={t("Не удалось загрузить список")}
           />
         )}
         {selectedPage.initialized && (
           <MeetingGroup
             emptyText={
               selectedRole === "owner"
-                ? "Создайте встречу и пригласите участников."
-                : "Здесь появятся встречи, в которых вы участвуете."
+                ? t("Создайте встречу и пригласите участников.")
+                : t("Здесь появятся встречи, в которых вы участвуете.")
             }
             items={selectedPage.items}
             navigate={navigate}
@@ -135,8 +134,7 @@ export function MyEvents({ navigate, onBack }: { navigate: Navigate; onBack: () 
               onClick={() => void load(selectedRole, selectedPage.nextCursor ?? undefined)}
               type="button"
             >
-              Повторить
-            </button>
+              {t("Повторить")}</button>
           </div>
         )}
         {selectedPage.nextCursor && !selectedPage.error && (
@@ -146,7 +144,7 @@ export function MyEvents({ navigate, onBack }: { navigate: Navigate; onBack: () 
             onClick={() => void load(selectedRole, selectedPage.nextCursor!)}
             type="button"
           >
-            {selectedPage.loadingMore ? "Загружаем…" : "Загрузить ещё"}
+            {selectedPage.loadingMore ? t("Загружаем…") : t("Загрузить ещё")}
           </button>
         )}
       </section>

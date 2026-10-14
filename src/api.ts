@@ -6,6 +6,7 @@ import { publicFeedPath, type PublicFeedFilters } from "./public-feed";
 import { mockApi } from "./mock-api";
 import { adminVenuesPath, venuesPath, type VenueFilters } from "./venues";
 import { moderationTargetBody, type ModerationTarget, type ReportReason } from "./moderation";
+import { t } from "./i18n";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "") ?? "";
 const functionUrl =
@@ -31,7 +32,7 @@ function timeoutSignal(ms: number) {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!functionUrl || !publishableKey)
-    throw new Error("Сервер приложения не настроен.");
+    throw new Error(t("Сервер приложения не настроен."));
   const response = await fetch(`${functionUrl}${path}`, {
     ...init,
     headers: {

@@ -9,6 +9,7 @@ import type { Navigate } from "../app-types";
 import { mergeVenues, startMeetingAtVenue } from "../venues";
 import { CategoryBadge, CategoryChip, EmptyState, Header, Loading, RetryState } from "../ui/common";
 import { OsmAttribution, VenueCard } from "../ui/Venues";
+import { t } from "../i18n";
 
 // React.lazy remembers a failed import, so a retry needs a fresh one.
 const loadVenueMap = () => lazy(() => import("../ui/VenueMap"));
@@ -32,12 +33,12 @@ class MapChunkBoundary extends Component<{ children: ReactNode; onRetry: () => v
     if (!this.state.failed) return this.props.children;
     return (
       <RetryState
-        message="Проверьте соединение и попробуйте ещё раз."
+        message={t("Проверьте соединение и попробуйте ещё раз.")}
         onRetry={() => {
           this.setState({ failed: false });
           this.props.onRetry();
         }}
-        title="Карта не загрузилась"
+        title={t("Карта не загрузилась")}
       />
     );
   }
@@ -93,7 +94,7 @@ export function PlacesScreen({ navigate, onBack }: { navigate: Navigate; onBack:
       if (requestId !== latestRequest.current) return;
       console.error("venues_load_failed", reason);
       if (!more) setItems([]);
-      setError("Не удалось загрузить места.");
+      setError(t("Не удалось загрузить места."));
     } finally {
       if (requestId === latestRequest.current) {
         setLoading(false);
@@ -121,7 +122,7 @@ export function PlacesScreen({ navigate, onBack }: { navigate: Navigate; onBack:
       (reason) => {
         if (requestId !== latestMapRequest.current) return;
         console.error("map_points_load_failed", reason);
-        setMapError("Не удалось загрузить карту.");
+        setMapError(t("Не удалось загрузить карту."));
       },
     );
   }, [view, categoryId, mapReload]);
@@ -135,7 +136,7 @@ export function PlacesScreen({ navigate, onBack }: { navigate: Navigate; onBack:
       () =>
         setSelection((current) =>
           current?.kind === "venue" && current.venueId === venueId
-            ? { ...current, error: "Не удалось открыть место." }
+            ? { ...current, error: t("Не удалось открыть место.") }
             : current),
     );
   };
@@ -154,21 +155,19 @@ export function PlacesScreen({ navigate, onBack }: { navigate: Navigate; onBack:
   };
 
   const viewSwitch = (
-    <div aria-label="Вид" className="meeting-segments places-view-switch" role="tablist">
+    <div aria-label={t("Вид")} className="meeting-segments places-view-switch" role="tablist">
       <button aria-selected={view === "list"} className={view === "list" ? "selected" : ""} onClick={() => setView("list")} role="tab" type="button">
         <List aria-hidden="true" size={16} />
-        Список
-      </button>
+        {t("Список")}</button>
       <button aria-selected={view === "map"} className={view === "map" ? "selected" : ""} onClick={() => setView("map")} role="tab" type="button">
         <MapIcon aria-hidden="true" size={16} />
-        Карта
-      </button>
+        {t("Карта")}</button>
     </div>
   );
 
   const selectionSheet = selection && (
     <section aria-live="polite" className="map-selection">
-      <button aria-label="Закрыть" className="map-selection-close" onClick={() => setSelection(null)} type="button">
+      <button aria-label={t("Закрыть")} className="map-selection-close" onClick={() => setSelection(null)} type="button">
         <X aria-hidden="true" size={18} />
       </button>
       {selection.kind === "venue" && (selection.venue ? (
@@ -178,13 +177,13 @@ export function PlacesScreen({ navigate, onBack }: { navigate: Navigate; onBack:
           venue={selection.venue}
         />
       ) : (
-        <p className="map-selection-status">{selection.error || "Загружаем место…"}</p>
+        <p className="map-selection-status">{selection.error || t("Загружаем место…")}</p>
       ))}
       {selection.kind === "meetings" && selection.meetings.map((meeting) => (
         <article className="meeting-card public-meeting-card map-meeting-card" key={meeting.id}>
           <div className="public-meeting-card-heading">
             <div className="venue-badges">
-              <span className="map-meeting-badge">Открытая встреча</span>
+              <span className="map-meeting-badge">{t("Открытая встреча")}</span>
               {categoryById(meeting.categoryId) && <CategoryBadge category={categoryById(meeting.categoryId)!} />}
             </div>
             <strong className="meeting-card-title">{meeting.title}</strong>
@@ -197,13 +196,12 @@ export function PlacesScreen({ navigate, onBack }: { navigate: Navigate; onBack:
             {meeting.startsAt && (
               <span>
                 <Clock3 aria-hidden="true" size={15} />
-                Ближайший вариант: {mapMeetingTime(meeting.startsAt)}
+                {t("Ближайший вариант:")} {mapMeetingTime(meeting.startsAt)}
               </span>
             )}
           </div>
           <button className="primary-action compact-action" onClick={() => navigate(`/event/${meeting.id}`)} type="button">
-            Подробнее
-          </button>
+            {t("Подробнее")}</button>
         </article>
       ))}
     </section>
@@ -212,20 +210,18 @@ export function PlacesScreen({ navigate, onBack }: { navigate: Navigate; onBack:
   const mapView = (
     <>
       {mapError && (
-        <RetryState message={mapError} onRetry={() => setMapReload((count) => count + 1)} title="Карта не загрузилась" />
+        <RetryState message={mapError} onRetry={() => setMapReload((count) => count + 1)} title={t("Карта не загрузилась")} />
       )}
-      {!mapError && !mapPoints && <Loading label="Загружаем карту…" />}
+      {!mapError && !mapPoints && <Loading label={t("Загружаем карту…")} />}
       {!mapError && mapPoints && (
         <p className="map-legend">
-          <span className="map-legend-venue" aria-hidden="true" /> Места
-          <span className="map-legend-meeting" aria-hidden="true" /> Открытые встречи
-          {mapPoints.venues.length === 0 && mapPoints.meetings.length === 0 && " · пока нет точек на карте"}
+          <span className="map-legend-venue" aria-hidden="true" /> {t("Места")}<span className="map-legend-meeting" aria-hidden="true" /> {t("Открытые встречи")}{mapPoints.venues.length === 0 && mapPoints.meetings.length === 0 && t(" · пока нет точек на карте")}
         </p>
       )}
       {!mapError && mapPoints && (
         <div className="venue-map-frame">
           <MapChunkBoundary onRetry={() => setVenueMap(loadVenueMap)}>
-            <Suspense fallback={<Loading label="Загружаем карту…" />}>
+            <Suspense fallback={<Loading label={t("Загружаем карту…")} />}>
               <VenueMap
                 onMeetings={(meetings) => setSelection({ kind: "meetings", meetings })}
                 onVenue={selectVenue}
@@ -244,13 +240,13 @@ export function PlacesScreen({ navigate, onBack }: { navigate: Navigate; onBack:
       <Header navigate={navigate} onBack={onBack} title="Flockly" variant="root" />
       <section className="public-meetings-page places-page">
         <div className={`page-intro public-meetings-intro${view === "map" ? " places-intro-compact" : ""}`}>
-          <h1>Куда сходить</h1>
+          <h1>{t("Куда сходить")}</h1>
           {/* On the map the space goes to the map itself. */}
-          {view === "list" && <p>Места для встреч в вашем городе. Выберите место и соберите компанию.</p>}
+          {view === "list" && <p>{t("Места для встреч в вашем городе. Выберите место и соберите компанию.")}</p>}
           {view === "list" && city && (
             <span className="city-chip">
               <MapPin aria-hidden="true" size={16} />
-              {city.name}
+              {t(city.name)}
             </span>
           )}
         </div>
@@ -259,7 +255,7 @@ export function PlacesScreen({ navigate, onBack }: { navigate: Navigate; onBack:
           {view === "list" && <div className="feed-search">
             <Search aria-hidden="true" size={18} />
             <input
-              aria-label="Поиск по названию места"
+              aria-label={t("Поиск по названию места")}
               enterKeyHint="search"
               maxLength={FEED_SEARCH_MAX_LENGTH}
               onChange={(event) => setSearchInput(event.target.value)}
@@ -268,13 +264,13 @@ export function PlacesScreen({ navigate, onBack }: { navigate: Navigate; onBack:
                 setSearch(normalizeFeedSearch(searchInput));
                 event.currentTarget.blur();
               }}
-              placeholder="Поиск по названию"
+              placeholder={t("Поиск по названию")}
               type="search"
               value={searchInput}
             />
             {searchInput && (
               <button
-                aria-label="Очистить поиск"
+                aria-label={t("Очистить поиск")}
                 className="feed-search-clear"
                 onClick={() => {
                   setSearchInput("");
@@ -287,15 +283,14 @@ export function PlacesScreen({ navigate, onBack }: { navigate: Navigate; onBack:
             )}
           </div>}
           {categories.length > 0 && (
-            <div aria-label="Категории" className="category-chips" role="group">
+            <div aria-label={t("Категории")} className="category-chips" role="group">
               <button
                 aria-pressed={categoryId === null}
                 className={`category-chip${categoryId === null ? " selected" : ""}`}
                 onClick={() => setCategoryId(null)}
                 type="button"
               >
-                Все
-              </button>
+                {t("Все")}</button>
               {categories.map((choice) => (
                 <CategoryChip
                   category={choice}
@@ -309,26 +304,25 @@ export function PlacesScreen({ navigate, onBack }: { navigate: Navigate; onBack:
         </div>
         {view === "map" && mapView}
         {view === "list" && <>
-        {loading && !items.length && <Loading label="Загружаем места…" />}
+        {loading && !items.length && <Loading label={t("Загружаем места…")} />}
         {!loading && !items.length && !error && (filtered ? (
           <EmptyState
             action={
               <button className="secondary-action compact-action" onClick={resetFilters} type="button">
-                Сбросить фильтры
-              </button>
+                {t("Сбросить фильтры")}</button>
             }
             icon={<SearchX aria-hidden="true" size={32} />}
-            text="Попробуйте другую категорию или другой запрос."
-            title="Ничего не нашлось"
+            text={t("Попробуйте другую категорию или другой запрос.")}
+            title={t("Ничего не нашлось")}
           />
         ) : (
           <EmptyState
-            text="Подборка мест для этого города готовится. Встречу можно создать и со своим местом."
-            title="Мест пока нет"
+            text={t("Подборка мест для этого города готовится. Встречу можно создать и со своим местом.")}
+            title={t("Мест пока нет")}
           />
         ))}
         {error && !items.length && (
-          <RetryState message={error} onRetry={() => void load()} title="Места не загрузились" />
+          <RetryState message={error} onRetry={() => void load()} title={t("Места не загрузились")} />
         )}
         {items.length > 0 && (
           <div aria-busy={loading} className="meeting-group public-meeting-list">
@@ -350,8 +344,7 @@ export function PlacesScreen({ navigate, onBack }: { navigate: Navigate; onBack:
               onClick={() => void load(nextOffset ?? 0)}
               type="button"
             >
-              Повторить
-            </button>
+              {t("Повторить")}</button>
           </div>
         )}
         {nextOffset !== null && !error && (
@@ -361,7 +354,7 @@ export function PlacesScreen({ navigate, onBack }: { navigate: Navigate; onBack:
             onClick={() => void load(nextOffset)}
             type="button"
           >
-            {loadingMore ? "Загружаем…" : "Загрузить ещё"}
+            {loadingMore ? t("Загружаем…") : t("Загрузить ещё")}
           </button>
         )}
         <OsmAttribution venues={items} />

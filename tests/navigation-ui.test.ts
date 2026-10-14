@@ -119,7 +119,7 @@ describe("meeting list architecture", () => {
 
   it("keeps the Phase A theme toggle and token-based shared structure", () => {
     const tokens = readFileSync("src/design-tokens.css", "utf8");
-    expect(appSource).toContain('className="theme-toggle"');
+    expect(appSource).toContain('className="topbar-settings"');
     expect(tokens).toContain(':root[data-theme="dark"]');
     expect(tokens).toContain("--color-surface");
   });
@@ -140,8 +140,9 @@ describe("meeting list architecture", () => {
 
   it("keeps one shared component tree for both Home themes", () => {
     expect(appSource).toContain('variant="home"');
-    expect(appSource).toContain('resolvedTheme === "dark" ? <Sun');
-    expect(appSource).toContain(': <Moon');
+    // The theme is chosen in «Настройки»; the corner button opens them.
+    expect(appSource).toContain('onClick={() => navigate("/settings")}');
+    expect(appSource).toContain("<Settings aria-hidden");
     expect(appSource).not.toContain("LightHome");
     expect(appSource).not.toContain("DarkHome");
   });

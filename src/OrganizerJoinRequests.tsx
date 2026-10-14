@@ -12,6 +12,7 @@ import {
 } from "./organizer-request-ui";
 import type { OrganizerJoinRequest } from "./types";
 import { SafetyActions } from "./ui/Moderation";
+import { t } from "./i18n";
 
 type OrganizerJoinRequestsProps = {
   eventId: string;
@@ -97,16 +98,14 @@ export function OrganizerJoinRequests({
   return (
     <section className="panel manage-card join-requests-card">
       <h2>
-        <Users size={24} /> Заявки
-      </h2>
+        <Users size={24} /> {t("Заявки")}</h2>
       {loading && requests === null && (
         <p className="join-requests-state" role="status">
-          Загружаем заявки…
-        </p>
+          {t("Загружаем заявки…")}</p>
       )}
       {listError && (
         <div className="join-requests-load-error" role="alert">
-          <span>Не удалось загрузить заявки</span>
+          <span>{t("Не удалось загрузить заявки")}</span>
           <button
             className="secondary-action compact-action"
             disabled={loading}
@@ -114,12 +113,11 @@ export function OrganizerJoinRequests({
             type="button"
           >
             <RefreshCw className={loading ? "spin" : ""} size={16} />
-            Повторить
-          </button>
+            {t("Повторить")}</button>
         </div>
       )}
       {!listError && requests?.length === 0 && (
-        <p className="join-requests-state">Новых заявок нет</p>
+        <p className="join-requests-state">{t("Новых заявок нет")}</p>
       )}
       {requests && requests.length > 0 && (
         <div className="join-request-list">
@@ -148,7 +146,7 @@ export function OrganizerJoinRequests({
                     onClick={() => void act(request.requestId, "approve")}
                     type="button"
                   >
-                    {acting ? "Обработка…" : "Одобрить"}
+                    {acting ? t("Обработка…") : t("Одобрить")}
                   </button>
                   <button
                     className="quiet-danger-action"
@@ -156,8 +154,7 @@ export function OrganizerJoinRequests({
                     onClick={() => void act(request.requestId, "reject")}
                     type="button"
                   >
-                    Отклонить
-                  </button>
+                    {t("Отклонить")}</button>
                 </div>
                 {actionErrors[request.requestId] && (
                   <p className="join-request-action-error" role="alert">
@@ -169,7 +166,7 @@ export function OrganizerJoinRequests({
                   onBlocked={() => setRequests((current) =>
                     current ? removePendingJoinRequest(current, request.requestId) : current)}
                   personLabel={request.requester.displayName}
-                  reportSubject={`Жалоба на ${request.requester.displayName}`}
+                  reportSubject={t("Жалоба на {name}", { name: request.requester.displayName })}
                   target={{ kind: "requester", requestId: request.requestId }}
                 />
               </article>

@@ -5,17 +5,16 @@ import {
   ArrowLeft,
   House,
   MapPin,
-  Moon,
   RefreshCw,
-  Sun,
+  Settings,
   Users,
 } from "lucide-react";
 import { categoryIcon } from "../categories";
 import { formatSlot, plural } from "../domain";
 import { meetingCardData, meetingDestination } from "../navigation";
-import type { ResolvedTheme } from "../theme";
 import type { EventStatus, MeetingCategory, MeetingListItem } from "../types";
 import type { Navigate } from "../app-types";
+import { locale, t } from "../i18n";
 
 const statusLabels: Record<EventStatus, string> = {
   collecting: "Сбор ответов",
@@ -27,60 +26,50 @@ const statusLabels: Record<EventStatus, string> = {
 export function Header({
   navigate,
   onBack,
-  resolvedTheme,
-  toggleTheme,
   title = "Flockly",
   variant,
 }: {
   navigate: Navigate;
   onBack?: () => void;
-  resolvedTheme?: ResolvedTheme;
-  toggleTheme?: () => void;
   title?: string;
   variant?: "home" | "root" | "nested";
 }) {
-  const isHome = variant === "home" || Boolean(resolvedTheme && toggleTheme);
-  if (isHome) {
+  if (variant === "home") {
+    // Language, theme and notifications live behind the gear (stage 4).
     return (
       <header className="topbar topbar-home">
         <button className="wordmark" onClick={() => navigate("/")} type="button">
           Flockly
         </button>
-        {resolvedTheme && toggleTheme && (
-          <button
-            aria-label={
-              resolvedTheme === "dark"
-                ? "Включить светлую тему"
-                : "Включить тёмную тему"
-            }
-            className="theme-toggle"
-            onClick={toggleTheme}
-            title={resolvedTheme === "dark" ? "Светлая тема" : "Тёмная тема"}
-            type="button"
-          >
-            {resolvedTheme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
-        )}
+        <button
+          aria-label={t("Настройки")}
+          className="topbar-settings"
+          onClick={() => navigate("/settings")}
+          title={t("Настройки")}
+          type="button"
+        >
+          <Settings aria-hidden="true" size={20} />
+        </button>
       </header>
     );
   }
   return (
     <header className={`topbar topbar-${variant ?? "nested"}`}>
       <button
-        aria-label="Назад"
+        aria-label={t("Назад")}
         className="topbar-action"
         onClick={onBack ?? (() => navigate("/"))}
-        title="Назад"
+        title={t("Назад")}
         type="button"
       >
         <ArrowLeft aria-hidden="true" size={20} />
       </button>
       <span className="topbar-title">{title}</span>
       <button
-        aria-label="На главную"
+        aria-label={t("На главную")}
         className="topbar-action"
         onClick={() => navigate("/")}
-        title="На главную"
+        title={t("На главную")}
         type="button"
       >
         <House aria-hidden="true" size={20} />
@@ -89,7 +78,7 @@ export function Header({
   );
 }
 
-export function Loading({ label = "Загружаем…" }: { label?: string }) {
+export function Loading({ label = t("Загружаем…") }: { label?: string }) {
   return (
     <div aria-live="polite" className="loading state-surface">
       <span className="spinner" />
@@ -103,7 +92,7 @@ export function ErrorNote({ message }: { message: string }) {
 }
 
 export function RetryState({
-  title = "Что-то пошло не так",
+  title = t("Что-то пошло не так"),
   message,
   onRetry,
 }: {
@@ -120,8 +109,7 @@ export function RetryState({
         {onRetry && (
           <button className="secondary-action" onClick={onRetry} type="button">
             <RefreshCw size={17} />
-            Попробовать снова
-          </button>
+            {t("Попробовать снова")}</button>
         )}
       </div>
     </section>
@@ -153,7 +141,7 @@ export function EmptyState({
 
 export function StatusBadge({ status }: { status: EventStatus }) {
   return (
-    <span className={`status-badge ${status}`}>{statusLabels[status]}</span>
+    <span className={`status-badge ${status}`}>{t(statusLabels[status])}</span>
   );
 }
 
@@ -161,7 +149,7 @@ export function MeetingGroup({
   items,
   navigate,
   title,
-  emptyText = "Здесь пока ничего нет.",
+  emptyText = t("Здесь пока ничего нет."),
   showAction = false,
 }: {
   items: MeetingListItem[];
@@ -207,14 +195,14 @@ export function MeetingGroup({
               </div>
               {showAction && (
                 <span className="meeting-card-action">
-                  {item.role === "owner" ? "Управлять" : "Открыть"}
+                  {item.role === "owner" ? t("Управлять") : t("Открыть")}
                 </span>
               )}
             </button>
           );
         })
       ) : (
-        <EmptyState title="Пока пусто" text={emptyText} />
+        <EmptyState title={t("Пока пусто")} text={emptyText} />
       )}
     </div>
   );
@@ -238,11 +226,11 @@ export function Refresh({
         type="button"
       >
         <RefreshCw className={refreshing ? "spin" : ""} size={18} />
-        {refreshing ? "Обновление…" : "Обновить данные"}
+        {refreshing ? t("Обновление…") : t("Обновить данные")}
       </button>
       <span>
         {lastUpdated
-          ? `Последнее обновление: ${lastUpdated.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}`
+          ? t("Последнее обновление: {time}", { time: lastUpdated.toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit" }) })
           : ""}
       </span>
     </div>
@@ -254,7 +242,7 @@ export function CategoryBadge({ category }: { category: MeetingCategory }) {
   return (
     <span className="category-badge">
       <Icon aria-hidden="true" size={14} />
-      {category.name}
+      {t(category.name)}
     </span>
   );
 }
@@ -281,7 +269,7 @@ export function CategoryChip({
       type="button"
     >
       <Icon aria-hidden="true" size={16} />
-      {category.name}
+      {t(category.name)}
     </button>
   );
 }

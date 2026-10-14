@@ -8,6 +8,7 @@ import type { Navigate } from "../app-types";
 import { mergeVenues, PRICE_LEVELS } from "../venues";
 import { CategoryChip, EmptyState, ErrorNote, Header, Loading, RetryState } from "../ui/common";
 import { FeaturedBadge, OsmAttribution, VenueMeta } from "../ui/Venues";
+import { t } from "../i18n";
 
 const statusTabs: { id: VenueStatus; label: string }[] = [
   { id: "pending", label: "Новые" },
@@ -32,14 +33,14 @@ function PriceSelect({
 }) {
   return (
     <select
-      aria-label="Цены"
+      aria-label={t("Цены")}
       disabled={disabled}
       onChange={(event) => onChange(parsePriceLevel(event.target.value))}
       value={value ?? ""}
     >
-      <option value="">Без цены</option>
+      <option value="">{t("Без цены")}</option>
       {PRICE_LEVELS.map((price) => (
-        <option key={price.level} value={price.level}>{price.label}</option>
+        <option key={price.level} value={price.level}>{t(price.label)}</option>
       ))}
     </select>
   );
@@ -81,14 +82,13 @@ function AdminVenueCard({
           {venue.website && (
             <button className="text-link-button" onClick={() => openExternalUrl(venue.website ?? "")} type="button">
               <ExternalLink aria-hidden="true" size={14} />
-              Сайт
-            </button>
+              {t("Сайт")}</button>
           )}
         </div>
       )}
       <div className="admin-venue-fields">
         <select
-          aria-label="Категория"
+          aria-label={t("Категория")}
           disabled={busy}
           onChange={(event) => update({ categoryId: event.target.value })}
           value={venue.categoryId}
@@ -97,7 +97,7 @@ function AdminVenueCard({
             <option value={venue.categoryId}>{venue.categoryId}</option>
           )}
           {categories.map((category) => (
-            <option key={category.id} value={category.id}>{category.name}</option>
+            <option key={category.id} value={category.id}>{t(category.name)}</option>
           ))}
         </select>
         <PriceSelect disabled={busy} onChange={(priceLevel) => update({ priceLevel })} value={venue.priceLevel} />
@@ -109,8 +109,7 @@ function AdminVenueCard({
           onChange={(event) => update({ featured: event.target.checked })}
           type="checkbox"
         />
-        Рекомендуем — показывать первым
-      </label>
+        {t("Рекомендуем — показывать первым")}</label>
       <div className="admin-report-actions">
         {venue.status !== "published" && (
           <button
@@ -119,8 +118,7 @@ function AdminVenueCard({
             onClick={() => update({ status: "published" })}
             type="button"
           >
-            Опубликовать
-          </button>
+            {t("Опубликовать")}</button>
         )}
         {venue.status !== "hidden" && (
           <button
@@ -129,8 +127,7 @@ function AdminVenueCard({
             onClick={() => update({ status: "hidden" })}
             type="button"
           >
-            Скрыть
-          </button>
+            {t("Скрыть")}</button>
         )}
         {venue.status === "hidden" && (
           <button
@@ -139,8 +136,7 @@ function AdminVenueCard({
             onClick={() => update({ status: "pending" })}
             type="button"
           >
-            На проверку
-          </button>
+            {t("На проверку")}</button>
         )}
       </div>
     </article>
@@ -164,7 +160,7 @@ function AddVenueForm({ categories, onAdded }: { categories: MeetingCategory[]; 
   const submit = async () => {
     if (saving) return;
     if (!draft.name.trim()) {
-      setError("Укажите название места.");
+      setError(t("Укажите название места."));
       return;
     }
     setSaving(true);
@@ -173,12 +169,12 @@ function AddVenueForm({ categories, onAdded }: { categories: MeetingCategory[]; 
     try {
       await api.adminCreateVenue({ ...draft, categoryId });
       haptic();
-      setDone(`«${draft.name.trim()}» опубликовано.`);
+      setDone(t("«{name}» опубликовано.", { name: draft.name.trim() }));
       setDraft(emptyDraft(categoryId));
       onAdded();
     } catch (reason) {
       haptic("error");
-      setError(reason instanceof Error ? reason.message : "Не удалось добавить место.");
+      setError(reason instanceof Error ? reason.message : t("Не удалось добавить место."));
     } finally {
       setSaving(false);
     }
@@ -192,29 +188,29 @@ function AddVenueForm({ categories, onAdded }: { categories: MeetingCategory[]; 
       }}
     >
       <label className="field">
-        <span>Название</span>
+        <span>{t("Название")}</span>
         <input maxLength={120} onChange={(event) => setDraft({ ...draft, name: event.target.value })} value={draft.name} />
       </label>
       <label className="field">
-        <span>Адрес</span>
-        <input maxLength={200} onChange={(event) => setDraft({ ...draft, address: event.target.value })} placeholder="Улица, дом" value={draft.address} />
+        <span>{t("Адрес")}</span>
+        <input maxLength={200} onChange={(event) => setDraft({ ...draft, address: event.target.value })} placeholder={t("Улица, дом")} value={draft.address} />
       </label>
       <div className="admin-venue-fields">
-        <select aria-label="Категория" onChange={(event) => setDraft({ ...draft, categoryId: event.target.value })} value={categoryId}>
+        <select aria-label={t("Категория")} onChange={(event) => setDraft({ ...draft, categoryId: event.target.value })} value={categoryId}>
           {categories.map((category) => (
-            <option key={category.id} value={category.id}>{category.name}</option>
+            <option key={category.id} value={category.id}>{t(category.name)}</option>
           ))}
         </select>
         <PriceSelect onChange={(priceLevel) => setDraft({ ...draft, priceLevel })} value={draft.priceLevel} />
       </div>
       <label className="field">
-        <span>Сайт или страница</span>
+        <span>{t("Сайт или страница")}</span>
         <input inputMode="url" maxLength={300} onChange={(event) => setDraft({ ...draft, website: event.target.value })} placeholder="https://" value={draft.website} />
       </label>
       <ErrorNote message={error} />
       {done && <p className="admin-venue-done" role="status">{done}</p>}
       <button className="primary-action" disabled={saving || !categoryId} type="submit">
-        {saving ? "Добавляем…" : "Добавить и опубликовать"}
+        {saving ? t("Добавляем…") : t("Добавить и опубликовать")}
       </button>
     </form>
   );
@@ -231,7 +227,7 @@ function ImportPanel({
 }) {
   const [running, setRunning] = useState(false);
   const [log, setLog] = useState<string[]>([]);
-  const nameOf = (id: string) => categories.find((category) => category.id === id)?.name ?? id;
+  const nameOf = (id: string) => t(categories.find((category) => category.id === id)?.name ?? id);
   const run = async (ids: string[]) => {
     if (running || !ids.length) return;
     setRunning(true);
@@ -241,19 +237,19 @@ function ImportPanel({
       // One category per request: an Overpass answer for the whole city could
       // outlast the function time limit.
       for (const id of ids) {
-        setLog((lines) => [...lines, `${nameOf(id)}: загружаем…`]);
+        setLog((lines) => [...lines, t("{category}: загружаем…", { category: nameOf(id) })]);
         try {
           const result = await api.adminImportVenues(id);
           imported = true;
           setLog((lines) => [
             ...lines.slice(0, -1),
-            `${nameOf(id)}: найдено ${result.found}, новых ${result.inserted}, обновлено ${result.updated}` +
-              (result.truncated ? ". Достигнут предел выдачи OpenStreetMap — часть мест могла не загрузиться" : ""),
+            t("{category}: найдено {found}, новых {inserted}, обновлено {updated}", { category: nameOf(id), found: result.found, inserted: result.inserted, updated: result.updated }) +
+              (result.truncated ? t(". Достигнут предел выдачи OpenStreetMap — часть мест могла не загрузиться") : ""),
           ]);
         } catch (reason) {
           setLog((lines) => [
             ...lines.slice(0, -1),
-            `${nameOf(id)}: ${reason instanceof Error ? reason.message : "не удалось загрузить"}`,
+            `${nameOf(id)}: ${reason instanceof Error ? reason.message : t("не удалось загрузить")}`,
           ]);
           haptic("error");
           break;
@@ -267,9 +263,7 @@ function ImportPanel({
   return (
     <div className="admin-venue-import">
       <p className="create-section-helper">
-        Места из OpenStreetMap попадают во вкладку «Новые» и ждут проверки. Повторная загрузка обновит адреса и названия,
-        ваши решения сохранятся.
-      </p>
+        {t("Места из OpenStreetMap попадают во вкладку «Новые» и ждут проверки. Повторная загрузка обновит адреса и названия, ваши решения сохранятся.")}</p>
       <div className="category-chips category-chips-wrap">
         {importCategories.map((id) => (
           <button
@@ -290,7 +284,7 @@ function ImportPanel({
         type="button"
       >
         <DownloadCloud aria-hidden="true" size={18} />
-        {running ? "Загружаем…" : "Загрузить все категории"}
+        {running ? t("Загружаем…") : t("Загрузить все категории")}
       </button>
       {log.length > 0 && (
         <ul aria-live="polite" className="admin-venue-import-log">
@@ -336,7 +330,7 @@ export function AdminVenuesScreen({ navigate, onBack }: { navigate: Navigate; on
       if (page.importCategories) setImportCategories(page.importCategories);
     } catch (reason) {
       if (requestId === latestRequest.current)
-        setError(reason instanceof Error ? reason.message : "Не удалось загрузить места.");
+        setError(reason instanceof Error ? reason.message : t("Не удалось загрузить места."));
     } finally {
       if (requestId === latestRequest.current) setLoadingMore(false);
     }
@@ -365,7 +359,7 @@ export function AdminVenuesScreen({ navigate, onBack }: { navigate: Navigate; on
       if (leaves) setNextOffset((offset) => (offset === null ? null : Math.max(0, offset - 1)));
     } catch (reason) {
       haptic("error");
-      setActionError(reason instanceof Error ? reason.message : "Не удалось сохранить место.");
+      setActionError(reason instanceof Error ? reason.message : t("Не удалось сохранить место."));
     } finally {
       setBusyId(null);
     }
@@ -374,7 +368,7 @@ export function AdminVenuesScreen({ navigate, onBack }: { navigate: Navigate; on
   const publishShown = async () => {
     const ids = (items ?? []).map((item) => item.id).slice(0, 200);
     if (!ids.length || publishing) return;
-    if (!window.confirm(`Опубликовать все места на экране (${ids.length})?`)) return;
+    if (!window.confirm(t("Опубликовать все места на экране ({count})?", { count: ids.length }))) return;
     setPublishing(true);
     setActionError("");
     try {
@@ -383,7 +377,7 @@ export function AdminVenuesScreen({ navigate, onBack }: { navigate: Navigate; on
       await load();
     } catch (reason) {
       haptic("error");
-      setActionError(reason instanceof Error ? reason.message : "Не удалось опубликовать места.");
+      setActionError(reason instanceof Error ? reason.message : t("Не удалось опубликовать места."));
     } finally {
       setPublishing(false);
     }
@@ -391,10 +385,10 @@ export function AdminVenuesScreen({ navigate, onBack }: { navigate: Navigate; on
 
   return (
     <main className="settings-screen">
-      <Header navigate={navigate} onBack={onBack} title="Каталог мест" variant="nested" />
+      <Header navigate={navigate} onBack={onBack} title={t("Каталог мест")} variant="nested" />
       <section className="settings-page admin-venues">
         <details className="panel admin-venue-section">
-          <summary>Загрузить из OpenStreetMap</summary>
+          <summary>{t("Загрузить из OpenStreetMap")}</summary>
           <ImportPanel
             categories={categories}
             importCategories={importCategories}
@@ -402,10 +396,10 @@ export function AdminVenuesScreen({ navigate, onBack }: { navigate: Navigate; on
           />
         </details>
         <details className="panel admin-venue-section">
-          <summary>Добавить место вручную</summary>
+          <summary>{t("Добавить место вручную")}</summary>
           {categories.length > 0 && <AddVenueForm categories={categories} onAdded={() => void load()} />}
         </details>
-        <div aria-label="Статус мест" className="meeting-segments admin-report-tabs" role="tablist">
+        <div aria-label={t("Статус мест")} className="meeting-segments admin-report-tabs" role="tablist">
           {statusTabs.map((tab) => (
             <button
               aria-selected={status === tab.id}
@@ -415,7 +409,7 @@ export function AdminVenuesScreen({ navigate, onBack }: { navigate: Navigate; on
               role="tab"
               type="button"
             >
-              {tab.label}
+              {t(tab.label)}
             </button>
           ))}
         </div>
@@ -423,16 +417,16 @@ export function AdminVenuesScreen({ navigate, onBack }: { navigate: Navigate; on
           <div className="feed-search">
             <Search aria-hidden="true" size={18} />
             <input
-              aria-label="Поиск по названию места"
+              aria-label={t("Поиск по названию места")}
               maxLength={FEED_SEARCH_MAX_LENGTH}
               onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Поиск по названию"
+              placeholder={t("Поиск по названию")}
               type="search"
               value={searchInput}
             />
             {searchInput && (
               <button
-                aria-label="Очистить поиск"
+                aria-label={t("Очистить поиск")}
                 className="feed-search-clear"
                 onClick={() => {
                   setSearchInput("");
@@ -445,15 +439,14 @@ export function AdminVenuesScreen({ navigate, onBack }: { navigate: Navigate; on
             )}
           </div>
           {categories.length > 0 && (
-            <div aria-label="Категории" className="category-chips" role="group">
+            <div aria-label={t("Категории")} className="category-chips" role="group">
               <button
                 aria-pressed={categoryId === null}
                 className={`category-chip${categoryId === null ? " selected" : ""}`}
                 onClick={() => setCategoryId(null)}
                 type="button"
               >
-                Все
-              </button>
+                {t("Все")}</button>
               {categories.map((choice) => (
                 <CategoryChip
                   category={choice}
@@ -466,12 +459,12 @@ export function AdminVenuesScreen({ navigate, onBack }: { navigate: Navigate; on
           )}
         </div>
         {actionError && <p className="form-error" role="alert">{actionError}</p>}
-        {!items && !error && <Loading label="Загружаем места…" />}
-        {error && <RetryState message={error} onRetry={() => void load()} title="Места не загрузились" />}
+        {!items && !error && <Loading label={t("Загружаем места…")} />}
+        {error && <RetryState message={error} onRetry={() => void load()} title={t("Места не загрузились")} />}
         {items?.length === 0 && !error && (
           <EmptyState
-            text={status === "pending" ? "Загрузите места из OpenStreetMap или добавьте вручную." : "Здесь пока пусто."}
-            title={status === "pending" ? "Нет мест на проверке" : "Мест нет"}
+            text={status === "pending" ? t("Загрузите места из OpenStreetMap или добавьте вручную.") : t("Здесь пока пусто.")}
+            title={status === "pending" ? t("Нет мест на проверке") : t("Мест нет")}
           />
         )}
         {status === "pending" && items && items.length > 1 && (
@@ -481,7 +474,7 @@ export function AdminVenuesScreen({ navigate, onBack }: { navigate: Navigate; on
             onClick={() => void publishShown()}
             type="button"
           >
-            {publishing ? "Публикуем…" : `Опубликовать все на экране (${Math.min(items.length, 200)})`}
+            {publishing ? t("Публикуем…") : t("Опубликовать все на экране ({count})", { count: Math.min(items.length, 200) })}
           </button>
         )}
         {items?.map((venue) => (
@@ -500,7 +493,7 @@ export function AdminVenuesScreen({ navigate, onBack }: { navigate: Navigate; on
             onClick={() => void load(nextOffset)}
             type="button"
           >
-            {loadingMore ? "Загружаем…" : "Загрузить ещё"}
+            {loadingMore ? t("Загружаем…") : t("Загрузить ещё")}
           </button>
         )}
         <OsmAttribution venues={items ?? []} />

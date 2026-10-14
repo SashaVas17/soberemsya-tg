@@ -11,12 +11,13 @@ import {
   priceLabel,
 } from "../venues";
 import { CategoryBadge, CategoryChip } from "./common";
+import { t } from "../i18n";
 
 export function OsmAttribution({ venues }: { venues: Pick<Venue, "source">[] }) {
   if (!needsOsmAttribution(venues)) return null;
   return (
     <p className="osm-attribution">
-      Данные о местах:{" "}
+      {t("Данные о местах:")}{" "}
       <a
         href={OSM_ATTRIBUTION_URL}
         onClick={(event) => {
@@ -26,8 +27,7 @@ export function OsmAttribution({ venues }: { venues: Pick<Venue, "source">[] }) 
         rel="noreferrer"
         target="_blank"
       >
-        © участники OpenStreetMap
-      </a>
+        {t("© участники OpenStreetMap")}</a>
     </p>
   );
 }
@@ -46,8 +46,7 @@ export function VenueMeta({ venue }: { venue: Venue }) {
       {price && (
         <span>
           <Wallet aria-hidden="true" size={15} />
-          {price} на человека
-        </span>
+          {price}  {t("на человека")}</span>
       )}
       {venue.openingHours && (
         <span>
@@ -63,8 +62,7 @@ export function FeaturedBadge() {
   return (
     <span className="venue-featured-badge">
       <Star aria-hidden="true" size={13} />
-      Рекомендуем
-    </span>
+      {t("Рекомендуем")}</span>
   );
 }
 
@@ -91,8 +89,7 @@ export function VenueCard({
       <div className="venue-card-actions">
         <button className="primary-action compact-action" onClick={onCreateMeeting} type="button">
           <Plus aria-hidden="true" size={18} />
-          Создать встречу
-        </button>
+          {t("Создать встречу")}</button>
         {link && (
           <button
             className="secondary-action compact-action"
@@ -100,7 +97,7 @@ export function VenueCard({
             type="button"
           >
             <ExternalLink aria-hidden="true" size={16} />
-            {venue.website ? "Сайт" : "На карте"}
+            {venue.website ? t("Сайт") : t("На карте")}
           </button>
         )}
       </div>
@@ -172,7 +169,7 @@ export function VenuePicker({
         if (requestId !== latestRequest.current) return;
         console.error("venues_load_failed", reason);
         setItems([]);
-        setError("Подборка мест не загрузилась.");
+        setError(t("Подборка мест не загрузилась."));
       })
       .finally(() => {
         if (requestId === latestRequest.current) setLoading(false);
@@ -196,7 +193,7 @@ export function VenuePicker({
     } catch (reason) {
       if (requestId === latestRequest.current) {
         console.error("venues_load_failed", reason);
-        setError("Подборка мест не загрузилась.");
+        setError(t("Подборка мест не загрузилась."));
       }
     } finally {
       if (requestId === latestRequest.current) setLoading(false);
@@ -207,26 +204,27 @@ export function VenuePicker({
   if (catalogEmpty !== false && items.length === 0) return null;
   const shown = items.slice(0, visible);
   const canShowMore = visible < items.length || nextOffset !== null;
-  const categoryName = (id: string) => categories.find((category) => category.id === id)?.name;
+  const categoryName = (id: string) => {
+    const name = categories.find((category) => category.id === id)?.name;
+    return name ? t(name) : undefined;
+  };
 
   return (
-    <section aria-busy={loading} className="venue-picker" aria-label="Подборка мест">
+    <section aria-busy={loading} className="venue-picker" aria-label={t("Подборка мест")}>
       <div className="venue-picker-heading">
-        <h3>Подборка мест</h3>
+        <h3>{t("Подборка мест")}</h3>
         <p className="create-section-helper">
-          {budget > 0 ? `По категории и бюджету до ${budget} BYN.` : "По категории встречи."} Нажмите, чтобы добавить вариант.
-        </p>
+          {budget > 0 ? t("По категории и бюджету до {budget} BYN.", { budget }) : t("По категории встречи.")}  {t("Нажмите, чтобы добавить вариант.")}</p>
       </div>
       {categories.length > 0 && (
-        <div aria-label="Категория мест" className="category-chips" role="group">
+        <div aria-label={t("Категория мест")} className="category-chips" role="group">
           <button
             aria-pressed={categoryId === null}
             className={`category-chip${categoryId === null ? " selected" : ""}`}
             onClick={() => setCategoryId(null)}
             type="button"
           >
-            Все
-          </button>
+            {t("Все")}</button>
           {categories.map((choice) => (
             <CategoryChip
               category={choice}
@@ -239,7 +237,7 @@ export function VenuePicker({
       )}
       {error && <p className="form-error" role="alert">{error}</p>}
       {!loading && !error && items.length === 0 && (
-        <p className="create-empty-options">Подходящих мест пока нет — добавьте своё ниже.</p>
+        <p className="create-empty-options">{t("Подходящих мест пока нет — добавьте своё ниже.")}</p>
       )}
       {shown.length > 0 && (
         <ul className="venue-picker-list">
@@ -252,7 +250,7 @@ export function VenuePicker({
             return (
               <li key={venue.id}>
                 <button
-                  aria-label={added ? `«${venue.name}» уже добавлено` : `Добавить «${venue.name}»`}
+                  aria-label={added ? t("«{name}» уже добавлено", { name: venue.name }) : t("Добавить «{name}»", { name: venue.name })}
                   className={`venue-pick${added ? " added" : ""}`}
                   disabled={added}
                   onClick={() => onPick(venue)}
@@ -281,8 +279,7 @@ export function VenuePicker({
           onClick={() => void showMore()}
           type="button"
         >
-          Ещё места
-        </button>
+          {t("Ещё места")}</button>
       )}
       <OsmAttribution venues={shown} />
     </section>

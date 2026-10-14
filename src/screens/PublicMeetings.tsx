@@ -13,6 +13,7 @@ import type { City, MeetingCategory, PublicMeetingFeedItem } from "../types";
 import type { Navigate } from "../app-types";
 import { CategoryBadge, CategoryChip, Header, Loading, RetryState, EmptyState } from "../ui/common";
 import { CommunityRulesDialog } from "../ui/Moderation";
+import { t } from "../i18n";
 
 export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBack: () => void }) {
   const [items, setItems] = useState<PublicMeetingFeedItem[]>([]);
@@ -74,7 +75,7 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
       console.error("public_meetings_load_failed", reason);
       // Items of the previous filter must not stay under the new one.
       if (!isLoadingMore) setItems([]);
-      setError("Не удалось загрузить открытые встречи.");
+      setError(t("Не удалось загрузить открытые встречи."));
     } finally {
       if (requestId === latestRequest.current) {
         setLoadingMore(false);
@@ -99,7 +100,7 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
       await load();
     } catch (reason) {
       console.error("user_city_save_failed", reason);
-      setCityError("Не удалось сменить город. Попробуйте ещё раз.");
+      setCityError(t("Не удалось сменить город. Попробуйте ещё раз."));
     } finally {
       setSavingCity(false);
     }
@@ -110,13 +111,13 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
       <label className="city-chip city-picker">
         <MapPin aria-hidden="true" size={16} />
         <select
-          aria-label="Город"
+          aria-label={t("Город")}
           disabled={savingCity}
           onChange={(event) => void chooseCity(event.target.value)}
           value={city.id}
         >
           {cityChoices.map((choice) => (
-            <option key={choice.id} value={choice.id}>{choice.name}</option>
+            <option key={choice.id} value={choice.id}>{t(choice.name)}</option>
           ))}
         </select>
         <ChevronDown aria-hidden="true" size={16} />
@@ -124,7 +125,7 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
     ) : (
       <span className="city-chip">
         <MapPin aria-hidden="true" size={16} />
-        {city.name}
+        {t(city.name)}
       </span>
     )
   );
@@ -145,7 +146,7 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
       <div className="feed-search">
         <Search aria-hidden="true" size={18} />
         <input
-          aria-label="Поиск по названию"
+          aria-label={t("Поиск по названию")}
           enterKeyHint="search"
           maxLength={FEED_SEARCH_MAX_LENGTH}
           onChange={(event) => setSearchInput(event.target.value)}
@@ -154,13 +155,13 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
             setSearch(normalizeFeedSearch(searchInput));
             event.currentTarget.blur();
           }}
-          placeholder="Поиск по названию"
+          placeholder={t("Поиск по названию")}
           type="search"
           value={searchInput}
         />
         {searchInput && (
           <button
-            aria-label="Очистить поиск"
+            aria-label={t("Очистить поиск")}
             className="feed-search-clear"
             onClick={clearSearch}
             type="button"
@@ -170,15 +171,14 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
         )}
       </div>
       {categoryChoices.length > 0 && (
-        <div aria-label="Категории" className="category-chips" role="group">
+        <div aria-label={t("Категории")} className="category-chips" role="group">
           <button
             aria-pressed={categoryId === null}
             className={`category-chip${categoryId === null ? " selected" : ""}`}
             onClick={() => setCategoryId(null)}
             type="button"
           >
-            Все
-          </button>
+            {t("Все")}</button>
           {categoryChoices.map((choice) => (
             <CategoryChip
               category={choice}
@@ -219,15 +219,15 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
               <Users size={15} />
               {item.maxParticipants === null
                 ? plural(item.participantCount, "участник", "участника", "участников")
-                : `${item.participantCount} из ${item.maxParticipants} участников`}
+                : t("{count} из {max} участников", { count: item.participantCount, max: item.maxParticipants })}
             </span>
             <span>
               {item.budgetLimit > 0
-                ? `До ${item.budgetLimit} BYN`
-                : "Бюджет не указан"}
+                ? t("До {budget} BYN", { budget: item.budgetLimit })
+                : t("Бюджет не указан")}
             </span>
           </div>
-          <span className="meeting-card-action">Подробнее</span>
+          <span className="meeting-card-action">{t("Подробнее")}</span>
         </button>
       ))}
     </div>
@@ -238,37 +238,36 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
       <Header navigate={navigate} onBack={onBack} title="Flockly" variant="root" />
       <section className="public-meetings-page">
         <div className="page-intro public-meetings-intro">
-          <h1>Открытые встречи</h1>
-          <p>Найдите встречу и отправьте заявку на участие.</p>
+          <h1>{t("Открытые встречи")}</h1>
+          <p>{t("Найдите встречу и отправьте заявку на участие.")}</p>
           {cityControl}
           {cityError && <p className="city-error" role="alert">{cityError}</p>}
         </div>
         {filters}
         {loading && !items.length && (
-          <Loading label="Загружаем открытые встречи…" />
+          <Loading label={t("Загружаем открытые встречи…")} />
         )}
         {!loading && !items.length && !error && (filtered ? (
           <EmptyState
             action={
               <button className="secondary-action compact-action" onClick={resetFilters} type="button">
-                Сбросить фильтры
-              </button>
+                {t("Сбросить фильтры")}</button>
             }
             icon={<SearchX aria-hidden="true" size={32} />}
-            title="Ничего не нашлось"
-            text="Попробуйте другую категорию или другой запрос."
+            title={t("Ничего не нашлось")}
+            text={t("Попробуйте другую категорию или другой запрос.")}
           />
         ) : (
           <EmptyState
-            title="Пока нет открытых встреч"
-            text="Открытые встречи появятся здесь, когда организаторы начнут их собирать."
+            title={t("Пока нет открытых встреч")}
+            text={t("Открытые встречи появятся здесь, когда организаторы начнут их собирать.")}
           />
         ))}
         {error && !items.length && (
           <RetryState
             message={error}
             onRetry={() => void load()}
-            title="Не удалось загрузить открытые встречи."
+            title={t("Не удалось загрузить открытые встречи.")}
           />
         )}
         {cards}
@@ -280,8 +279,7 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
               onClick={() => void load(nextCursor ?? undefined)}
               type="button"
             >
-              Повторить
-            </button>
+              {t("Повторить")}</button>
           </div>
         )}
         {nextCursor && !error && (
@@ -291,12 +289,12 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
             onClick={() => void load(nextCursor)}
             type="button"
           >
-            {loadingMore ? "Загружаем…" : "Загрузить ещё"}
+            {loadingMore ? t("Загружаем…") : t("Загрузить ещё")}
           </button>
         )}
-        <nav aria-label="Безопасность" className="public-feed-safety-links">
-          <button onClick={() => navigate("/rules")} type="button">Правила</button>
-          <button onClick={() => navigate("/blocked")} type="button">Заблокированные</button>
+        <nav aria-label={t("Безопасность")} className="public-feed-safety-links">
+          <button onClick={() => navigate("/rules")} type="button">{t("Правила")}</button>
+          <button onClick={() => navigate("/blocked")} type="button">{t("Заблокированные")}</button>
         </nav>
       </section>
       <BottomNavigation currentPath="/open" navigate={navigate} />

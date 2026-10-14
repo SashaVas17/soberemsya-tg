@@ -5,6 +5,7 @@ import type { PublicEventPreview } from "../types";
 import type { Navigate } from "../app-types";
 import { CategoryBadge, Header, ErrorNote, StatusBadge } from "../ui/common";
 import { SafetyActions } from "../ui/Moderation";
+import { t } from "../i18n";
 
 export function PublicPreviewScreen({
   error,
@@ -27,11 +28,11 @@ export function PublicPreviewScreen({
   );
   return (
     <main className="public-preview-screen">
-      <Header navigate={navigate} onBack={onBack} title="Открытая встреча" variant="nested" />
+      <Header navigate={navigate} onBack={onBack} title={t("Открытая встреча")} variant="nested" />
       <section className="public-preview-page">
         <div className="public-preview-heading">
           <div className="event-meta">
-            <span className="visibility-badge">Открытая</span>
+            <span className="visibility-badge">{t("Открытая")}</span>
             <StatusBadge status={preview.status} />
             {preview.category && <CategoryBadge category={preview.category} />}
           </div>
@@ -42,25 +43,25 @@ export function PublicPreviewScreen({
           <div className="public-preview-row">
             <CalendarDays size={22} />
             <div>
-              <span>Когда</span>
-              <strong>{preview.dateSummary ?? "Дата пока не указана"}</strong>
+              <span>{t("Когда")}</span>
+              <strong>{preview.dateSummary ?? t("Дата пока не указана")}</strong>
             </div>
           </div>
           <div className="public-preview-row">
             <Users size={22} />
             <div>
-              <span>Участники</span>
+              <span>{t("Участники")}</span>
               <strong>
                 {preview.maxParticipants === null
                   ? plural(preview.participantCount, "участник", "участника", "участников")
-                  : `${preview.participantCount} из ${preview.maxParticipants} участников`}
+                  : t("{count} из {max} участников", { count: preview.participantCount, max: preview.maxParticipants })}
               </strong>
             </div>
           </div>
           <div className="public-preview-budget">
             {preview.budgetLimit > 0
-              ? `Ориентир до ${preview.budgetLimit} BYN`
-              : "Бюджет не указан"}
+              ? t("Ориентир до {budget} BYN", { budget: preview.budgetLimit })
+              : t("Бюджет не указан")}
           </div>
         </section>
         <section className="public-preview-request">
@@ -75,7 +76,7 @@ export function PublicPreviewScreen({
               onClick={onJoin}
               type="button"
             >
-              {joining ? "Отправляем…" : requestView.actionLabel}
+              {joining ? t("Отправляем…") : requestView.actionLabel}
             </button>
           )}
           <ErrorNote message={error} />

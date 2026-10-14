@@ -213,3 +213,29 @@ test("the places map shows venues and open meetings and switches back to the lis
   await page.getByRole("tab", { name: "Список" }).click();
   await expect(page.getByRole("button", { name: /Создать встречу/ }).first()).toBeVisible();
 });
+
+test("settings switch the interface to English and back", async ({ page }) => {
+  await page.goto("./");
+  await page.getByRole("button", { name: "Настройки" }).click();
+  await expect(page.getByRole("heading", { name: "Язык" })).toBeVisible();
+  await page.getByRole("button", { name: "English" }).click();
+  await expect(page.getByRole("heading", { name: "Language" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "English" })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Home" }).click();
+  await expect(page.getByText("Your meetings")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open meetings" })).toBeVisible();
+  // The choice survives a reload; «As in Telegram» brings Russian back here.
+  await page.reload();
+  await expect(page.getByText("Your meetings")).toBeVisible();
+  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("group", { name: "Language" }).getByRole("button", { name: "Auto" }).click();
+  await expect(page.getByRole("heading", { name: "Язык" })).toBeVisible();
+});
+
+test("the theme is chosen in settings", async ({ page }) => {
+  await page.goto("./#/settings");
+  await page.getByRole("button", { name: "Тёмная" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.getByRole("button", { name: "Светлая" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+});

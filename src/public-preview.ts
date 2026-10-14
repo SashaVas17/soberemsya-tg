@@ -4,6 +4,7 @@ import type {
   JoinRequestStatus,
   PublicEventPreview,
 } from "./types";
+import { locale, t } from "./i18n";
 
 export type MockPublicRole =
   | "none"
@@ -12,7 +13,7 @@ export type MockPublicRole =
   | "approved"
   | "owner";
 
-const dateFormatter = new Intl.DateTimeFormat("ru-RU", {
+const dateFormatter = () => new Intl.DateTimeFormat(locale(), {
   day: "numeric",
   month: "long",
   timeZone: "Europe/Minsk",
@@ -41,7 +42,7 @@ function previewDate(startsAt: string): PreviewDate | null {
       .filter((part) => part.type !== "literal")
       .map((part) => [part.type, part.value]),
   );
-  const label = dateFormatter.format(value);
+  const label = dateFormatter().format(value);
   const [day = "", ...monthParts] = label.split(" ");
   return {
     day,
@@ -71,7 +72,7 @@ export function mockPublicEventAccess(event: EventData, role: MockPublicRole) {
   if (event.visibility === "private" || role === "owner" || role === "approved")
     return { event: structuredClone(event) };
   throw new ApiError(
-    "Доступна только публичная информация о встрече.",
+    t("Доступна только публичная информация о встрече."),
     403,
     "PUBLIC_PREVIEW_REQUIRED",
   );
@@ -83,7 +84,7 @@ export function mockPublicEventPreview(
   ownerUserId = "user_owner",
 ): { preview: PublicEventPreview } {
   if (event.visibility !== "public")
-    throw new ApiError("Встреча не найдена или удалена.", 404);
+    throw new ApiError(t("Встреча не найдена или удалена."), 404);
   const participantUserIds = event.participants.map((person) =>
     "userId" in person ? person.userId : null,
   );

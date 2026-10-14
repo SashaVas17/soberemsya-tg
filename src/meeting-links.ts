@@ -1,3 +1,5 @@
+import { t } from "./i18n";
+
 export function miniAppLink(
   eventId: string,
   bot: string,
@@ -12,10 +14,10 @@ export function managementPath(eventId: string) {
 
 export function eventShareUrl(eventId: string, bot: string, app: string) {
   const link = miniAppLink(eventId, bot, app);
-  return `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent("Соберёмся?\nПроголосуйте за удобное время и место:")}`;
+  return `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(t("Соберёмся?\nПроголосуйте за удобное время и место:"))}`;
 }
 
 export function resultShareUrl(eventId: string, bot: string, app: string) {
   const link = miniAppLink(eventId, bot, app);
-  return `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent("Итог встречи в Flockly:")}`;
+  return `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(t("Итог встречи в Flockly:"))}`;
 }

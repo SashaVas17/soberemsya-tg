@@ -2,6 +2,7 @@ type BackButton = { show(): void; hide(): void; onClick(callback: () => void): v
 type MainButton = { setText(text: string): void; show(): void; hide(): void; enable(): void; disable(): void; onClick(callback: () => void): void; offClick(callback: () => void): void };
 type TelegramWebApp = {
   initData: string;
+  initDataUnsafe?: { user?: { language_code?: string } };
   colorScheme: "light" | "dark";
   ready?: () => void;
   expand?: () => void;

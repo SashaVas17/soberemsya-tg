@@ -1,4 +1,5 @@
 import type { EventData, OrganizerEventData, Participant, TelegramUser } from "./types";
+import { t } from "./i18n";
 
 export type VotingDraft = {
   area: string;
@@ -75,12 +76,12 @@ function mockAuthorization(input: {
     return input.participantId ? "update" : "insert-private";
   if (input.isOwner)
     throw Object.assign(
-      new Error("Организатор не может отвечать как участник открытой встречи."),
+      new Error(t("Организатор не может отвечать как участник открытой встречи.")),
       { code: "PUBLIC_OWNER_CANNOT_RESPOND", status: 403 },
     );
   if (!input.participantId)
     throw Object.assign(
-      new Error("Сначала отправьте заявку и дождитесь одобрения организатора."),
+      new Error(t("Сначала отправьте заявку и дождитесь одобрения организатора.")),
       { code: "PUBLIC_JOIN_REQUIRED", status: 403 },
     );
   return "update";

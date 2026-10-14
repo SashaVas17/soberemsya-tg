@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState, type ReactElement } from "react";
 import { api } from "./api";
 import { onSessionExpired } from "./session";
 import { initializeTelegram } from "./telegram";
@@ -8,7 +8,7 @@ import { Loading, RetryState } from "./ui/common";
 import { AdminStatsScreen } from "./screens/AdminStatsScreen";
 import { AdminReportsScreen } from "./screens/AdminReportsScreen";
 import { BlockedUsersScreen, CommunityRulesScreen } from "./screens/SafetyScreens";
-import { NotificationSettingsScreen } from "./screens/NotificationSettingsScreen";
+import { SettingsScreen } from "./screens/SettingsScreen";
 import { SessionExpired, OutsideTelegram } from "./screens/SystemScreens";
 import { Home } from "./screens/Home";
 import { PublicMeetings } from "./screens/PublicMeetings";
@@ -21,10 +21,19 @@ import { ParticipantEvent } from "./screens/ParticipantEvent";
 import { MyEvents } from "./screens/MyEvents";
 import { Manage } from "./screens/Manage";
 import { Result } from "./screens/Result";
+import { language, refreshLanguage, saveLanguagePreference, readLanguagePreference, t, type LanguagePreference } from "./i18n";
 
 export default function App() {
   const { path, navigate, goBack } = usePath();
-  const { resolvedTheme, toggleTheme } = useAppTheme();
+  const { themePreference, setThemePreference } = useAppTheme();
+  // Texts are read at render time (t() in src/i18n.ts).
+  const [languagePreference, setLanguagePreferenceState] = useState<LanguagePreference>(readLanguagePreference);
+  const [currentLanguage, setCurrentLanguage] = useState(language);
+  const setLanguagePreference = useCallback((next: LanguagePreference) => {
+    saveLanguagePreference(next);
+    setLanguagePreferenceState(next);
+    setCurrentLanguage(language());
+  }, []);
   const [auth, setAuth] = useState<AuthResult | null>(null);
   const [error, setError] = useState("");
   const [outside, setOutside] = useState(false);
@@ -46,6 +55,7 @@ export default function App() {
   useEffect(() => onSessionExpired(() => setSessionExpired(true)), []);
   useEffect(() => {
     const app = initializeTelegram();
+    setCurrentLanguage(refreshLanguage());
     const mock = import.meta.env.VITE_USE_MOCK_TELEGRAM === "true";
     const raw =
       app?.initData ||
@@ -80,7 +90,7 @@ export default function App() {
         setError(
           reason instanceof Error
             ? reason.message
-            : "Не удалось подтвердить данные Telegram.",
+            : t("Не удалось подтвердить данные Telegram."),
         ),
       );
   }, [navigate]);
@@ -92,20 +102,23 @@ export default function App() {
         <RetryState
           message={error}
           onRetry={() => window.location.reload()}
-          title="Не удалось открыть приложение"
+          title={t("Не удалось открыть приложение")}
         />
       </main>
     );
   if (!auth)
     return (
       <main className="outside-screen">
-        <Loading label="Проверяем Telegram…" />
+        <Loading label={t("Проверяем Telegram…")} />
       </main>
     );
+  // A new language re-creates the screen, so texts kept in its state
+  // (errors, loaded messages) are shown again in that language.
+  const keyed = (screen: ReactElement) => <Fragment key={currentLanguage}>{screen}</Fragment>;
   const match = (pattern: RegExp) => path.match(pattern)?.[1];
   const created = match(/^\/created\/([^/]+)$/);
   if (created)
-    return (
+    return keyed(
       <Created
         event={createdEvent?.id === created ? createdEvent : null}
         eventId={created}
@@ -115,13 +128,13 @@ export default function App() {
       />
     );
   const manage = match(/^\/manage\/([^/]+)$/);
-  if (manage) return <Manage eventId={manage} navigate={navigate} onBack={backOverride ?? goBack} />;
+  if (manage) return keyed(<Manage eventId={manage} navigate={navigate} onBack={backOverride ?? goBack} />);
   const result = match(/^\/result\/([^/]+)$/);
-  if (result) return <Result eventId={result} navigate={navigate} onBack={backOverride ?? goBack} />;
+  if (result) return keyed(<Result eventId={result} navigate={navigate} onBack={backOverride ?? goBack} />);
   const event = match(/^\/event\/([^/]+)$/);
-  if (event) return <ParticipantEvent eventId={event} navigate={navigate} onBack={backOverride ?? goBack} />;
+  if (event) return keyed(<ParticipantEvent eventId={event} navigate={navigate} onBack={backOverride ?? goBack} />);
   if (path === "/create")
-    return (
+    return keyed(
       <CreateEvent
         navigate={navigate}
         onBack={backOverride ?? goBack}
@@ -130,21 +143,30 @@ export default function App() {
         setBackOverride={setBackOverride}
       />
     );
-  if (path === "/open") return <PublicMeetings navigate={navigate} onBack={goBack} />;
+  if (path === "/open") return keyed(<PublicMeetings navigate={navigate} onBack={goBack} />);
   // "/map" was the placeholder tab before the venue catalogue.
-  if (path === "/places" || path === "/map") return <PlacesScreen navigate={navigate} onBack={goBack} />;
-  if (path === "/my-events") return <MyEvents navigate={navigate} onBack={goBack} />;
-  if (path === "/settings") return <NotificationSettingsScreen navigate={navigate} onBack={goBack} />;
-  if (path === "/admin/stats" && auth.isAdmin) return <AdminStatsScreen navigate={navigate} onBack={goBack} />;
-  if (path === "/admin/venues" && auth.isAdmin) return <AdminVenuesScreen navigate={navigate} onBack={goBack} />;
-  if (path === "/admin/reports" && auth.isAdmin) return <AdminReportsScreen navigate={navigate} onBack={goBack} />;
-  if (path === "/blocked") return <BlockedUsersScreen navigate={navigate} onBack={goBack} />;
-  if (path === "/rules") return <CommunityRulesScreen navigate={navigate} onBack={goBack} />;
-  return (
+  if (path === "/places" || path === "/map") return keyed(<PlacesScreen navigate={navigate} onBack={goBack} />);
+  if (path === "/my-events") return keyed(<MyEvents navigate={navigate} onBack={goBack} />);
+  if (path === "/settings" || path === "/settings/notifications")
+    return keyed(
+      <SettingsScreen
+        languagePreference={languagePreference}
+        section={path === "/settings/notifications" ? "notifications" : undefined}
+        navigate={navigate}
+        onBack={goBack}
+        onLanguage={setLanguagePreference}
+        onTheme={setThemePreference}
+        themePreference={themePreference}
+      />
+    );
+  if (path === "/admin/stats" && auth.isAdmin) return keyed(<AdminStatsScreen navigate={navigate} onBack={goBack} />);
+  if (path === "/admin/venues" && auth.isAdmin) return keyed(<AdminVenuesScreen navigate={navigate} onBack={goBack} />);
+  if (path === "/admin/reports" && auth.isAdmin) return keyed(<AdminReportsScreen navigate={navigate} onBack={goBack} />);
+  if (path === "/blocked") return keyed(<BlockedUsersScreen navigate={navigate} onBack={goBack} />);
+  if (path === "/rules") return keyed(<CommunityRulesScreen navigate={navigate} onBack={goBack} />);
+  return keyed(
     <Home
       navigate={navigate}
-      resolvedTheme={resolvedTheme}
-      toggleTheme={toggleTheme}
       user={auth.user}
       isAdmin={auth.isAdmin === true}
     />

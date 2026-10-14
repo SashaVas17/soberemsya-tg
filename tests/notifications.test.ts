@@ -203,6 +203,7 @@ describe("API and UI wiring", () => {
   });
 
   it("routes the settings screen", () => {
-    expect(app).toContain('if (path === "/settings") return <NotificationSettingsScreen');
+    expect(app).toMatch(/if \(path === "\/settings" \|\| path === "\/settings\/notifications"\)\s+return keyed\(\s+<SettingsScreen/);
+    expect(app).toContain("<NotificationSettingsPanel />");
   });
 });
