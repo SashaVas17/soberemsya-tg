@@ -194,3 +194,22 @@ test("a venue card starts a meeting with that place, and the picker adds another
   await page.getByRole("button", { name: "Создать встречу" }).click();
   await expect(page.getByText("Встреча создана 🎉")).toBeVisible();
 });
+
+test("the places map shows venues and open meetings and switches back to the list", async ({ page }) => {
+  // No external map server in tests: an empty style with a plain background.
+  await page.route("https://tiles.openfreemap.org/**", (route) =>
+    route.request().url().includes("/styles/")
+      ? route.fulfill({
+          contentType: "application/json",
+          body: JSON.stringify({ version: 8, sources: {}, layers: [{ id: "bg", type: "background", paint: { "background-color": "#efeae4" } }] }),
+        })
+      : route.fulfill({ status: 404, body: "" }));
+  await page.goto("./#/places");
+  await page.getByRole("tab", { name: "Карта" }).click();
+  await expect(page.locator(".map-legend")).toContainText("Открытые встречи");
+  await expect(page.getByPlaceholder("Поиск по названию")).toHaveCount(0);
+  // A canvas where WebGL exists, otherwise the plain fallback; never a crash.
+  await expect(page.locator(".venue-map canvas, .venue-map-unsupported").first()).toBeVisible();
+  await page.getByRole("tab", { name: "Список" }).click();
+  await expect(page.getByRole("button", { name: /Создать встречу/ }).first()).toBeVisible();
+});

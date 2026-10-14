@@ -1097,3 +1097,129 @@ h1 {
     transition: none;
   }
 }
+
+/* Stage 4: map in «Места» ------------------------------------------------ */
+.places-view-switch {
+  margin-bottom: var(--space-md);
+}
+.places-view-switch button {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  justify-content: center;
+}
+.venue-map-frame {
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  isolation: isolate;
+  overflow: hidden;
+  position: relative;
+}
+/* Tall enough to explore, short enough to keep the filters and the menu in view. */
+.venue-map {
+  background: var(--color-surface);
+  height: max(300px, calc(100dvh - 420px));
+  width: 100%;
+}
+.map-selection {
+  bottom: 10px;
+  display: grid;
+  gap: 8px;
+  left: 10px;
+  max-height: calc(100% - 20px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  position: absolute;
+  right: 10px;
+  z-index: 2;
+}
+.map-selection .meeting-card {
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  background: color-mix(in srgb, var(--color-surface) 94%, transparent);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.18);
+  padding-right: 48px;
+}
+.map-selection-close {
+  align-items: center;
+  background: var(--color-surface);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text);
+  cursor: pointer;
+  display: inline-flex;
+  height: 36px;
+  justify-content: center;
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 36px;
+  z-index: 1;
+}
+/* A 44px touch target without a bigger button. */
+.map-selection-close::before {
+  content: "";
+  inset: -4px;
+  position: absolute;
+}
+.map-selection-status {
+  background: var(--color-surface);
+  border-radius: 16px;
+  color: var(--color-text-secondary);
+  margin: 0;
+  padding: 16px 48px 16px 16px;
+}
+.map-meeting-card > .primary-action {
+  justify-self: start;
+  min-height: 44px;
+  width: auto;
+}
+.map-meeting-badge {
+  align-items: center;
+  background: color-mix(in srgb, #e8467c 18%, var(--color-surface));
+  border-radius: var(--radius-full);
+  color: var(--color-text);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 5px 10px;
+}
+.map-legend {
+  align-items: center;
+  color: var(--color-text-secondary);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+.map-legend span {
+  border: 2px solid var(--color-surface);
+  border-radius: var(--radius-full);
+  display: inline-block;
+  height: 12px;
+  width: 12px;
+}
+.map-legend-venue {
+  background: var(--color-primary);
+}
+.map-legend-meeting {
+  background: #e8467c;
+  margin-left: 8px;
+}
+:root[data-theme="dark"] .map-legend-meeting {
+  background: #ff6fa3;
+}
+.places-intro-compact {
+  padding-bottom: 12px;
+}
+.venue-map-unsupported {
+  align-items: center;
+  color: var(--color-text-secondary);
+  display: flex;
+  justify-content: center;
+  margin: 0;
+  padding: 24px;
+  text-align: center;
+}

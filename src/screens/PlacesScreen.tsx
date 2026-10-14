@@ -1,16 +1,50 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { MapPin, Search, SearchX, X } from "lucide-react";
+import { Component, lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Clock3, List, Map as MapIcon, MapPin, Search, SearchX, X } from "lucide-react";
 import { api } from "../api";
 import { BottomNavigation } from "../BottomNavigation";
 import { FEED_SEARCH_MAX_LENGTH, normalizeFeedSearch } from "../public-feed";
-import type { City, MeetingCategory, Venue } from "../types";
+import type { City, MapMeeting, MapPoints, MeetingCategory, Venue } from "../types";
+import { mapMeetingTime } from "../map";
 import type { Navigate } from "../app-types";
 import { mergeVenues, startMeetingAtVenue } from "../venues";
-import { CategoryChip, EmptyState, Header, Loading, RetryState } from "../ui/common";
+import { CategoryBadge, CategoryChip, EmptyState, Header, Loading, RetryState } from "../ui/common";
 import { OsmAttribution, VenueCard } from "../ui/Venues";
 
-// «Куда сходить»: curated venues of the viewer's city by category. A map of
-// the same venues comes in Stage 4.
+// React.lazy remembers a failed import, so a retry needs a fresh one.
+const loadVenueMap = () => lazy(() => import("../ui/VenueMap"));
+
+type MapSelection =
+  | { kind: "venue"; venueId: string; venue: Venue | null; error: string }
+  | { kind: "meetings"; meetings: MapMeeting[] };
+
+// The map code is a separate file: if it cannot be downloaded (no network, a
+// page left open across a deploy) the screen offers a retry instead of the
+// whole app going blank.
+class MapChunkBoundary extends Component<{ children: ReactNode; onRetry: () => void }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error: unknown) {
+    console.error("map_chunk_failed", error);
+  }
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <RetryState
+        message="Проверьте соединение и попробуйте ещё раз."
+        onRetry={() => {
+          this.setState({ failed: false });
+          this.props.onRetry();
+        }}
+        title="Карта не загрузилась"
+      />
+    );
+  }
+}
+
+// «Куда сходить»: curated venues of the viewer's city by category, as a list
+// or on a map together with open meetings held at catalogue venues.
 export function PlacesScreen({ navigate, onBack }: { navigate: Navigate; onBack: () => void }) {
   const [items, setItems] = useState<Venue[]>([]);
   const [nextOffset, setNextOffset] = useState<number | null>(null);
@@ -23,6 +57,13 @@ export function PlacesScreen({ navigate, onBack }: { navigate: Navigate; onBack:
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const latestRequest = useRef(0);
+  const [view, setView] = useState<"list" | "map">("list");
+  const [mapPoints, setMapPoints] = useState<MapPoints | null>(null);
+  const [mapError, setMapError] = useState("");
+  const [mapReload, setMapReload] = useState(0);
+  const [selection, setSelection] = useState<MapSelection | null>(null);
+  const latestMapRequest = useRef(0);
+  const [VenueMap, setVenueMap] = useState(loadVenueMap);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setSearch(normalizeFeedSearch(searchInput)), 350);
@@ -61,9 +102,43 @@ export function PlacesScreen({ navigate, onBack }: { navigate: Navigate; onBack:
     }
   }, [categoryId, search]);
 
+  // The list loads only while it is shown: category taps on the map must not
+  // also fetch a hidden list.
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (view === "list") void load();
+  }, [load, view]);
+
+  // The map shows the chosen category; search applies to the list only.
+  useEffect(() => {
+    if (view !== "map") return;
+    const requestId = ++latestMapRequest.current;
+    setMapError("");
+    setSelection(null);
+    api.mapPoints(categoryId).then(
+      (points) => {
+        if (requestId === latestMapRequest.current) setMapPoints(points);
+      },
+      (reason) => {
+        if (requestId !== latestMapRequest.current) return;
+        console.error("map_points_load_failed", reason);
+        setMapError("Не удалось загрузить карту.");
+      },
+    );
+  }, [view, categoryId, mapReload]);
+
+  const selectVenue = (venueId: string) => {
+    setSelection({ kind: "venue", venueId, venue: null, error: "" });
+    api.venue(venueId).then(
+      ({ venue }) =>
+        setSelection((current) =>
+          current?.kind === "venue" && current.venueId === venueId ? { ...current, venue } : current),
+      () =>
+        setSelection((current) =>
+          current?.kind === "venue" && current.venueId === venueId
+            ? { ...current, error: "Не удалось открыть место." }
+            : current),
+    );
+  };
 
   const filtered = Boolean(categoryId || search);
   const resetFilters = () => {
@@ -71,24 +146,117 @@ export function PlacesScreen({ navigate, onBack }: { navigate: Navigate; onBack:
     setSearchInput("");
     setSearch("");
   };
-  const categoryOf = (venue: Venue) => categories.find((choice) => choice.id === venue.categoryId) ?? null;
+  const categoryById = (id: string | null) => categories.find((choice) => choice.id === id) ?? null;
+  const categoryOf = (venue: Venue) => categoryById(venue.categoryId);
+  const createMeetingAt = (venue: Venue) => {
+    startMeetingAtVenue(venue);
+    navigate("/create");
+  };
+
+  const viewSwitch = (
+    <div aria-label="Вид" className="meeting-segments places-view-switch" role="tablist">
+      <button aria-selected={view === "list"} className={view === "list" ? "selected" : ""} onClick={() => setView("list")} role="tab" type="button">
+        <List aria-hidden="true" size={16} />
+        Список
+      </button>
+      <button aria-selected={view === "map"} className={view === "map" ? "selected" : ""} onClick={() => setView("map")} role="tab" type="button">
+        <MapIcon aria-hidden="true" size={16} />
+        Карта
+      </button>
+    </div>
+  );
+
+  const selectionSheet = selection && (
+    <section aria-live="polite" className="map-selection">
+      <button aria-label="Закрыть" className="map-selection-close" onClick={() => setSelection(null)} type="button">
+        <X aria-hidden="true" size={18} />
+      </button>
+      {selection.kind === "venue" && (selection.venue ? (
+        <VenueCard
+          category={categoryOf(selection.venue)}
+          onCreateMeeting={() => selection.venue && createMeetingAt(selection.venue)}
+          venue={selection.venue}
+        />
+      ) : (
+        <p className="map-selection-status">{selection.error || "Загружаем место…"}</p>
+      ))}
+      {selection.kind === "meetings" && selection.meetings.map((meeting) => (
+        <article className="meeting-card public-meeting-card map-meeting-card" key={meeting.id}>
+          <div className="public-meeting-card-heading">
+            <div className="venue-badges">
+              <span className="map-meeting-badge">Открытая встреча</span>
+              {categoryById(meeting.categoryId) && <CategoryBadge category={categoryById(meeting.categoryId)!} />}
+            </div>
+            <strong className="meeting-card-title">{meeting.title}</strong>
+          </div>
+          <div className="meeting-card-meta venue-meta">
+            <span>
+              <MapPin aria-hidden="true" size={15} />
+              {meeting.venueName}
+            </span>
+            {meeting.startsAt && (
+              <span>
+                <Clock3 aria-hidden="true" size={15} />
+                Ближайший вариант: {mapMeetingTime(meeting.startsAt)}
+              </span>
+            )}
+          </div>
+          <button className="primary-action compact-action" onClick={() => navigate(`/event/${meeting.id}`)} type="button">
+            Подробнее
+          </button>
+        </article>
+      ))}
+    </section>
+  );
+
+  const mapView = (
+    <>
+      {mapError && (
+        <RetryState message={mapError} onRetry={() => setMapReload((count) => count + 1)} title="Карта не загрузилась" />
+      )}
+      {!mapError && !mapPoints && <Loading label="Загружаем карту…" />}
+      {!mapError && mapPoints && (
+        <p className="map-legend">
+          <span className="map-legend-venue" aria-hidden="true" /> Места
+          <span className="map-legend-meeting" aria-hidden="true" /> Открытые встречи
+          {mapPoints.venues.length === 0 && mapPoints.meetings.length === 0 && " · пока нет точек на карте"}
+        </p>
+      )}
+      {!mapError && mapPoints && (
+        <div className="venue-map-frame">
+          <MapChunkBoundary onRetry={() => setVenueMap(loadVenueMap)}>
+            <Suspense fallback={<Loading label="Загружаем карту…" />}>
+              <VenueMap
+                onMeetings={(meetings) => setSelection({ kind: "meetings", meetings })}
+                onVenue={selectVenue}
+                points={mapPoints}
+              />
+            </Suspense>
+          </MapChunkBoundary>
+          {selectionSheet}
+        </div>
+      )}
+    </>
+  );
 
   return (
     <main className="screen-with-bottom-navigation">
       <Header navigate={navigate} onBack={onBack} title="Flockly" variant="root" />
       <section className="public-meetings-page places-page">
-        <div className="page-intro public-meetings-intro">
+        <div className={`page-intro public-meetings-intro${view === "map" ? " places-intro-compact" : ""}`}>
           <h1>Куда сходить</h1>
-          <p>Места для встреч в вашем городе. Выберите место и соберите компанию.</p>
-          {city && (
+          {/* On the map the space goes to the map itself. */}
+          {view === "list" && <p>Места для встреч в вашем городе. Выберите место и соберите компанию.</p>}
+          {view === "list" && city && (
             <span className="city-chip">
               <MapPin aria-hidden="true" size={16} />
               {city.name}
             </span>
           )}
         </div>
+        {viewSwitch}
         <div className="public-feed-filters">
-          <div className="feed-search">
+          {view === "list" && <div className="feed-search">
             <Search aria-hidden="true" size={18} />
             <input
               aria-label="Поиск по названию места"
@@ -117,7 +285,7 @@ export function PlacesScreen({ navigate, onBack }: { navigate: Navigate; onBack:
                 <X aria-hidden="true" size={16} />
               </button>
             )}
-          </div>
+          </div>}
           {categories.length > 0 && (
             <div aria-label="Категории" className="category-chips" role="group">
               <button
@@ -139,6 +307,8 @@ export function PlacesScreen({ navigate, onBack }: { navigate: Navigate; onBack:
             </div>
           )}
         </div>
+        {view === "map" && mapView}
+        {view === "list" && <>
         {loading && !items.length && <Loading label="Загружаем места…" />}
         {!loading && !items.length && !error && (filtered ? (
           <EmptyState
@@ -166,10 +336,7 @@ export function PlacesScreen({ navigate, onBack }: { navigate: Navigate; onBack:
               <VenueCard
                 category={categoryOf(venue)}
                 key={venue.id}
-                onCreateMeeting={() => {
-                  startMeetingAtVenue(venue);
-                  navigate("/create");
-                }}
+                onCreateMeeting={() => createMeetingAt(venue)}
                 venue={venue}
               />
             ))}
@@ -198,6 +365,7 @@ export function PlacesScreen({ navigate, onBack }: { navigate: Navigate; onBack:
           </button>
         )}
         <OsmAttribution venues={items} />
+        </>}
       </section>
       <BottomNavigation currentPath="/places" navigate={navigate} />
     </main>

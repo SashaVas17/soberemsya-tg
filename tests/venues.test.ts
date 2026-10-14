@@ -276,7 +276,7 @@ describe("venues migration", () => {
 
 describe("venue routes", () => {
   it("serves the catalogue to everyone and curation to administrators only", () => {
-    expect(apiSource).toContain('if (path === "/venues") return ["GET"];');
+    expect(apiSource).toContain('if (path === "/venues" || path === "/map") return ["GET"];');
     expect(apiSource).toContain('if (path === "/admin/venues") return ["GET", "POST"];');
     expect(apiSource).toContain('if (/^\\/admin\\/venues\\/[^/]+$/.test(path)) return ["PATCH"];');
     for (const handler of ["adminVenues", "adminUpdateVenue", "adminPublishVenues", "adminImportVenues"]) {
@@ -306,7 +306,7 @@ describe("venues in the app", () => {
   });
 
   it("turns a venue into a place option", () => {
-    expect(venuePlaceDraft(venue, "40")).toEqual({ title: "Кофейня", area: "улица Немига, 5", estimatedBudget: "35" });
+    expect(venuePlaceDraft(venue, "40")).toEqual({ title: "Кофейня", area: "улица Немига, 5", estimatedBudget: "35", venueId: "venue_1" });
     expect(venuePlaceDraft({ ...venue, priceLevel: null }, "30").estimatedBudget).toBe("30");
     // Never above the meeting budget the venue was picked for, never below the level.
     expect(venuePlaceDraft(venue, "20").estimatedBudget).toBe("20");

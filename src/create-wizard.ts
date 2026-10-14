@@ -12,6 +12,8 @@ export type PlaceDraft = {
   title: string;
   area: string;
   estimatedBudget: number;
+  /** Set when the place was chosen from the venue catalogue (puts an open meeting on the map). */
+  venueId?: string;
 };
 
 export type CreateWizardDraft = {
@@ -77,7 +79,11 @@ export function createEventPayload(
     maxParticipants:
       draft.visibility === "private" ? null : draft.maxParticipants,
     timeOptions: draft.timeOptions,
-    placeOptions: draft.places.filter((place) => place.title.trim()),
+    // venueId is sent only when set, so drafts without catalogue places keep
+    // the same idempotency fingerprint as before.
+    placeOptions: draft.places
+      .filter((place) => place.title.trim())
+      .map(({ venueId, ...place }) => (venueId ? { ...place, venueId } : place)),
     // Sent only when chosen: a payload without a category keeps the same
     // idempotency fingerprint and server request hash as before categories.
     ...(draft.category ? { category: draft.category } : {}),

@@ -84,6 +84,11 @@ export function parseVenueStatus(value: unknown): VenueStatus {
   badRequest("Некорректный статус места.");
 }
 
+/** An optional venue id of a place option; anything but a uuid is dropped. */
+export function optionalVenueId(value: unknown): string | null {
+  return typeof value === "string" && uuidPattern.test(value) ? value.toLowerCase() : null;
+}
+
 export function parseVenueId(value: string) {
   if (!uuidPattern.test(value)) throw Object.assign(new Error("Место не найдено."), { status: 404 });
   return value.toLowerCase();
@@ -260,6 +265,49 @@ export const OSM_CATEGORY_FILTERS: Record<string, readonly string[]> = {
     '["tourism"="theme_park"]',
   ],
 };
+
+/** Initial map view of a city: its import box, or Minsk for a city without one. */
+export function cityMapBounds(cityId: string) {
+  const [south, west, north, east] = OSM_CITY_BBOX[cityId] ?? OSM_CITY_BBOX.minsk;
+  return { south, west, north, east };
+}
+
+export type MapVenuePoint = [id: string, latitude: number, longitude: number, categoryId: string, featured: boolean];
+
+export type MapMeeting = {
+  id: string;
+  title: string;
+  categoryId: string | null;
+  latitude: number;
+  longitude: number;
+  venueName: string;
+  startsAt: string | null;
+};
+
+/** The public_map_points answer, with anything malformed left out. */
+export function mapPointsFromRpc(value: unknown): { venues: MapVenuePoint[]; meetings: MapMeeting[] } {
+  const record = value && typeof value === "object" ? value as { venues?: unknown; meetings?: unknown } : {};
+  const venues = (Array.isArray(record.venues) ? record.venues : []).filter((point): point is MapVenuePoint =>
+    Array.isArray(point) && point.length === 5 && typeof point[0] === "string" &&
+    typeof point[1] === "number" && typeof point[2] === "number" &&
+    typeof point[3] === "string" && typeof point[4] === "boolean");
+  const meetings = (Array.isArray(record.meetings) ? record.meetings : []).flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const meeting = item as Record<string, unknown>;
+    if (typeof meeting.id !== "string" || typeof meeting.title !== "string" ||
+      typeof meeting.latitude !== "number" || typeof meeting.longitude !== "number") return [];
+    return [{
+      id: meeting.id,
+      title: meeting.title,
+      categoryId: typeof meeting.categoryId === "string" ? meeting.categoryId : null,
+      latitude: meeting.latitude,
+      longitude: meeting.longitude,
+      venueName: typeof meeting.venueName === "string" ? meeting.venueName : "",
+      startsAt: typeof meeting.startsAt === "string" ? meeting.startsAt : null,
+    }];
+  });
+  return { venues, meetings };
+}
 
 export function osmImportCategories() {
   return Object.keys(OSM_CATEGORY_FILTERS);

@@ -11,6 +11,8 @@ type TelegramWebApp = {
   openTelegramLink(url: string): void;
   isVersionAtLeast?: (version: string) => boolean;
   shareMessage?: (preparedMessageId: string, callback?: (sent: boolean) => void) => void;
+  disableVerticalSwipes?: () => void;
+  enableVerticalSwipes?: () => void;
   BackButton: BackButton;
   MainButton: MainButton;
   onEvent?: (event: "themeChanged", callback: () => void) => void;
@@ -54,6 +56,27 @@ export function openExternalUrl(url: string) {
     // Telegram WebView can reject an external navigation; use the browser fallback.
   }
   window.open(url, "_blank", "noopener,noreferrer");
+}
+
+/**
+ * While a map is open, a downward drag must pan it instead of closing the
+ * Mini App (Bot API 7.7+). Returns the function that restores the swipe.
+ */
+export function holdVerticalSwipes() {
+  const app = telegram();
+  if (!app?.disableVerticalSwipes || !app.isVersionAtLeast?.("7.7")) return () => undefined;
+  try {
+    app.disableVerticalSwipes();
+  } catch {
+    return () => undefined;
+  }
+  return () => {
+    try {
+      app.enableVerticalSwipes?.();
+    } catch {
+      // Older clients may throw; the swipe stays as it was.
+    }
+  };
 }
 
 /**

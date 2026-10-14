@@ -80,6 +80,9 @@ import {
 import {
   adminVenueResponse,
   chunk,
+  cityMapBounds,
+  mapPointsFromRpc,
+  optionalVenueId,
   nextVenueOffset,
   OVERPASS_MAX_RESPONSE_BYTES,
   OVERPASS_URL,
@@ -432,8 +435,15 @@ async function createEvent(request: Request, auth: AuthContext) {
       title: placeTitle,
       area: textField(place, "area", 200, "Район слишком длинный."),
       estimatedBudget: budgetField(place.estimatedBudget),
+      // A place chosen from the catalogue; the RPC links only a published
+      // venue of the meeting's city, so a stale id just leaves no link.
+      venueId: optionalVenueId(place.venueId),
     }];
   });
+  const placeVenues = Object.fromEntries(
+    places.flatMap((place) => (place.venueId ? [[place.id, place.venueId]] : [])),
+  );
+  const linksVenues = Object.keys(placeVenues).length > 0;
   const clientRequestId = parseClientRequestId(payload.clientRequestId);
   // Only the format here: the RPC checks that the category is active, and
   // skips the check for a replay, which must return the meeting it created.
@@ -452,12 +462,16 @@ async function createEvent(request: Request, auth: AuthContext) {
     p_visibility: visibility,
     p_max_participants: maxParticipants,
     p_time_options: times.map((startsAt) => ({ id: id("time"), startsAt })),
-    p_place_options: places,
+    p_place_options: places.map(({ venueId: _venueId, ...place }) => place),
     p_category_id: categoryId,
+    ...(linksVenues ? { p_place_venues: placeVenues } : {}),
   };
   // The categorized wrappers call create_event_idempotent / create_event_atomic
-  // and set the category in the same transaction.
-  const rpcName = clientRequestId ? "create_event_idempotent_categorized" : "create_event_categorized";
+  // and set the category in the same transaction; the *_with_venues ones also
+  // link places chosen from the venue catalogue.
+  const rpcName = linksVenues
+    ? clientRequestId ? "create_event_idempotent_with_venues" : "create_event_with_venues"
+    : clientRequestId ? "create_event_idempotent_categorized" : "create_event_categorized";
   const { data, error } = await db.rpc(
     rpcName,
     clientRequestId
@@ -1386,6 +1400,34 @@ async function venues(request: Request, auth: AuthContext) {
   return json({ items: rows.map(venueResponse), nextOffset, city: publicCity(city), categories });
 }
 
+async function venueById(venueId: string) {
+  const id = parseVenueId(venueId);
+  const { data, error } = await db.from("venues").select(VENUE_COLUMNS)
+    .eq("id", id).eq("status", "published").maybeSingle();
+  if (error) throw error;
+  if (!data) throw Object.assign(new Error("Место не найдено."), { status: 404 });
+  return json({ venue: venueResponse(data as unknown as VenueRow) });
+}
+
+// Stage 4: points of the viewer's city for the map in «Места».
+async function mapPoints(request: Request, auth: AuthContext) {
+  const categoryId = parseCategoryId(new URL(request.url).searchParams.get("category"));
+  const [city, categories] = await Promise.all([viewerCity(auth.user.id), loadCategories()]);
+  const { data, error } = await db.rpc("public_map_points", {
+    p_viewer_user_id: auth.user.id,
+    p_city_id: city.id,
+    p_category_id: categoryId,
+    p_category_ids: categories.map((category) => category.id),
+  });
+  if (error) throw error;
+  return json({
+    ...mapPointsFromRpc(data),
+    city: publicCity(city),
+    bounds: cityMapBounds(city.id),
+    categories,
+  });
+}
+
 async function adminVenues(request: Request, auth: AuthContext) {
   if (!isAdmin(auth)) return adminNotFound();
   if (request.method === "POST") return await adminCreateVenue(request, auth);
@@ -1538,7 +1580,8 @@ function allowedMethods(path: string) {
   if (/^\/admin\/reports\/[^/]+\/(resolve|dismiss)$/.test(path)) return ["POST"];
   if (/^\/admin\/events\/[^/]+\/(hide|unhide)$/.test(path)) return ["POST"];
   if (/^\/admin\/users\/[^/]+\/(ban|unban)$/.test(path)) return ["POST"];
-  if (path === "/venues") return ["GET"];
+  if (path === "/venues" || path === "/map") return ["GET"];
+  if (/^\/venues\/[^/]+$/.test(path)) return ["GET"];
   if (path === "/admin/venues") return ["GET", "POST"];
   if (path === "/admin/venues/import" || path === "/admin/venues/publish") return ["POST"];
   if (/^\/admin\/venues\/[^/]+$/.test(path)) return ["PATCH"];
@@ -1613,6 +1656,9 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
   if (path === "/public/events") return await publicEvents(request, auth);
   if (path === "/admin/reports") return await adminReports(request, auth);
   if (path === "/venues") return await venues(request, auth);
+  if (path === "/map") return await mapPoints(request, auth);
+  const venueMatch = path.match(/^\/venues\/([^/]+)$/);
+  if (venueMatch) return await venueById(decodeURIComponent(venueMatch[1]));
   if (path === "/admin/venues") return await adminVenues(request, auth);
   if (path === "/admin/venues/import") return await adminImportVenues(request, auth);
   if (path === "/admin/venues/publish") return await adminPublishVenues(request, auth);
