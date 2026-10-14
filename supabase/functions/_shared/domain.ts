@@ -91,6 +91,8 @@ export type StartParam =
 export function parseStartParam(startParam: string | null): StartParam | null {
   if (!startParam) return null;
   if (startParam === "ntf") return { type: "home" };
+  // Report notifications for the administrator open the reports screen.
+  if (startParam === "reports") return { type: "home" };
   const notification = startParam.match(/^ntf_([A-Za-z0-9_-]{3,80})$/);
   if (notification) return { type: "event", eventId: notification[1] };
   const group = startParam.match(/^group_([A-Za-z0-9_-]{24})$/);

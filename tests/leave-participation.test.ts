@@ -159,11 +159,11 @@ describe("leave participation HTTP contract", () => {
   });
 
   it("leaves existing public join, preview and feed flows in place", () => {
-    expect(apiSource).toContain('db.rpc("create_join_request"');
+    expect(apiSource).toContain('db.rpc("create_join_request_moderated"');
     expect(apiSource).toContain('? "approve_join_request"');
     expect(apiSource).toContain(': "reject_join_request"');
     expect(apiSource).toContain("async function publicEvents");
-    expect(apiSource).toContain('.eq("visibility", "public")');
+    expect(apiSource).toContain('db.rpc("public_feed_page"');
     expect(apiSource).toContain("buildPublicEventPreview");
   });
 });

@@ -6,6 +6,8 @@ import type { AuthResult, EventData } from "./types";
 import { usePath, useTelegramBack, useAppTheme } from "./app-hooks";
 import { Loading, RetryState } from "./ui/common";
 import { AdminStatsScreen } from "./screens/AdminStatsScreen";
+import { AdminReportsScreen } from "./screens/AdminReportsScreen";
+import { BlockedUsersScreen, CommunityRulesScreen } from "./screens/SafetyScreens";
 import { NotificationSettingsScreen } from "./screens/NotificationSettingsScreen";
 import { SessionExpired, OutsideTelegram } from "./screens/SystemScreens";
 import { Home } from "./screens/Home";
@@ -57,6 +59,9 @@ export default function App() {
         setAuth(result);
         if (result.startParam?.startsWith("event_"))
           navigate(`/event/${result.startParam.slice(6)}`, true);
+        // A report notification for the administrator.
+        else if (result.startParam === "reports" && result.isAdmin)
+          navigate("/admin/reports", true);
         else if (result.startParam?.startsWith("ntf_"))
           navigate(`/event/${result.startParam.slice(4)}`, true);
         else if (result.startParam?.startsWith("group_")) {
@@ -129,6 +134,9 @@ export default function App() {
   if (path === "/my-events") return <MyEvents navigate={navigate} onBack={goBack} />;
   if (path === "/settings") return <NotificationSettingsScreen navigate={navigate} onBack={goBack} />;
   if (path === "/admin/stats" && auth.isAdmin) return <AdminStatsScreen navigate={navigate} onBack={goBack} />;
+  if (path === "/admin/reports" && auth.isAdmin) return <AdminReportsScreen navigate={navigate} onBack={goBack} />;
+  if (path === "/blocked") return <BlockedUsersScreen navigate={navigate} onBack={goBack} />;
+  if (path === "/rules") return <CommunityRulesScreen navigate={navigate} onBack={goBack} />;
   return (
     <Home
       navigate={navigate}

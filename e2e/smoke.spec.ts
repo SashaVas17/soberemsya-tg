@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
 // Smoke flows against the mock API and mock Telegram (no network, no database).
 test.beforeEach(async ({ page }) => {
@@ -87,8 +87,14 @@ test("administrator opens the statistics screen", async ({ page }) => {
   await expect(page.getByText("63% (5 из 8)")).toBeVisible();
 });
 
-test("visitor filters open meetings by category and title", async ({ page }) => {
+// The first visit to open meetings asks to accept the community rules.
+async function openFeed(page: Page) {
   await page.goto("./#/open");
+  await page.getByRole("button", { name: "Понятно, соблюдаю" }).click();
+}
+
+test("visitor filters open meetings by category and title", async ({ page }) => {
+  await openFeed(page);
   const card = page.getByRole("button", { name: /Ужин с друзьями после работы/ });
   await expect(card).toBeVisible();
   await expect(card.getByText("Бар", { exact: true })).toBeVisible();
@@ -122,7 +128,7 @@ test("organizer chooses a category and the open feed shows it", async ({ page })
   await page.getByRole("button", { name: "Создать встречу" }).click();
   await expect(page.getByText("Встреча создана 🎉")).toBeVisible();
 
-  await page.goto("./#/open");
+  await openFeed(page);
   const card = page.getByRole("button", { name: /E2E настолки/ });
   await expect(card).toBeVisible();
   await expect(card.getByText("Настолки", { exact: true })).toBeVisible();
@@ -138,4 +144,33 @@ test("organizer changes the meeting category", async ({ page }) => {
   await expect(meta.getByText("Кино", { exact: true })).toBeVisible();
   await page.locator(".category-picker").getByRole("button", { name: "Кино" }).click();
   await expect(meta.getByText("Кино", { exact: true })).toHaveCount(0);
+});
+
+test("open meetings show the community rules once", async ({ page }) => {
+  await page.goto("./#/open");
+  const rules = page.getByRole("dialog", { name: "Правила открытых встреч" });
+  await expect(rules).toBeVisible();
+  await rules.getByRole("button", { name: "Понятно, соблюдаю" }).click();
+  await expect(rules).toBeHidden();
+  await page.getByRole("button", { name: "Правила" }).click();
+  await expect(page).toHaveURL(/#\/rules/);
+});
+
+test("organizer reports and blocks a participant", async ({ page }) => {
+  await page.goto("./#/manage/evt_demo");
+  const participant = page.locator("details.participant-answer").nth(1);
+  await participant.locator("summary").click();
+  await participant.getByRole("button", { name: "Пожаловаться" }).click();
+  const report = page.getByRole("dialog", { name: "Пожаловаться" });
+  await expect(report.getByRole("button", { name: "Отправить" })).toBeDisabled();
+  await report.getByText("Спам или реклама").click();
+  await report.getByRole("button", { name: "Отправить" }).click();
+  await expect(page.getByRole("dialog", { name: "Жалоба отправлена" })).toBeVisible();
+  await page.getByRole("button", { name: "Понятно" }).click();
+
+  await participant.getByRole("button", { name: "Заблокировать" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Заблокировать" }).click();
+  await page.goto("./#/blocked");
+  await page.getByRole("button", { name: "Разблокировать" }).click();
+  await expect(page.getByText("Никого нет")).toBeVisible();
 });

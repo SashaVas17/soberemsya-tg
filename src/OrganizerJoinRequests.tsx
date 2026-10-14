@@ -11,6 +11,7 @@ import {
   type OrganizerRequestActionLock,
 } from "./organizer-request-ui";
 import type { OrganizerJoinRequest } from "./types";
+import { SafetyActions } from "./ui/Moderation";
 
 type OrganizerJoinRequestsProps = {
   eventId: string;
@@ -163,6 +164,14 @@ export function OrganizerJoinRequests({
                     {actionErrors[request.requestId]}
                   </p>
                 )}
+                <SafetyActions
+                  eventId={eventId}
+                  onBlocked={() => setRequests((current) =>
+                    current ? removePendingJoinRequest(current, request.requestId) : current)}
+                  personLabel={request.requester.displayName}
+                  reportSubject={`Жалоба на ${request.requester.displayName}`}
+                  target={{ kind: "requester", requestId: request.requestId }}
+                />
               </article>
             );
           })}

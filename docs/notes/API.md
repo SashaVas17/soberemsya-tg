@@ -33,5 +33,19 @@ tags: [flockly, бэкенд, api]
 | GET | `/public/events` | Лента открытых встреч города пользователя; `?category=<id>` и `?q=<текст>` (поиск по названию, до 80 символов); в ответе также `city`, `cities`, `categories`, у карточек — `category` |
 | GET | `/categories` | Активные категории встреч (для мастера создания) |
 | GET | `/admin/stats` | Статистика (только администратор) |
+| POST | `/events/:id/report` | Жалоба `{ reason, comment?, participantId?, requestId? }`: без id — на встречу и её организатора, с `participantId`/`requestId` — на участника/автора заявки (только организатор). Повтор — 200 `alreadyReported` |
+| POST | `/events/:id/block` | Заблокировать организатора (без id) или участника/автора заявки (`participantId`/`requestId`, только организатор) |
+| GET | `/me/blocks` | Кого заблокировал пользователь |
+| DELETE | `/me/blocks/:userId` | Разблокировать |
+| POST | `/me/community-rules` | Пользователь прочитал правила открытых встреч (в ленте — `communityRulesAccepted`) |
+| GET | `/admin/reports?status=open\|resolved\|dismissed` | Жалобы (только администратор, остальным 404) |
+| POST | `/admin/reports/:id/resolve` или `/dismiss` | Закрыть жалобу |
+| POST | `/admin/events/:id/hide` или `/unhide` | Скрыть встречу из ленты / вернуть |
+| POST | `/admin/users/:id/ban` или `/unban` | Ограничить пользователя / снять ограничение |
+
+Лимиты: при превышении — 429 с кодом `RATE_LIMITED` (создание встреч, заявки, предложения вариантов, жалобы);
+ограниченному администратором пользователю открытые встречи и заявки — 403 `USER_RESTRICTED`. Скрытая
+встреча и встреча человека, с которым есть блокировка (в любую сторону), не видны в ленте и превью
+(для посторонних — 404), заявка на неё отклоняется как на недоступную.
 
 Источник: `allowedMethods()` в `supabase/functions/telegram-api/index.ts`; логика — в `_shared/`.

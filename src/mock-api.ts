@@ -1,12 +1,16 @@
 import type {
+  AdminReport,
   AuthResult,
+  BlockedUser,
   City,
   MeetingCategory,
   MeetingListItem,
   NotificationSettings,
   PublicMeetingFeedItem,
+  ReportStatus,
   UserCity,
 } from "./types";
+import type { ModerationTarget } from "./moderation";
 import { normalizeFeedSearch, type PublicFeedFilters } from "./public-feed";
 import { applyMockResponse, type MockVotingEvent } from "./participant-voting";
 import { mockCreateJoinRequest } from "./join-request";
@@ -217,6 +221,24 @@ let mockNotificationSettings: NotificationSettings = {
   canMessage: null,
 };
 
+let mockRulesAccepted = false;
+let mockBlockedUsers: BlockedUser[] = [];
+let mockReports: AdminReport[] = [
+  {
+    id: "00000000-0000-4000-8000-000000000001",
+    status: "open",
+    targetType: "event",
+    reason: "spam",
+    comment: "В описании реклама кальянной.",
+    createdAt: new Date(Date.now() - 40 * 60_000).toISOString(),
+    resolvedAt: null,
+    reporter: { name: "Ольга", username: "olga" },
+    event: { id: "evt_demo", title: "Кальян и настолки", status: "collecting", visibility: "public", hidden: false, deleted: false },
+    targetUser: { id: "00000000-0000-4000-8000-0000000000aa", name: "Игорь", username: "igor_promo", banned: false },
+    openReportsOnTarget: 2,
+  },
+];
+
 export const mockApi = {
   auth: async () => clone(auth),
   event: async (eventId: string) => {
@@ -260,7 +282,62 @@ export const mockApi = {
       city: mockCity,
       cities: mockCities,
       categories: mockCategories,
+      communityRulesAccepted: mockRulesAccepted,
     };
+  },
+  acceptCommunityRules: async () => {
+    mockRulesAccepted = true;
+    return { communityRulesAccepted: true as const };
+  },
+  reportEvent: async () => ({ reported: true as const, alreadyReported: false }),
+  blockFromEvent: async (target: ModerationTarget) => {
+    const userId = target.kind === "organizer" ? "user_owner" : `user_${target.kind}`;
+    if (!mockBlockedUsers.some((user) => user.userId === userId))
+      mockBlockedUsers = [
+        { userId, name: target.kind === "organizer" ? "Организатор" : "Участник", username: null, blockedAt: new Date().toISOString() },
+        ...mockBlockedUsers,
+      ];
+    return { blocked: true as const };
+  },
+  blockedUsers: async () => ({ users: clone(mockBlockedUsers) }),
+  unblockUser: async (userId: string) => {
+    mockBlockedUsers = mockBlockedUsers.filter((user) => user.userId !== userId);
+    return { unblocked: true as const };
+  },
+  adminReports: async (status: ReportStatus) => ({
+    reports: clone(mockReports.filter((report) => report.status === status)),
+  }),
+  adminResolveReport: async (reportId: string, action: "resolve" | "dismiss") => {
+    const status: ReportStatus = action === "resolve" ? "resolved" : "dismissed";
+    mockReports = mockReports.map((report) =>
+      report.id === reportId && report.status === "open"
+        ? { ...report, status, resolvedAt: new Date().toISOString() }
+        : report);
+    return { status: mockReports.find((report) => report.id === reportId)?.status ?? status };
+  },
+  adminSetEventHidden: async (eventId: string, hidden: boolean) => {
+    mockReports = mockReports.map((report) => {
+      if (report.event?.id !== eventId) return report;
+      const resolved = hidden && report.status === "open" && report.targetType === "event";
+      return {
+        ...report,
+        event: { ...report.event, hidden },
+        ...(resolved ? { status: "resolved" as const, resolvedAt: new Date().toISOString() } : {}),
+      };
+    });
+    return { hidden };
+  },
+  adminSetUserBanned: async (userId: string, banned: boolean) => {
+    mockReports = mockReports.map((report) => {
+      if (report.targetUser?.id !== userId) return report;
+      const resolved = banned && report.status === "open";
+      return {
+        ...report,
+        targetUser: { ...report.targetUser, banned },
+        ...(resolved ? { status: "resolved" as const, resolvedAt: new Date().toISOString() } : {}),
+      };
+    });
+    return { banned, hiddenEvents: banned ? 1 : 0 };
   },
   userCity: async (cityId?: string) => {
     const city = mockCities.find((item) => item.id === cityId);

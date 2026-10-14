@@ -10,6 +10,8 @@ export const SAFE_API_ERROR_CODES = [
   "JOIN_REQUEST_REJECTED",
   "EVENT_FULL",
   "TELEGRAM_SESSION_EXPIRED",
+  "RATE_LIMITED",
+  "USER_RESTRICTED",
 ] as const;
 
 export type ApiErrorCode = (typeof SAFE_API_ERROR_CODES)[number];

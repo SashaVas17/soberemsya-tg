@@ -56,6 +56,7 @@ Telegram Mini App для организации встреч **Flockly** (бот
   и тело функции с двумя `delete from`.
   Обходы: `create or replace trigger` вместо `drop trigger` + `create trigger`; каждый `delete` — в отдельной
   функции без `raise`. Тест в `tests/notifications.test.ts` проверяет это для новых миграций.
+  Проходит: `alter table ... drop constraint ..., add constraint ...` (2026-10-14).
 - Порядок релиза: миграции → Edge Functions → фронтенд; каждый шаг обратно совместим.
 - Новые таблицы в этом проекте **не** дают `service_role` прав на данные (default ACL — только
   TRUNCATE/REFERENCES/TRIGGER). Если функция читает таблицу напрямую (`db.from(...)`), в миграции нужен явный

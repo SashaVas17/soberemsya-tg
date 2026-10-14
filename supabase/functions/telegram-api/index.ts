@@ -63,12 +63,25 @@ import {
   parseFeedSearch,
   titleSearchPattern,
 } from "../_shared/categories.ts";
+import {
+  type BlockedUserRow,
+  blockedUsersResponse,
+  moderationHttpError,
+  parseModerationTarget,
+  parseReportId,
+  parseReportInput,
+  parseReportResolution,
+  parseReportStatusFilter,
+  parseUserId,
+  previewHiddenFromViewer,
+  restrictionHttpError,
+} from "../_shared/moderation.ts";
 
 type Db = ReturnType<typeof createAdminClient>;
 type AppUser = { id: string; telegram_user_id: string; username: string | null; first_name: string; last_name: string | null; photo_url: string | null };
 type AuthContext = { user: AppUser; startParam: string | null };
-type FullEventRow = { id: string; owner_user_id: string | null; title: string; description: string; budget_limit: number; visibility: string | null; max_participants: number | null; status: Status; final_place_id: string | null; final_time_option_id: string | null; created_at: string; deleted_at: string | null; city_id: string; category_id: string | null };
-type PreviewEventRow = Pick<FullEventRow, "id" | "owner_user_id" | "title" | "description" | "budget_limit" | "visibility" | "max_participants" | "status" | "deleted_at" | "city_id" | "category_id">;
+type FullEventRow = { id: string; owner_user_id: string | null; title: string; description: string; budget_limit: number; visibility: string | null; max_participants: number | null; status: Status; final_place_id: string | null; final_time_option_id: string | null; created_at: string; deleted_at: string | null; city_id: string; category_id: string | null; hidden_at: string | null };
+type PreviewEventRow = Pick<FullEventRow, "id" | "owner_user_id" | "title" | "description" | "budget_limit" | "visibility" | "max_participants" | "status" | "deleted_at" | "city_id" | "category_id" | "hidden_at">;
 type PublicFeedEventRow = Pick<FullEventRow, "id" | "owner_user_id" | "title" | "description" | "budget_limit" | "max_participants" | "status" | "created_at" | "category_id">;
 type MyMeetingsEventRow = Pick<FullEventRow, "id" | "title" | "status" | "final_place_id" | "final_time_option_id" | "created_at">;
 type OrganizerEventRow = Pick<FullEventRow, "owner_user_id" | "visibility">;
@@ -201,9 +214,27 @@ const loadCategories = cachedFor(REFERENCE_DATA_TTL_MS, async () => {
 });
 
 async function loadUserCityId(userId: string) {
-  const { data, error } = await db.from("users").select("city_id").eq("id", userId).maybeSingle();
+  return (await loadUserProfile(userId)).cityId;
+}
+
+async function loadUserProfile(userId: string) {
+  const { data, error } = await db.from("users").select("city_id,community_rules_accepted_at").eq("id", userId).maybeSingle();
   if (error) throw error;
-  return (data?.city_id as string | null | undefined) ?? null;
+  return {
+    cityId: (data?.city_id as string | null | undefined) ?? null,
+    communityRulesAccepted: Boolean(data?.community_rules_accepted_at),
+  };
+}
+
+/** Whether either of two users blocked the other. */
+async function usersBlockedBetween(first: string, second: string) {
+  const { data, error } = await db
+    .from("user_blocks")
+    .select("blocker_user_id")
+    .or(`and(blocker_user_id.eq.${first},blocked_user_id.eq.${second}),and(blocker_user_id.eq.${second},blocked_user_id.eq.${first})`)
+    .limit(1);
+  if (error) throw error;
+  return (data ?? []).length > 0;
 }
 
 async function userCity(request: Request, auth: AuthContext) {
@@ -225,7 +256,7 @@ async function health() {
 }
 
 async function loadFullEventRow(eventId: string) {
-  const { data: event, error } = await db.from("events").select("id,owner_user_id,title,description,budget_limit,visibility,max_participants,status,final_place_id,final_time_option_id,created_at,deleted_at,city_id,category_id").eq("id", eventId).is("deleted_at", null).maybeSingle<FullEventRow>();
+  const { data: event, error } = await db.from("events").select("id,owner_user_id,title,description,budget_limit,visibility,max_participants,status,final_place_id,final_time_option_id,created_at,deleted_at,city_id,category_id,hidden_at").eq("id", eventId).is("deleted_at", null).maybeSingle<FullEventRow>();
   if (error) throw error;
   assertEventAvailable(event);
   return event;
@@ -280,7 +311,9 @@ async function eventPayload(
     currentUserId: userId,
     category: categoryById(categories, event.category_id),
   };
-  if (role === "owner") return organizerEventPayload(source);
+  // The organizer learns that the administrator took the meeting off the feed.
+  if (role === "owner")
+    return { ...organizerEventPayload(source), ...(event.hidden_at ? { hiddenByModerator: true } : {}) };
   if (role === "participant") return participantEventPayload(source);
   return privateInviteEventPayload(source);
 }
@@ -305,7 +338,7 @@ async function fullEventForRequest(eventId: string, userId: string) {
 }
 
 async function publicEventPreview(eventId: string, userId: string) {
-  const { data: event, error } = await db.from("events").select("id,owner_user_id,title,description,budget_limit,visibility,max_participants,status,deleted_at,city_id,category_id").eq("id", eventId).is("deleted_at", null).maybeSingle<PreviewEventRow>();
+  const { data: event, error } = await db.from("events").select("id,owner_user_id,title,description,budget_limit,visibility,max_participants,status,deleted_at,city_id,category_id,hidden_at").eq("id", eventId).is("deleted_at", null).maybeSingle<PreviewEventRow>();
   if (error) throw error;
   assertEventAvailable(event);
   if (event.visibility !== "public")
@@ -320,6 +353,13 @@ async function publicEventPreview(eventId: string, userId: string) {
   if (timeError || peopleError) throw timeError ?? peopleError;
   const participantUserIds = (people ?? []).map((person) => person.user_id as string | null);
   const participantExists = participantUserIds.includes(userId);
+  const isOwner = event.owner_user_id === userId;
+  if (!isOwner && !participantExists) {
+    const blocked = event.owner_user_id !== null && await usersBlockedBetween(userId, event.owner_user_id);
+    // Answers like a missing meeting, so a blocked person learns nothing.
+    if (previewHiddenFromViewer({ hidden: event.hidden_at !== null, blocked, isOwner, isParticipant: participantExists }))
+      throw Object.assign(new Error("Встреча не найдена или удалена."), { status: 404 });
+  }
   let requestStatus: string | null = null;
   if (!participantExists) {
     const { data: joinRequest, error: joinRequestError } = await db.from("join_requests").select("status").eq("event_id", eventId).eq("requester_user_id", userId).maybeSingle();
@@ -416,7 +456,7 @@ async function createEvent(request: Request, auth: AuthContext) {
       error.code,
       eventCreationErrorToken(error) ?? "unknown",
     );
-    throw eventCreationHttpError(error);
+    throw restrictionHttpError(error) ?? eventCreationHttpError(error);
   }
   const eventId = data?.event_id;
   const replayed = !!data && "replayed" in data && data.replayed === true;
@@ -429,7 +469,9 @@ async function createEvent(request: Request, auth: AuthContext) {
 }
 
 async function createJoinRequest(eventId: string, auth: AuthContext) {
-  const { data, error } = await db.rpc("create_join_request", {
+  // Also checks bans, hidden meetings and blocks, and counts the request
+  // against the rate limit.
+  const { data, error } = await db.rpc("create_join_request_moderated", {
     p_event_id: eventId,
     p_requester_user_id: auth.user.id,
   }).single<CreateJoinRequestRow>();
@@ -439,7 +481,7 @@ async function createJoinRequest(eventId: string, auth: AuthContext) {
       error.code,
       createJoinRequestErrorToken(error) ?? "unknown",
     );
-    throw createJoinRequestHttpError(error);
+    throw restrictionHttpError(error) ?? createJoinRequestHttpError(error);
   }
   const result = createJoinRequestHttpResult(data);
   if (result.status === 201) await track("join_requested", auth.user.id, eventId);
@@ -594,7 +636,7 @@ async function proposeTimeOption(request: Request, eventId: string, auth: AuthCo
   const payload = await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES);
   const startsAt = String(payload.startsAt ?? "");
   if (!startsAt || Number.isNaN(Date.parse(startsAt))) invalidRequest("Некорректная дата.");
-  const { error } = await db.rpc("propose_event_time_option", {
+  const { error } = await db.rpc("propose_event_time_option_limited", {
     p_event_id: eventId,
     p_actor_user_id: auth.user.id,
     p_option_id: id("time"),
@@ -606,7 +648,7 @@ async function proposeTimeOption(request: Request, eventId: string, auth: AuthCo
       error.code,
       participantOptionProposalErrorToken(error) ?? "unknown",
     );
-    throw participantOptionProposalHttpError(error);
+    throw restrictionHttpError(error) ?? participantOptionProposalHttpError(error);
   }
   return json({ event: await eventPayload(eventId, auth.user.id) });
 }
@@ -616,7 +658,7 @@ async function proposePlaceOption(request: Request, eventId: string, auth: AuthC
   const place = record(payload.place) ?? {};
   const title = textField(place, "title", 200, "Название места слишком длинное.");
   if (!title) invalidRequest("Укажите место.");
-  const { error } = await db.rpc("propose_event_place_option", {
+  const { error } = await db.rpc("propose_event_place_option_limited", {
     p_event_id: eventId,
     p_actor_user_id: auth.user.id,
     p_option_id: id("place"),
@@ -630,7 +672,7 @@ async function proposePlaceOption(request: Request, eventId: string, auth: AuthC
       error.code,
       participantOptionProposalErrorToken(error) ?? "unknown",
     );
-    throw participantOptionProposalHttpError(error);
+    throw restrictionHttpError(error) ?? participantOptionProposalHttpError(error);
   }
   return json({ event: await eventPayload(eventId, auth.user.id) });
 }
@@ -904,34 +946,32 @@ async function publicEvents(request: Request, auth: AuthContext) {
   const search = parseFeedSearch(url.searchParams.get("q"));
   // The feed shows the viewer's city; the response also lists the cities and
   // categories to choose from, so the screen needs no extra request.
-  const [cities, chosenCityId, categories] = await Promise.all([
+  const [cities, profile, categories] = await Promise.all([
     loadCities(),
-    loadUserCityId(auth.user.id),
+    loadUserProfile(auth.user.id),
     loadCategories(),
   ]);
-  const city = resolveUserCity(cities, chosenCityId);
+  const city = resolveUserCity(cities, profile.cityId);
   const category = requestedCategoryId ? categoryById(categories, requestedCategoryId) : null;
-  const cityFields = { ...userCityResponse(cities, city.id), categories };
+  const cityFields = {
+    ...userCityResponse(cities, city.id),
+    categories,
+    communityRulesAccepted: profile.communityRulesAccepted,
+  };
   // A deactivated category matches nothing; the current list in the response
   // lets the app drop it instead of retrying an error.
   if (requestedCategoryId && !category) return json({ items: [], nextCursor: null, ...cityFields });
-  let eventQuery = db
-    .from("events")
-    .select("id,owner_user_id,title,description,budget_limit,max_participants,status,created_at,category_id")
-    .eq("city_id", city.id)
-    .eq("visibility", "public")
-    .is("deleted_at", null)
-    .eq("status", "collecting")
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: false })
-    .limit(limit + 1);
-  if (category) eventQuery = eventQuery.eq("category_id", category.id);
-  if (search) eventQuery = eventQuery.ilike("title", titleSearchPattern(search));
-  if (cursor)
-    eventQuery = eventQuery.or(
-      `created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`,
-    );
-  const { data, error } = await eventQuery;
+  // In SQL: hidden meetings and those of people blocked either way are left
+  // out there, ordered by (created_at, id) desc for the keyset cursor.
+  const { data, error } = await db.rpc("public_feed_page", {
+    p_viewer_user_id: auth.user.id,
+    p_city_id: city.id,
+    p_category_id: category?.id ?? null,
+    p_title_pattern: search ? titleSearchPattern(search) : null,
+    p_cursor_created_at: cursor?.createdAt ?? null,
+    p_cursor_id: cursor?.id ?? null,
+    p_limit: limit + 1,
+  });
   if (error) throw error;
   const page = ((data ?? []) as PublicFeedEventRow[]).slice(0, limit);
   const eventIds = page.map((event) => event.id);
@@ -1144,10 +1184,130 @@ async function clientAnalytics(request: Request, auth: AuthContext) {
 
 // Hidden from everyone except administrators: others get a plain 404.
 async function adminStats(auth: AuthContext) {
-  if (!isAdminTelegramId(auth.user.telegram_user_id, adminIds)) return json({ error: "Маршрут не найден." }, 404);
+  if (!isAdmin(auth)) return adminNotFound();
   const { data, error } = await db.rpc("admin_stats");
   if (error) throw error;
   return json({ stats: data });
+}
+
+// Stage 2.4 ---------------------------------------------------------------
+
+// Only our own error tokens (P0001) are logged, never other database text.
+function logModerationRpcError(name: string, error: { code?: string; message?: string }) {
+  console.error(name, error.code, error.code === "P0001" ? error.message : "unknown");
+}
+
+async function reportEvent(request: Request, eventId: string, auth: AuthContext) {
+  const input = parseReportInput(await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES));
+  const { data, error } = await db.rpc("create_report", {
+    p_actor_user_id: auth.user.id,
+    p_event_id: eventId,
+    p_participant_id: input.participantId,
+    p_request_id: input.requestId,
+    p_reason: input.reason,
+    p_comment: input.comment,
+    // The administrators get the report in the bot.
+    p_admin_telegram_ids: [...adminIds].map(Number),
+  }).single<{ report_id: string; outcome: "created" | "existing" }>();
+  if (error) {
+    logModerationRpcError("create_report_rpc_failed", error);
+    throw moderationHttpError(error);
+  }
+  return json({ reported: true, alreadyReported: data?.outcome === "existing" }, data?.outcome === "created" ? 201 : 200);
+}
+
+async function blockFromEvent(request: Request, eventId: string, auth: AuthContext) {
+  const target = parseModerationTarget(await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES));
+  const { error } = await db.rpc("block_user", {
+    p_actor_user_id: auth.user.id,
+    p_event_id: eventId,
+    p_participant_id: target.participantId,
+    p_request_id: target.requestId,
+  }).single<{ blocked_user_id: string; outcome: string }>();
+  if (error) {
+    logModerationRpcError("block_user_rpc_failed", error);
+    throw moderationHttpError(error);
+  }
+  // The blocked person's id stays on the server: the open meeting preview
+  // does not reveal who its organizer is.
+  return json({ blocked: true });
+}
+
+async function blockedUsers(auth: AuthContext) {
+  const { data, error } = await db.rpc("list_user_blocks", { p_actor_user_id: auth.user.id });
+  if (error) throw error;
+  return json(blockedUsersResponse((data ?? []) as BlockedUserRow[]));
+}
+
+async function unblock(userId: string, auth: AuthContext) {
+  const { error } = await db.rpc("unblock_user", {
+    p_actor_user_id: auth.user.id,
+    p_blocked_user_id: parseUserId(userId),
+  });
+  if (error) throw error;
+  return json({ unblocked: true });
+}
+
+async function acceptCommunityRules(auth: AuthContext) {
+  const { error } = await db.rpc("accept_community_rules", { p_user_id: auth.user.id });
+  if (error) throw error;
+  return json({ communityRulesAccepted: true });
+}
+
+function isAdmin(auth: AuthContext) {
+  return isAdminTelegramId(auth.user.telegram_user_id, adminIds);
+}
+
+const adminNotFound = () => json({ error: "Маршрут не найден." }, 404);
+
+async function adminReports(request: Request, auth: AuthContext) {
+  if (!isAdmin(auth)) return adminNotFound();
+  const status = parseReportStatusFilter(new URL(request.url).searchParams.get("status"));
+  const { data, error } = await db.rpc("admin_reports", { p_status: status, p_limit: 100 });
+  if (error) throw error;
+  return json({ reports: data ?? [] });
+}
+
+async function adminResolveReport(reportId: string, action: string, auth: AuthContext) {
+  if (!isAdmin(auth)) return adminNotFound();
+  const { data, error } = await db.rpc("admin_resolve_report", {
+    p_admin_user_id: auth.user.id,
+    p_report_id: parseReportId(reportId),
+    p_status: parseReportResolution(action),
+  }).single<{ status: string }>();
+  if (error) {
+    logModerationRpcError("admin_resolve_report_rpc_failed", error);
+    throw moderationHttpError(error);
+  }
+  return json({ status: data?.status ?? null });
+}
+
+async function adminHideEvent(eventId: string, action: string, auth: AuthContext) {
+  if (!isAdmin(auth)) return adminNotFound();
+  const { data, error } = await db.rpc("admin_set_event_hidden", {
+    p_admin_user_id: auth.user.id,
+    p_event_id: eventId,
+    p_hidden: action === "hide",
+  }).single<{ hidden: boolean }>();
+  if (error) {
+    logModerationRpcError("admin_set_event_hidden_rpc_failed", error);
+    throw moderationHttpError(error);
+  }
+  return json({ hidden: data?.hidden ?? false });
+}
+
+async function adminBanUser(userId: string, action: string, auth: AuthContext) {
+  if (!isAdmin(auth)) return adminNotFound();
+  const { data, error } = await db.rpc("admin_set_user_banned", {
+    p_admin_user_id: auth.user.id,
+    p_user_id: parseUserId(userId),
+    p_banned: action === "ban",
+  }).single<{ banned: boolean; hidden_events: number }>();
+  if (error) {
+    logModerationRpcError("admin_set_user_banned_rpc_failed", error);
+    throw moderationHttpError(error);
+  }
+  return json({ banned: data?.banned ?? false, hiddenEvents: data?.hidden_events ?? 0 });
 }
 
 function apiPath(url: URL) {
@@ -1165,6 +1325,14 @@ function allowedMethods(path: string) {
   if (path === "/categories") return ["GET"];
   if (path === "/me/analytics") return ["POST"];
   if (path === "/admin/stats") return ["GET"];
+  if (path === "/admin/reports") return ["GET"];
+  if (/^\/admin\/reports\/[^/]+\/(resolve|dismiss)$/.test(path)) return ["POST"];
+  if (/^\/admin\/events\/[^/]+\/(hide|unhide)$/.test(path)) return ["POST"];
+  if (/^\/admin\/users\/[^/]+\/(ban|unban)$/.test(path)) return ["POST"];
+  if (path === "/me/blocks") return ["GET"];
+  if (/^\/me\/blocks\/[^/]+$/.test(path)) return ["DELETE"];
+  if (path === "/me/community-rules") return ["POST"];
+  if (/^\/events\/[^/]+\/(report|block)$/.test(path)) return ["POST"];
   if (/^\/events\/[^/]+\/response$/.test(path)) return ["POST"];
   if (/^\/events\/[^/]+\/(time-options|place-options)\/proposals$/.test(path)) return ["POST"];
   if (/^\/events\/[^/]+\/participation$/.test(path)) return ["DELETE"];
@@ -1230,6 +1398,24 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
   if (path === "/me/analytics") return await clientAnalytics(request, auth);
   if (path === "/admin/stats") return await adminStats(auth);
   if (path === "/public/events") return await publicEvents(request, auth);
+  if (path === "/admin/reports") return await adminReports(request, auth);
+  if (path === "/me/blocks") return await blockedUsers(auth);
+  if (path === "/me/community-rules") return await acceptCommunityRules(auth);
+  const unblockMatch = path.match(/^\/me\/blocks\/([^/]+)$/);
+  if (unblockMatch) return await unblock(decodeURIComponent(unblockMatch[1]), auth);
+  const adminReportMatch = path.match(/^\/admin\/reports\/([^/]+)\/(resolve|dismiss)$/);
+  if (adminReportMatch)
+    return await adminResolveReport(decodeURIComponent(adminReportMatch[1]), adminReportMatch[2], auth);
+  const adminEventMatch = path.match(/^\/admin\/events\/([^/]+)\/(hide|unhide)$/);
+  if (adminEventMatch)
+    return await adminHideEvent(decodeURIComponent(adminEventMatch[1]), adminEventMatch[2], auth);
+  const adminUserMatch = path.match(/^\/admin\/users\/([^/]+)\/(ban|unban)$/);
+  if (adminUserMatch)
+    return await adminBanUser(decodeURIComponent(adminUserMatch[1]), adminUserMatch[2], auth);
+  const reportMatch = path.match(/^\/events\/([^/]+)\/report$/);
+  if (reportMatch) return await reportEvent(request, decodeURIComponent(reportMatch[1]), auth);
+  const blockMatch = path.match(/^\/events\/([^/]+)\/block$/);
+  if (blockMatch) return await blockFromEvent(request, decodeURIComponent(blockMatch[1]), auth);
   const responseMatch = path.match(/^\/events\/([^/]+)\/response$/);
   if (responseMatch)
     return await saveResponse(request, decodeURIComponent(responseMatch[1]), auth);
