@@ -1,0 +1,13 @@
+{
+  "useMarkdownLinks": true,
+  "newLinkFormat": "relative",
+  "alwaysUpdateLinks": true,
+  "newFileLocation": "folder",
+  "newFileFolderPath": "inbox",
+  "attachmentFolderPath": "assets",
+  "showLineNumber": true,
+  "strictLineBreaks": false,
+  "userIgnoreFilters": [
+    "assets/"
+  ]
+}

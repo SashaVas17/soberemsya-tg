@@ -11,6 +11,7 @@ Telegram Mini App для организации встреч **Flockly** (бот
 3. Сверить состояние: `git fetch origin main`, ветка, открытые PR, версии Edge Functions и миграции в Supabase
    (коннектор: `list_edge_functions`, `list_migrations` для проекта `qesuhhhiswwrfvfisfkp`).
 4. Продолжить с «Следующий шаг» из раздела «Статус».
+5. Если в `docs/inbox/` есть новые заметки владельца — коротко сказать о них (разбирать по просьбе «посмотри inbox»).
 
 Если владелец пишет «продолжим в новом чате» (или похожее): обновить раздел «Статус» в `docs/TZ.md`
 (сделано / в процессе / следующий шаг / известные проблемы), закоммитить и запушить, коротко подтвердить.
@@ -25,6 +26,20 @@ Telegram Mini App для организации встреч **Flockly** (бот
 - База: Supabase PostgreSQL. Браузер в таблицы не ходит; все таблицы с RLS и без прав у anon/authenticated;
   изменения — атомарными RPC `security definer` с `set search_path = pg_catalog, public`, доступ только `service_role`.
 - Фоновые задачи — pg_cron; вызов воркера — pg_net с секретом из Vault (`notifications_worker_secret`).
+
+## Obsidian и скиллы
+
+- `docs/` — хранилище Obsidian владельца (настройки в `docs/.obsidian/`, главная — `docs/Flockly.md`).
+  Справочные заметки — `docs/notes/` (архитектура, API, бот, БД, уведомления, дизайн, релизы, секреты — только
+  названия), журнал решений — `docs/notes/Решения.md`, входящие идеи — `docs/inbox/`, шаблоны — `docs/templates/`.
+  План и статус по-прежнему только в `docs/TZ.md`. Ссылки — обычные markdown (не `[[wikilinks]]`), чтобы читались на GitHub.
+- При изменении маршрутов API, команд бота, таблиц/cron, типов уведомлений, секретов или дизайн-системы — обновить
+  соответствующую заметку в `docs/notes/` в том же PR; значимые решения владельца — запись в журнал решений.
+- Скиллы проекта (`.claude/skills/`, MIT, скопированы без изменений):
+  `make-interfaces-feel-better` (github.com/jakubkrehel/make-interfaces-feel-better, `35545ea`) — для вёрстки и
+  ревью UI; `better-icons` (github.com/better-auth/better-icons, `033316e`) — поиск иконок Iconify. В проекте
+  иконки — `lucide-react`: искать с `--prefix lucide`, SVG не вставлять, если иконка есть в `lucide-react`.
+  CLI: `npx -y better-icons ...`; в облаке нужен доступ к `api.iconify.design` в сетевой политике окружения.
 
 ## Неизменные правила
 
