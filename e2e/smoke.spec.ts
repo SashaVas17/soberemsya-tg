@@ -222,11 +222,11 @@ test("settings switch the interface to English and back", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Language" })).toBeVisible();
   await expect(page.getByRole("button", { name: "English" })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Home" }).click();
-  await expect(page.getByText("Your meetings")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Next meeting" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Open meetings" })).toBeVisible();
   // The choice survives a reload; «As in Telegram» brings Russian back here.
   await page.reload();
-  await expect(page.getByText("Your meetings")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Next meeting" })).toBeVisible();
   await page.getByRole("button", { name: "Settings" }).click();
   await page.getByRole("group", { name: "Language" }).getByRole("button", { name: "Auto" }).click();
   await expect(page.getByRole("heading", { name: "Язык" })).toBeVisible();

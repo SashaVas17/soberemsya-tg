@@ -6,6 +6,7 @@ import type { AuthResult, MeetingListItem } from "../types";
 import type { Navigate } from "../app-types";
 import { Header, Loading, RetryState, MeetingGroup } from "../ui/common";
 import { t } from "../i18n";
+import { nearestMeeting } from "../my-meetings";
 
 export function Home({
   navigate,
@@ -37,11 +38,7 @@ export function Home({
   useEffect(() => {
     void load();
   }, [load]);
-  const meetings = data
-    ? [...data.owned, ...data.participating]
-        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
-        .slice(0, 4)
-    : [];
+  const nearest = data ? nearestMeeting([...data.owned, ...data.participating]) : null;
   const meetingCount = data
     ? data.owned.length + data.participating.length
     : null;
@@ -114,7 +111,7 @@ export function Home({
           </button>
         )}
         <div className="home-section-heading">
-          <h2>{t("Ваши встречи")}</h2>
+          <h2>{t("Ближайшая встреча")}</h2>
           <button onClick={() => navigate("/my-events")} type="button">{t("Все")}</button>
         </div>
         {!data && !error && <Loading label={t("Загружаем встречи…")} />}
@@ -128,7 +125,7 @@ export function Home({
         {data && (
           <MeetingGroup
             emptyText={t("Создайте встречу или откройте приглашение из Telegram.")}
-            items={meetings}
+            items={nearest ? [nearest] : []}
             navigate={navigate}
           />
         )}
