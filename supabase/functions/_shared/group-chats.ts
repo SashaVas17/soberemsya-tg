@@ -1,4 +1,5 @@
-import { formatFinalDetails, type NotificationMessage } from "./notification-messages.ts";
+import { type Language, tr } from "./i18n.ts";
+import { formatFinalDetails, type NotificationMessage, quotedTitle } from "./notification-messages.ts";
 
 export type GroupMessageKind = "group_card" | "group_decided";
 
@@ -37,20 +38,37 @@ export function groupCreateUrl(bot: string, app: string, token: string) {
   return `https://t.me/${bot}/${app}?startapp=group_${token}`;
 }
 
-/** Group messages are only the meeting card and the final result. */
-export function renderGroupMessage(kind: GroupMessageKind, payload: Payload, url: string): NotificationMessage {
-  const title = `«${text(payload, "title") || "Встреча"}»`;
+/**
+ * Group messages are only the meeting card and the final result, in the
+ * organizer's language (the group has none of its own).
+ */
+export function renderGroupMessage(
+  kind: GroupMessageKind,
+  payload: Payload,
+  url: string,
+  language: Language = "ru",
+): NotificationMessage {
+  const t = (ru: string, en: string) => tr(language, ru, en);
+  const title = quotedTitle(text(payload, "title"), language);
   if (kind === "group_card") {
     const organizer = text(payload, "organizer");
     return {
-      text: `${organizer ? `${organizer} предлагает встречу` : "Новая встреча"} ${title}.\n` +
-        "Отметьте удобное время и место.",
-      buttonText: "Проголосовать",
+      text: (organizer
+        ? t(`${organizer} предлагает встречу ${title}.`, `${organizer} suggests a meeting ${title}.`)
+        : t(`Новая встреча ${title}.`, `New meeting ${title}.`)) +
+        "\n" + t("Отметьте удобное время и место.", "Mark the time and place that suit you."),
+      buttonText: t("Проголосовать", "Vote"),
       url,
     };
   }
-  const details = formatFinalDetails(text(payload, "startsAt"), text(payload, "place"), text(payload, "area"));
-  return { text: `Итог встречи ${title}${details ? `: ${details}` : " выбран"}.`, buttonText: "Подробнее", url };
+  const details = formatFinalDetails(text(payload, "startsAt"), text(payload, "place"), text(payload, "area"), language);
+  return {
+    text: details
+      ? t(`Итог встречи ${title}: ${details}.`, `The meeting ${title} is set: ${details}.`)
+      : t(`Итог встречи ${title} выбран.`, `The meeting ${title} is set.`),
+    buttonText: t("Подробнее", "Details"),
+    url,
+  };
 }
 
 /** A card is pointless for a cancelled meeting, a result once it was reopened. */
@@ -75,21 +93,38 @@ export function isGroupChatType(chatType: unknown) {
   return chatType === "group" || chatType === "supergroup";
 }
 
+/** Commands the bot answers in a group; others get no reply. */
+export const GROUP_REPLY_COMMANDS = new Set(["/new", "/start", "/help", "/my"]);
+
 /** In groups web_app buttons are not allowed, so replies use t.me links. */
-export function groupCommandReply(command: string, appUrl: string, createUrl: string | null) {
+export function groupCommandReply(command: string, appUrl: string, createUrl: string | null, language: Language = "ru") {
+  const t = (ru: string, en: string) => tr(language, ru, en);
   if (command === "/new" && createUrl)
     return {
-      text: "Создайте встречу для этого чата. Когда она будет готова, здесь появится карточка для голосования, " +
-        "а после выбора — итог. Кнопка действует 24 часа и только для отправителя команды.",
-      reply_markup: { inline_keyboard: [[{ text: "Создать встречу", url: createUrl }]] },
+      text: t(
+        "Создайте встречу для этого чата. Когда она будет готова, здесь появится карточка для голосования, " +
+          "а после выбора — итог. Кнопка действует 24 часа и только для отправителя команды.",
+        "Create a meeting for this chat. When it is ready, a voting card will appear here, " +
+          "and the result after the choice. The button works for 24 hours and only for the sender of the command.",
+      ),
+      reply_markup: { inline_keyboard: [[{ text: t("Создать встречу", "Create meeting"), url: createUrl }]] },
     };
   if (command === "/new")
-    return { text: "Отправьте /new от своего имени, а не анонимно: встреча создаётся от лица участника." };
+    return {
+      text: t(
+        "Отправьте /new от своего имени, а не анонимно: встреча создаётся от лица участника.",
+        "Send /new under your own name, not anonymously: a meeting is created on behalf of a member.",
+      ),
+    };
   if (command === "/start" || command === "/help" || command === "/my")
     return {
-      text: "Flockly помогает договориться о времени, месте и бюджете встречи. " +
-        "Напишите /new, чтобы создать встречу для этого чата.",
-      reply_markup: { inline_keyboard: [[{ text: "Открыть Flockly", url: appUrl }]] },
+      text: t(
+        "Flockly помогает договориться о времени, месте и бюджете встречи. " +
+          "Напишите /new, чтобы создать встречу для этого чата.",
+        "Flockly helps agree on the time, place and budget of a meeting. " +
+          "Send /new to create a meeting for this chat.",
+      ),
+      reply_markup: { inline_keyboard: [[{ text: t("Открыть Flockly", "Open Flockly"), url: appUrl }]] },
     };
   return null;
 }

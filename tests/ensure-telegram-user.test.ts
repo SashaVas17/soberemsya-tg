@@ -134,7 +134,8 @@ describe("telegram-api conditional user ensure", () => {
   });
 
   it("keeps the external authenticated actor shape and safe failure behavior", () => {
-    expect(authenticate).toContain("return { user: data, startParam: validated.startParam };");
+    expect(authenticate).toContain("user: data,\n    startParam: validated.startParam,");
+    expect(authenticate).toContain("language: parseLanguage(request.headers.get(LANGUAGE_HEADER)) ?? languageFromTelegram(profile.language_code),");
     expect(authenticate).toContain("telegram_user_ensure_failed");
     expect(authenticate).toContain("Не удалось сохранить пользователя Telegram.");
   });

@@ -46,6 +46,7 @@ import { groupLinkExpiredError, groupLinkNotIssuerError, parseGroupToken } from 
 import { eventDeepLink } from "../_shared/notification-messages.ts";
 import { isAdminTelegramId, parseAdminIds, parseClientAnalyticsEvent, startParamSource } from "../_shared/admin-stats.ts";
 import { buildShareCard, parseShareCardKind } from "../_shared/share-card.ts";
+import { type Language, LANGUAGE_HEADER, languageFromTelegram, parseLanguage } from "../_shared/i18n.ts";
 import {
   cityTimeZone,
   citiesFromRows,
@@ -109,7 +110,8 @@ import {
 
 type Db = ReturnType<typeof createAdminClient>;
 type AppUser = { id: string; telegram_user_id: string; username: string | null; first_name: string; last_name: string | null; photo_url: string | null };
-type AuthContext = { user: AppUser; startParam: string | null };
+// language: of this request — the app sends its own, otherwise Telegram's.
+type AuthContext = { user: AppUser; startParam: string | null; language: Language };
 type FullEventRow = { id: string; owner_user_id: string | null; title: string; description: string; budget_limit: number; visibility: string | null; max_participants: number | null; status: Status; final_place_id: string | null; final_time_option_id: string | null; created_at: string; deleted_at: string | null; city_id: string; category_id: string | null; hidden_at: string | null };
 type PreviewEventRow = Pick<FullEventRow, "id" | "owner_user_id" | "title" | "description" | "budget_limit" | "visibility" | "max_participants" | "status" | "deleted_at" | "city_id" | "category_id" | "hidden_at">;
 type PublicFeedEventRow = Pick<FullEventRow, "id" | "owner_user_id" | "title" | "description" | "budget_limit" | "max_participants" | "status" | "created_at" | "category_id">;
@@ -214,7 +216,11 @@ async function authenticate(request: Request, bodyInitData?: string): Promise<Au
     console.error("telegram_user_ensure_failed", error.code);
     throw Object.assign(new Error("Не удалось сохранить пользователя Telegram."), { status: 503 });
   }
-  return { user: data, startParam: validated.startParam };
+  return {
+    user: data,
+    startParam: validated.startParam,
+    language: parseLanguage(request.headers.get(LANGUAGE_HEADER)) ?? languageFromTelegram(profile.language_code),
+  };
 }
 
 // Cities and categories change rarely (the owner edits them by hand), so a
@@ -367,7 +373,7 @@ async function fullEventForRequest(eventId: string, userId: string) {
   );
 }
 
-async function publicEventPreview(eventId: string, userId: string) {
+async function publicEventPreview(eventId: string, userId: string, language: Language) {
   const { data: event, error } = await db.from("events").select("id,owner_user_id,title,description,budget_limit,visibility,max_participants,status,deleted_at,city_id,category_id,hidden_at").eq("id", eventId).is("deleted_at", null).maybeSingle<PreviewEventRow>();
   if (error) throw error;
   assertEventAvailable(event);
@@ -406,6 +412,7 @@ async function publicEventPreview(eventId: string, userId: string) {
     requestStatus,
     timeZone: cityTimeZone(cities, event.city_id),
     category: categoryById(categories, event.category_id),
+    language,
   });
 }
 
@@ -784,6 +791,28 @@ async function manageEvent(request: Request, eventId: string, auth: AuthContext)
   return json({ event: await eventPayload(eventId, auth.user.id) });
 }
 
+// The language chosen in the app settings, for the bot and notifications;
+// null returns to «as in Telegram».
+async function userLanguagePreference(request: Request, auth: AuthContext) {
+  const body = await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES);
+  const language = body.language === null ? null : parseLanguage(body.language);
+  if (language === null && body.language !== null) invalidRequest("Некорректный язык.");
+  const { error } = await db.rpc("set_user_language", { p_user_id: auth.user.id, p_language: language });
+  if (error) throw error;
+  return json({ language });
+}
+
+// Optional for sign-in: on a failed read the field is left out and the app
+// keeps its own choice.
+async function storedLanguage(userId: string) {
+  const { data, error } = await db.from("users").select("language").eq("id", userId).maybeSingle<{ language: string | null }>();
+  if (error) {
+    console.error("stored_language_read_failed", error.code);
+    return undefined;
+  }
+  return parseLanguage(data?.language);
+}
+
 async function notificationSettings(request: Request, auth: AuthContext) {
   if (request.method === "PUT") {
     const update = parseNotificationSettingsUpdate(
@@ -814,7 +843,7 @@ async function meetings(auth: AuthContext) {
   if (ownedError || participationError) throw ownedError ?? participationError;
   const ownedIds = (owned ?? []).map((item) => item.id); const participatingIds = [...new Set((participations ?? []).map((item) => item.event_id))].filter((eventId) => !ownedIds.includes(eventId));
   const mapItem = async (eventId: string, role: "owner" | "participant") =>
-    meetingListItem(await eventPayload(eventId, auth.user.id), role);
+    meetingListItem(await eventPayload(eventId, auth.user.id), role, auth.language);
   return json(await collectVisibleMeetings(ownedIds, participatingIds, mapItem));
 }
 
@@ -941,6 +970,7 @@ async function meetingListPage(
           createdAt: event.created_at,
         },
         role,
+        auth.language,
       ),
     ),
     nextCursor:
@@ -1055,6 +1085,7 @@ async function publicEvents(request: Request, auth: AuthContext) {
         participantUserIds: participantsByEvent.get(event.id) ?? [],
         timeZone: city.timeZone,
         category: categoryById(categories, event.category_id),
+        language: auth.language,
       }),
     ),
     nextCursor:
@@ -1177,6 +1208,7 @@ async function shareMessage(request: Request, eventId: string, auth: AuthContext
     { title: event.title, description: event.description, ...details },
     url,
     crypto.randomUUID().replaceAll("-", ""),
+    auth.language,
   );
   const response = await fetch(`https://api.telegram.org/bot${botToken}/savePreparedInlineMessage`, {
     method: "POST",
@@ -1583,6 +1615,7 @@ function allowedMethods(path: string) {
   if (path === "/me/meetings" || path === "/me/meetings/page" || path === "/public/events") return ["GET"];
   if (path === "/me/notification-settings") return ["GET", "PUT"];
   if (path === "/me/city") return ["GET", "PUT"];
+  if (path === "/me/language") return ["PUT"];
   if (path === "/categories") return ["GET"];
   if (path === "/me/analytics") return ["POST"];
   if (path === "/admin/stats") return ["GET"];
@@ -1651,6 +1684,8 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
         photoUrl: auth.user.photo_url,
       },
       startParam: auth.startParam,
+      // null: «as in Telegram» (or not chosen yet).
+      language: await storedLanguage(auth.user.id),
     });
   }
 
@@ -1660,6 +1695,7 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
   if (path === "/me/meetings/page") return await meetingListPage(request, auth);
   if (path === "/me/notification-settings") return await notificationSettings(request, auth);
   if (path === "/me/city") return await userCity(request, auth);
+  if (path === "/me/language") return await userLanguagePreference(request, auth);
   if (path === "/categories") return json({ categories: await loadCategories() });
   if (path === "/me/analytics") return await clientAnalytics(request, auth);
   if (path === "/admin/stats") return await adminStats(auth);
@@ -1741,7 +1777,7 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
   const previewMatch = path.match(/^\/events\/([^/]+)\/preview$/);
   if (previewMatch)
     return json({
-      preview: await publicEventPreview(decodeURIComponent(previewMatch[1]), auth.user.id),
+      preview: await publicEventPreview(decodeURIComponent(previewMatch[1]), auth.user.id, auth.language),
     });
   const eventMatch = path.match(/^\/events\/([^/]+)$/);
   if (eventMatch)

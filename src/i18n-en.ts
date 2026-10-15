@@ -558,6 +558,7 @@ export const en: Record<string, string> = {
   "Некорректный курсор списка.": "Invalid list cursor.",
   "Некорректный тип встреч.": "Invalid meeting type.",
   "Некорректный размер страницы.": "Invalid page size.",
+  "Некорректный язык.": "Invalid language.",
   "Некорректные настройки уведомлений.": "Invalid notification settings.",
   "Для встречи по приглашению нельзя указывать лимит участников.": "An invite-only meeting can't have a participant limit.",
   "Предлагать варианты могут только участники встречи.": "Only meeting participants can suggest options.",

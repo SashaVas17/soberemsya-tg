@@ -1,4 +1,5 @@
 import { applicationError } from "./errors.ts";
+import { type Language, tr } from "./i18n.ts";
 
 // Stage 2.4: reports, blocks, administrator tools and rate limits. The
 // database enforces all of it (see the moderation migration); this module
@@ -20,8 +21,18 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 
 export const REPORT_COMMENT_MAX_LENGTH = 500;
 
-export function reportReasonLabel(reason: unknown) {
-  return REPORT_REASONS.find((item) => item.id === reason)?.label ?? "Другое";
+const REPORT_REASON_LABELS_EN: Record<ReportReason, string> = {
+  spam: "Spam or advertising",
+  fraud: "Fraud",
+  offensive: "Insults",
+  dangerous: "Dangerous meeting",
+  fake: "Fake: someone else's name or a fake meeting",
+  other: "Other",
+};
+
+export function reportReasonLabel(reason: unknown, language: Language = "ru") {
+  const item = REPORT_REASONS.find((entry) => entry.id === reason) ?? REPORT_REASONS.at(-1)!;
+  return tr(language, item.label, REPORT_REASON_LABELS_EN[item.id]);
 }
 
 function invalid(message: string): never {

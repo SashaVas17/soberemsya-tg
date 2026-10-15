@@ -52,14 +52,24 @@ try {
     drop_pending_updates = $false
   } | Out-Null
 
-  Invoke-Telegram "setMyCommands" @{
-    commands = @(
-      @{ command = "start"; description = "Открыть Mini App" }
-      @{ command = "new"; description = "Создать встречу" }
-      @{ command = "my"; description = "Открыть мои встречи" }
-      @{ command = "help"; description = "Краткая инструкция" }
-    )
-  } | Out-Null
+  # Commands in the language of the person's Telegram, by the app's rule:
+  # Russian for CIS languages, English for everyone else (the default list).
+  $ruCommands = @(
+    @{ command = "start"; description = "Открыть Mini App" }
+    @{ command = "new"; description = "Создать встречу" }
+    @{ command = "my"; description = "Открыть мои встречи" }
+    @{ command = "help"; description = "Краткая инструкция" }
+  )
+  $enCommands = @(
+    @{ command = "start"; description = "Open the Mini App" }
+    @{ command = "new"; description = "Create a meeting" }
+    @{ command = "my"; description = "Open my meetings" }
+    @{ command = "help"; description = "Short guide" }
+  )
+  Invoke-Telegram "setMyCommands" @{ commands = $enCommands } | Out-Null
+  foreach ($language in @("ru", "be", "uk", "kk", "ky", "uz", "tg", "tk", "hy", "az")) {
+    Invoke-Telegram "setMyCommands" @{ commands = $ruCommands; language_code = $language } | Out-Null
+  }
 
   Invoke-Telegram "setChatMenuButton" @{
     menu_button = @{

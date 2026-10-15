@@ -1,5 +1,6 @@
 import type { Status } from "./domain.ts";
 import type { Category } from "./categories.ts";
+import type { Language } from "./i18n.ts";
 import { publicDateSummary, publicParticipantCount } from "./public-preview.ts";
 
 const DEFAULT_LIMIT = 20;
@@ -123,13 +124,14 @@ export function buildPublicFeedItem(input: {
   participantUserIds: Array<string | null>;
   timeZone?: string;
   category?: Category | null;
+  language?: Language;
 }): PublicFeedItem {
   return {
     id: input.event.id,
     title: input.event.title,
     description: input.event.description,
     status: "collecting",
-    dateSummary: publicDateSummary(input.startsAtValues, input.timeZone),
+    dateSummary: publicDateSummary(input.startsAtValues, input.timeZone, input.language),
     budgetLimit: input.event.budgetLimit,
     participantCount: publicParticipantCount(
       input.event.ownerUserId,

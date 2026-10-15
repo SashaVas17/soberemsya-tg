@@ -33,7 +33,14 @@ json_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 
 me="$(call getMe '{}')"
 call setWebhook "{\"url\":\"$webhook_url\",\"secret_token\":\"$(json_escape "$webhook_secret")\",\"allowed_updates\":[\"message\"],\"drop_pending_updates\":false}" >/dev/null
-call setMyCommands '{"commands":[{"command":"start","description":"Открыть Mini App"},{"command":"new","description":"Создать встречу"},{"command":"my","description":"Открыть мои встречи"},{"command":"help","description":"Краткая инструкция"}]}' >/dev/null
+# Commands in the language of the person's Telegram, by the app's rule:
+# Russian for CIS languages, English for everyone else (the default list).
+ru_commands='[{"command":"start","description":"Открыть Mini App"},{"command":"new","description":"Создать встречу"},{"command":"my","description":"Открыть мои встречи"},{"command":"help","description":"Краткая инструкция"}]'
+en_commands='[{"command":"start","description":"Open the Mini App"},{"command":"new","description":"Create a meeting"},{"command":"my","description":"Open my meetings"},{"command":"help","description":"Short guide"}]'
+call setMyCommands "{\"commands\":$en_commands}" >/dev/null
+for language in ru be uk kk ky uz tg tk hy az; do
+  call setMyCommands "{\"commands\":$ru_commands,\"language_code\":\"$language\"}" >/dev/null
+done
 call setChatMenuButton "{\"menu_button\":{\"type\":\"web_app\",\"text\":\"Открыть Flockly\",\"web_app\":{\"url\":\"$mini_app_url\"}}}" >/dev/null
 info="$(call getWebhookInfo '{}')"
 
