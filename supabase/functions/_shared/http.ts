@@ -51,7 +51,10 @@ export function withBrowserCors(request: Request, response: Response) {
 }
 
 export function json(body: unknown, status = 200, headers?: HeadersInit) {
-  return Response.json(body, { status, headers });
+  const merged = new Headers(headers);
+  // A browser must never treat an API answer as HTML or script.
+  merged.set("x-content-type-options", "nosniff");
+  return Response.json(body, { status, headers: merged });
 }
 
 export function errorResponse(error: unknown) {

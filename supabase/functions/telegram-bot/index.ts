@@ -4,6 +4,7 @@ import {
   readJsonObject,
   TELEGRAM_WEBHOOK_BODY_LIMIT_BYTES,
 } from "../_shared/bounded-json.ts";
+import { timingSafeEqual } from "../_shared/telegram.ts";
 import { type AdminStats, formatStatsText, isAdminTelegramId, parseAdminIds } from "../_shared/admin-stats.ts";
 import { groupCommandReply, groupCreateUrl, isGroupChatType, parseBotCommand } from "../_shared/group-chats.ts";
 
@@ -75,7 +76,8 @@ Deno.serve(async (request) => {
     );
   try {
     if (!token || !appUrl || !webhookSecret) throw new Error("Telegram bot secrets are not configured");
-    if (request.headers.get("x-telegram-bot-api-secret-token") !== webhookSecret) return json({ error: "Unauthorized" }, 401);
+    if (!timingSafeEqual(request.headers.get("x-telegram-bot-api-secret-token") ?? "", webhookSecret))
+      return json({ error: "Unauthorized" }, 401);
     const update = await readJsonObject(request, TELEGRAM_WEBHOOK_BODY_LIMIT_BYTES); const message = telegramMessage(update); if (!message) return json({ ok: true });
     if (isGroupChatType(message.chatType)) {
       await handleGroupMessage(message);

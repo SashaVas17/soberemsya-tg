@@ -1110,6 +1110,7 @@ async function calendarDownload(eventId: string, search: URLSearchParams) {
       "content-type": "text/calendar; charset=utf-8",
       "content-disposition": "attachment; filename=\"soberemsya.ics\"",
       "cache-control": "private, no-store",
+      "x-content-type-options": "nosniff",
     },
   });
 }

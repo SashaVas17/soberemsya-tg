@@ -21,6 +21,7 @@
 /.vinext/
 /out/
 /dist/
+/dist-e2e/
 *.tsbuildinfo
 
 # misc

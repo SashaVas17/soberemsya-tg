@@ -19,7 +19,8 @@ export function bytesToHex(bytes: ArrayBuffer) {
   ).join("");
 }
 
-function timingSafeEqual(left: string, right: string) {
+/** Compares secrets without leaking through timing where they differ. */
+export function timingSafeEqual(left: string, right: string) {
   if (left.length !== right.length) return false;
   let mismatch = 0;
   for (let index = 0; index < left.length; index += 1)
