@@ -1,3 +1,4 @@
+import { locale } from "./i18n";
 import type { MapMeeting, MapPoints, MapVenuePoint } from "./types";
 
 // OpenFreeMap: free vector tiles without a key or an account, commercial use
@@ -40,7 +41,7 @@ export function meetingFeatures(meetings: MapMeeting[]) {
   };
 }
 
-const meetingTime = new Intl.DateTimeFormat("ru-RU", {
+const meetingTime = () => new Intl.DateTimeFormat(locale(), {
   day: "numeric",
   month: "long",
   hour: "2-digit",
@@ -53,7 +54,7 @@ const meetingTime = new Intl.DateTimeFormat("ru-RU", {
 export function mapMeetingTime(startsAt: string | null) {
   if (!startsAt) return "";
   const date = new Date(startsAt);
-  return Number.isNaN(date.getTime()) ? "" : meetingTime.format(date);
+  return Number.isNaN(date.getTime()) ? "" : meetingTime().format(date);
 }
 
 /**

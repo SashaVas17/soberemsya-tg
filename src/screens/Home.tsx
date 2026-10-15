@@ -2,21 +2,17 @@ import { useCallback, useEffect, useState } from "react";
 import { BarChart3, Bell, CalendarDays, Flag, Plus, Store } from "lucide-react";
 import { api } from "../api";
 import { BottomNavigation } from "../BottomNavigation";
-import type { ResolvedTheme } from "../theme";
 import type { AuthResult, MeetingListItem } from "../types";
 import type { Navigate } from "../app-types";
 import { Header, Loading, RetryState, MeetingGroup } from "../ui/common";
+import { t } from "../i18n";
 
 export function Home({
   navigate,
-  resolvedTheme,
-  toggleTheme,
   user,
   isAdmin,
 }: {
   navigate: Navigate;
-  resolvedTheme: ResolvedTheme;
-  toggleTheme: () => void;
   user: AuthResult["user"];
   isAdmin: boolean;
 }) {
@@ -34,7 +30,7 @@ export function Home({
         setError(
           reason instanceof Error
             ? reason.message
-            : "Не удалось загрузить встречи.",
+            : t("Не удалось загрузить встречи."),
         ),
       );
   }, []);
@@ -51,14 +47,9 @@ export function Home({
     : null;
   return (
     <main className="screen-with-bottom-navigation">
-      <Header
-        navigate={navigate}
-        resolvedTheme={resolvedTheme}
-        toggleTheme={toggleTheme}
-        variant="home"
-      />
+      <Header navigate={navigate} variant="home" />
       <section className="home-page">
-        <h1 className="home-greeting">Привет, {user.firstName} 👋</h1>
+        <h1 className="home-greeting">{t("Привет,")} {user.firstName} 👋</h1>
         <div className="home-action-grid">
           <button
             className="home-create-card"
@@ -67,13 +58,12 @@ export function Home({
           >
             <span className="home-action-icon"><Plus size={28} /></span>
             <span className="home-create-copy">
-              <strong>Создать встречу</strong>
-              <small>Организуйте новое событие с друзьями</small>
+              <strong>{t("Создать встречу")}</strong>
+              <small>{t("Организуйте новое событие с друзьями")}</small>
             </span>
             <span className="home-create-cta">
               <Plus aria-hidden="true" size={18} />
-              Начать
-            </span>
+              {t("Начать")}</span>
           </button>
           <button
             className="home-meetings-shortcut"
@@ -81,17 +71,17 @@ export function Home({
             type="button"
           >
             <CalendarDays size={25} />
-            <span>Мои встречи</span>
+            <span>{t("Мои встречи")}</span>
             <strong>{meetingCount ?? "—"}</strong>
           </button>
         </div>
         <button
           className="home-settings-link"
-          onClick={() => navigate("/settings")}
+          onClick={() => navigate("/settings/notifications")}
           type="button"
         >
           <Bell size={18} />
-          <span>Уведомления от бота</span>
+          <span>{t("Уведомления от бота")}</span>
         </button>
         {isAdmin && (
           <button
@@ -100,7 +90,7 @@ export function Home({
             type="button"
           >
             <BarChart3 size={18} />
-            <span>Статистика</span>
+            <span>{t("Статистика")}</span>
           </button>
         )}
         {isAdmin && (
@@ -110,7 +100,7 @@ export function Home({
             type="button"
           >
             <Flag size={18} />
-            <span>Жалобы</span>
+            <span>{t("Жалобы")}</span>
           </button>
         )}
         {isAdmin && (
@@ -120,24 +110,24 @@ export function Home({
             type="button"
           >
             <Store size={18} />
-            <span>Каталог мест</span>
+            <span>{t("Каталог мест")}</span>
           </button>
         )}
         <div className="home-section-heading">
-          <h2>Ваши встречи</h2>
-          <button onClick={() => navigate("/my-events")} type="button">Все</button>
+          <h2>{t("Ваши встречи")}</h2>
+          <button onClick={() => navigate("/my-events")} type="button">{t("Все")}</button>
         </div>
-        {!data && !error && <Loading label="Загружаем встречи…" />}
+        {!data && !error && <Loading label={t("Загружаем встречи…")} />}
         {error && (
           <RetryState
             message={error}
             onRetry={() => void load()}
-            title="Встречи не загрузились"
+            title={t("Встречи не загрузились")}
           />
         )}
         {data && (
           <MeetingGroup
-            emptyText="Создайте встречу или откройте приглашение из Telegram."
+            emptyText={t("Создайте встречу или откройте приглашение из Telegram.")}
             items={meetings}
             navigate={navigate}
           />

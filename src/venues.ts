@@ -1,6 +1,7 @@
 import type { EditablePlaceDraft } from "./app-types";
 import { normalizeFeedSearch } from "./public-feed";
 import type { Venue, VenuePriceLevel, VenueStatus } from "./types";
+import { t } from "./i18n";
 
 // Same levels as the server (PRICE_LEVELS in _shared/venues.ts). estimate is
 // the per-person budget a chosen venue puts into the meeting's place option.
@@ -16,7 +17,8 @@ export function maxPriceLevelForBudget(budget: number): VenuePriceLevel {
 }
 
 export function priceLabel(level: VenuePriceLevel | null) {
-  return PRICE_LEVELS.find((price) => price.level === level)?.label ?? null;
+  const label = PRICE_LEVELS.find((price) => price.level === level)?.label;
+  return label ? t(label) : null;
 }
 
 export const OSM_ATTRIBUTION_URL = "https://www.openstreetmap.org/copyright";

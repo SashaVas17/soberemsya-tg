@@ -34,7 +34,7 @@ const declaration =
   /^(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:function|const|type|interface)\s+([A-Za-z_]\w*)/;
 
 function declarations(file: string): { name: string; text: string }[] {
-  const lines = readFileSync(file, "utf8").split("\n");
+  const lines = untranslated(readFileSync(file, "utf8")).split("\n");
   const result: { name: string; text: string[] }[] = [];
   let inImport = false;
   for (const line of lines) {
@@ -48,6 +48,23 @@ function declarations(file: string): { name: string; text: string }[] {
     }
   }
   return result.map(({ name, text }) => ({ name, text: text.join("\n") }));
+}
+
+const literal = String.raw`"(?:[^"\\]|\\.)*"`;
+
+/**
+ * Source with the i18n wrapper removed (src/i18n.ts): t("…") is transparent
+ * for the text contracts these tests check. Calls with parameters stay.
+ */
+export function untranslated(source: string): string {
+  return source
+    .replace(new RegExp(String.raw`=\{t\((${literal})\)\}`, "g"), (_, text: string) => `=${text}`)
+    .replace(new RegExp(String.raw`\{t\((${literal})\)\}`, "g"), (_, text: string) => JSON.parse(text) as string)
+    .replace(new RegExp(String.raw`\bt\((${literal})\)`, "g"), (_, text: string) => text);
+}
+
+export function readSource(path: string): string {
+  return untranslated(readFileSync(path, "utf8"));
 }
 
 export function readAppSource(): string {

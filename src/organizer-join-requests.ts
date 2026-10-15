@@ -6,6 +6,7 @@ import type {
   OrganizerJoinRequestsResponse,
   Participant,
 } from "./types";
+import { t } from "./i18n";
 
 export type MockOrganizerJoinRequestRecord = {
   id: string;
@@ -49,22 +50,22 @@ function displayName(profile: MockOrganizerRequesterProfile) {
   return [profile.firstName, profile.lastName]
     .filter(Boolean)
     .join(" ")
-    .trim() || "Пользователь Telegram";
+    .trim() || t("Пользователь Telegram");
 }
 
 function unavailableEvent(): never {
-  throw new ApiError("Встреча не найдена или удалена.", 404);
+  throw new ApiError(t("Встреча не найдена или удалена."), 404);
 }
 
 function unavailableRequest(): never {
-  throw new ApiError("Заявка не найдена.", 404);
+  throw new ApiError(t("Заявка не найдена."), 404);
 }
 
 function conflict(code: "JOIN_REQUEST_NOT_PENDING" | "JOIN_REQUESTS_CLOSED"): never {
   throw new ApiError(
     code === "JOIN_REQUESTS_CLOSED"
-      ? "Сбор заявок уже закрыт."
-      : "Заявка уже обработана.",
+      ? t("Сбор заявок уже закрыт.")
+      : t("Заявка уже обработана."),
     409,
     code,
   );
@@ -82,13 +83,13 @@ function authorize(
   if (state.event.deleted || state.event.id !== eventId) unavailableEvent();
   if (state.event.ownerUserId !== actorUserId)
     throw new ApiError(
-      "У вас нет доступа к управлению этой встречей.",
+      t("У вас нет доступа к управлению этой встречей."),
       403,
       "NOT_EVENT_OWNER",
     );
   if (state.event.visibility !== "public")
     throw new ApiError(
-      "Заявки доступны только для открытых встреч.",
+      t("Заявки доступны только для открытых встреч."),
       409,
       "JOIN_REQUEST_NOT_ALLOWED",
     );
@@ -167,7 +168,7 @@ export function approveJoinRequest(
   if (state.event.status !== "collecting") conflict("JOIN_REQUESTS_CLOSED");
   if (request.requesterUserId === state.event.ownerUserId)
     throw new ApiError(
-      "Организатор не может присоединиться к своей встрече.",
+      t("Организатор не может присоединиться к своей встрече."),
       403,
       "OWNER_CANNOT_JOIN",
     );
@@ -182,7 +183,7 @@ export function approveJoinRequest(
     1 + participantCount >= state.event.maxParticipants
   )
     throw new ApiError(
-      "На встрече уже нет свободных мест",
+      t("На встрече уже нет свободных мест"),
       409,
       "EVENT_FULL",
     );

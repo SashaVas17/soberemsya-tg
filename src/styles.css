@@ -1129,7 +1129,7 @@ code {
 .public-preview-request .primary-action {
   width: 100%;
 }
-.theme-toggle {
+.topbar-settings {
   align-items: center;
   background: var(--color-surface-secondary);
   border: 1px solid var(--color-border);
@@ -1142,7 +1142,7 @@ code {
   justify-content: center;
   padding: 0;
 }
-.theme-toggle:focus-visible {
+.topbar-settings:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
@@ -3021,14 +3021,14 @@ code {
   flex: 0 1 auto;
 }
 
-.theme-toggle {
+.topbar-settings {
   background: transparent;
   border-color: transparent;
   color: var(--color-primary);
 }
 
-.theme-toggle:hover,
-.theme-toggle:focus-visible {
+.topbar-settings:hover,
+.topbar-settings:focus-visible {
   background: var(--color-primary-soft);
 }
 

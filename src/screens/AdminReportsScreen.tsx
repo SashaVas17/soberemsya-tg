@@ -5,6 +5,7 @@ import { haptic } from "../telegram";
 import type { AdminReport, ReportStatus } from "../types";
 import type { Navigate } from "../app-types";
 import { EmptyState, Header, Loading, RetryState } from "../ui/common";
+import { locale, t } from "../i18n";
 
 const statusTabs: { id: ReportStatus; label: string }[] = [
   { id: "open", label: "Новые" },
@@ -12,7 +13,7 @@ const statusTabs: { id: ReportStatus; label: string }[] = [
   { id: "dismissed", label: "Отклонённые" },
 ];
 
-const reportTime = new Intl.DateTimeFormat("ru-RU", {
+const reportTime = () => new Intl.DateTimeFormat(locale(), {
   day: "numeric",
   month: "short",
   hour: "2-digit",
@@ -34,25 +35,25 @@ function ReportCard({
   return (
     <article className="panel admin-report-card" aria-busy={busy}>
       <div className="admin-report-heading">
-        <strong>{report.targetType === "event" ? "Встреча" : "Пользователь"} · {reportReasonLabel(report.reason)}</strong>
-        <time dateTime={report.createdAt}>{reportTime.format(new Date(report.createdAt))}</time>
+        <strong>{report.targetType === "event" ? t("Встреча") : t("Пользователь")} · {reportReasonLabel(report.reason)}</strong>
+        <time dateTime={report.createdAt}>{reportTime().format(new Date(report.createdAt))}</time>
       </div>
       {event && (
         <p>
-          Встреча: «{event.title}»
-          {event.deleted ? " — удалена" : event.hidden ? " — скрыта из ленты" : ""}
+          {t("Встреча: «")}{event.title}»
+          {event.deleted ? t(" — удалена") : event.hidden ? t(" — скрыта из ленты") : ""}
         </p>
       )}
       {targetUser && (
         <p>
-          {report.targetType === "event" ? "Организатор" : "Нарушитель"}: {personName(targetUser.name, targetUser.username)}
-          {targetUser.banned ? " — ограничен" : ""}
+          {report.targetType === "event" ? t("Организатор") : t("Нарушитель")}: {personName(targetUser.name, targetUser.username)}
+          {targetUser.banned ? t(" — ограничен") : ""}
         </p>
       )}
       {report.comment && <p className="admin-report-comment">«{report.comment}»</p>}
       <p className="admin-report-meta">
-        Пожаловался(-ась): {personName(report.reporter.name, report.reporter.username)}
-        {report.openReportsOnTarget > 1 ? ` · новых жалоб на это: ${report.openReportsOnTarget}` : ""}
+        {t("Пожаловался(-ась):")} {personName(report.reporter.name, report.reporter.username)}
+        {report.openReportsOnTarget > 1 ? t(" · новых жалоб на это: {count}", { count: report.openReportsOnTarget }) : ""}
       </p>
       <div className="admin-report-actions">
         {event && !event.deleted && (
@@ -62,7 +63,7 @@ function ReportCard({
             onClick={() => onAction(() => api.adminSetEventHidden(event.id, !event.hidden))}
             type="button"
           >
-            {event.hidden ? "Вернуть в ленту" : "Скрыть встречу"}
+            {event.hidden ? t("Вернуть в ленту") : t("Скрыть встречу")}
           </button>
         )}
         {targetUser && (
@@ -72,13 +73,13 @@ function ReportCard({
             onClick={() => {
               if (
                 targetUser.banned ||
-                window.confirm("Ограничить пользователя? Он не сможет создавать открытые встречи и подавать заявки, его открытые встречи скроются из ленты.")
+                window.confirm(t("Ограничить пользователя? Он не сможет создавать открытые встречи и подавать заявки, его открытые встречи скроются из ленты."))
               )
                 onAction(() => api.adminSetUserBanned(targetUser.id, !targetUser.banned));
             }}
             type="button"
           >
-            {targetUser.banned ? "Снять ограничение" : "Ограничить"}
+            {targetUser.banned ? t("Снять ограничение") : t("Ограничить")}
           </button>
         )}
         {open && (
@@ -89,16 +90,14 @@ function ReportCard({
               onClick={() => onAction(() => api.adminResolveReport(report.id, "resolve"))}
               type="button"
             >
-              Решено
-            </button>
+              {t("Решено")}</button>
             <button
               className="secondary-action compact-action"
               disabled={busy}
               onClick={() => onAction(() => api.adminResolveReport(report.id, "dismiss"))}
               type="button"
             >
-              Отклонить
-            </button>
+              {t("Отклонить")}</button>
           </>
         )}
       </div>
@@ -124,7 +123,7 @@ export function AdminReportsScreen({ navigate, onBack }: { navigate: Navigate; o
       if (requestId === latestRequest.current) setReports(loaded);
     } catch (reason) {
       if (requestId === latestRequest.current)
-        setError(reason instanceof Error ? reason.message : "Не удалось загрузить жалобы.");
+        setError(reason instanceof Error ? reason.message : t("Не удалось загрузить жалобы."));
     }
   }, [status]);
   useEffect(() => {
@@ -140,7 +139,7 @@ export function AdminReportsScreen({ navigate, onBack }: { navigate: Navigate; o
       haptic();
       await load();
     } catch (reason) {
-      setActionError(reason instanceof Error ? reason.message : "Не удалось выполнить действие.");
+      setActionError(reason instanceof Error ? reason.message : t("Не удалось выполнить действие."));
       haptic("error");
     } finally {
       setBusyId(null);
@@ -148,9 +147,9 @@ export function AdminReportsScreen({ navigate, onBack }: { navigate: Navigate; o
   };
   return (
     <main className="settings-screen">
-      <Header navigate={navigate} onBack={onBack} title="Жалобы" variant="nested" />
+      <Header navigate={navigate} onBack={onBack} title={t("Жалобы")} variant="nested" />
       <section className="settings-page admin-reports">
-        <div aria-label="Статус жалоб" className="meeting-segments admin-report-tabs" role="tablist">
+        <div aria-label={t("Статус жалоб")} className="meeting-segments admin-report-tabs" role="tablist">
           {statusTabs.map((tab) => (
             <button
               aria-selected={status === tab.id}
@@ -160,17 +159,17 @@ export function AdminReportsScreen({ navigate, onBack }: { navigate: Navigate; o
               role="tab"
               type="button"
             >
-              {tab.label}
+              {t(tab.label)}
             </button>
           ))}
         </div>
         {actionError && <p className="form-error" role="alert">{actionError}</p>}
-        {!reports && !error && <Loading label="Загружаем жалобы…" />}
-        {error && <RetryState message={error} onRetry={() => void load()} title="Жалобы не загрузились" />}
+        {!reports && !error && <Loading label={t("Загружаем жалобы…")} />}
+        {error && <RetryState message={error} onRetry={() => void load()} title={t("Жалобы не загрузились")} />}
         {reports?.length === 0 && (
           <EmptyState
-            text={status === "open" ? "Когда кто-то пожалуется, вы получите сообщение от бота." : "Здесь пока пусто."}
-            title={status === "open" ? "Новых жалоб нет" : "Жалоб нет"}
+            text={status === "open" ? t("Когда кто-то пожалуется, вы получите сообщение от бота.") : t("Здесь пока пусто.")}
+            title={status === "open" ? t("Новых жалоб нет") : t("Жалоб нет")}
           />
         )}
         {reports?.map((report) => (

@@ -6,6 +6,7 @@ import type { BlockedUser } from "../types";
 import type { Navigate } from "../app-types";
 import { EmptyState, Header, Loading, RetryState } from "../ui/common";
 import { CommunityRulesList } from "../ui/Moderation";
+import { t } from "../i18n";
 
 export function BlockedUsersScreen({ navigate, onBack }: { navigate: Navigate; onBack: () => void }) {
   const [users, setUsers] = useState<BlockedUser[] | null>(null);
@@ -17,7 +18,7 @@ export function BlockedUsersScreen({ navigate, onBack }: { navigate: Navigate; o
     try {
       setUsers((await api.blockedUsers()).users);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Не удалось загрузить список.");
+      setError(reason instanceof Error ? reason.message : t("Не удалось загрузить список."));
     }
   }, []);
   useEffect(() => void load(), [load]);
@@ -30,7 +31,7 @@ export function BlockedUsersScreen({ navigate, onBack }: { navigate: Navigate; o
       haptic();
       setUsers((current) => current?.filter((user) => user.userId !== userId) ?? current);
     } catch (reason) {
-      setActionError(reason instanceof Error ? reason.message : "Не удалось разблокировать.");
+      setActionError(reason instanceof Error ? reason.message : t("Не удалось разблокировать."));
       haptic("error");
     } finally {
       setUnblockingId(null);
@@ -38,16 +39,15 @@ export function BlockedUsersScreen({ navigate, onBack }: { navigate: Navigate; o
   };
   return (
     <main className="settings-screen">
-      <Header navigate={navigate} onBack={onBack} title="Заблокированные" variant="nested" />
+      <Header navigate={navigate} onBack={onBack} title={t("Заблокированные")} variant="nested" />
       <section className="settings-page blocked-users">
         <p className="settings-note">
-          Вы не видите открытые встречи этих людей, а они — ваши. Их заявки на ваши встречи отклоняются.
-        </p>
+          {t("Вы не видите открытые встречи этих людей, а они — ваши. Их заявки на ваши встречи отклоняются.")}</p>
         {actionError && <p className="form-error" role="alert">{actionError}</p>}
-        {!users && !error && <Loading label="Загружаем…" />}
-        {error && <RetryState message={error} onRetry={() => void load()} title="Список не загрузился" />}
+        {!users && !error && <Loading label={t("Загружаем…")} />}
+        {error && <RetryState message={error} onRetry={() => void load()} title={t("Список не загрузился")} />}
         {users?.length === 0 && (
-          <EmptyState text="Заблокировать человека можно на экране его встречи или заявки." title="Никого нет" />
+          <EmptyState text={t("Заблокировать человека можно на экране его встречи или заявки.")} title={t("Никого нет")} />
         )}
         {users && users.length > 0 && (
           <ul className="panel blocked-user-list">
@@ -60,7 +60,7 @@ export function BlockedUsersScreen({ navigate, onBack }: { navigate: Navigate; o
                   onClick={() => void unblock(user.userId)}
                   type="button"
                 >
-                  {unblockingId === user.userId ? "Разблокируем…" : "Разблокировать"}
+                  {unblockingId === user.userId ? t("Разблокируем…") : t("Разблокировать")}
                 </button>
               </li>
             ))}
@@ -74,10 +74,10 @@ export function BlockedUsersScreen({ navigate, onBack }: { navigate: Navigate; o
 export function CommunityRulesScreen({ navigate, onBack }: { navigate: Navigate; onBack: () => void }) {
   return (
     <main className="settings-screen">
-      <Header navigate={navigate} onBack={onBack} title="Правила" variant="nested" />
+      <Header navigate={navigate} onBack={onBack} title={t("Правила")} variant="nested" />
       <section className="settings-page">
         <section className="panel community-rules-panel">
-          <h2>{COMMUNITY_RULES_TITLE}</h2>
+          <h2>{t(COMMUNITY_RULES_TITLE)}</h2>
           <CommunityRulesList />
         </section>
       </section>

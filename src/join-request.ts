@@ -4,6 +4,7 @@ import type {
   JoinRequestActionResponse,
   JoinRequestStatus,
 } from "./types";
+import { t } from "./i18n";
 
 export type JoinRequestSubmissionLock = { current: boolean };
 
@@ -20,37 +21,37 @@ export function publicJoinRequestView(
   if (status === "cancelled")
     return {
       actionLabel: null,
-      message: "Встреча отменена",
+      message: t("Встреча отменена"),
       supportingText: null,
     };
   if (joinRequestStatus === "pending")
     return {
       actionLabel: null,
-      message: "Заявка отправлена",
-      supportingText: "Ожидайте решения организатора",
+      message: t("Заявка отправлена"),
+      supportingText: t("Ожидайте решения организатора"),
     };
   if (joinRequestStatus === "rejected")
     return {
       actionLabel: null,
-      message: "Заявка не одобрена",
+      message: t("Заявка не одобрена"),
       supportingText: null,
     };
   if (joinRequestStatus === "approved")
     return {
       actionLabel: null,
-      message: "Вы уже участник встречи",
-      supportingText: "Открываем полную информацию…",
+      message: t("Вы уже участник встречи"),
+      supportingText: t("Открываем полную информацию…"),
     };
   if (status !== "collecting")
     return {
       actionLabel: null,
       message:
-        status === "decided" ? "Решение уже принято" : "Сбор заявок завершён",
+        status === "decided" ? t("Решение уже принято") : t("Сбор заявок завершён"),
       supportingText: null,
     };
   return {
-    actionLabel: "Хочу присоединиться",
-    message: "Доступна публичная информация о встрече.",
+    actionLabel: t("Хочу присоединиться"),
+    message: t("Доступна публичная информация о встрече."),
     supportingText: null,
   };
 }
@@ -82,13 +83,13 @@ export function mockCreateJoinRequest(
 ): JoinRequestActionResponse {
   if (input.visibility !== "public" || input.eventStatus !== "collecting")
     throw new ApiError(
-      "Сейчас нельзя отправить заявку на эту встречу.",
+      t("Сейчас нельзя отправить заявку на эту встречу."),
       409,
       "JOIN_REQUEST_NOT_ALLOWED",
     );
   if (input.isOwner)
     throw new ApiError(
-      "Организатор не может отправить заявку на свою встречу.",
+      t("Организатор не может отправить заявку на свою встречу."),
       403,
       "OWNER_CANNOT_JOIN",
     );
@@ -96,7 +97,7 @@ export function mockCreateJoinRequest(
     return { joinRequestStatus: "approved" };
   if (input.requestStatus === "rejected")
     throw new ApiError(
-      "Ваша заявка не была одобрена.",
+      t("Ваша заявка не была одобрена."),
       409,
       "JOIN_REQUEST_REJECTED",
     );

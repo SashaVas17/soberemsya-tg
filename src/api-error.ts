@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 export const SAFE_API_ERROR_CODES = [
   "PUBLIC_JOIN_REQUIRED",
   "PUBLIC_OWNER_CANNOT_RESPOND",
@@ -30,12 +31,13 @@ export class ApiError extends Error {
   }
 }
 
+/** Server messages are Russian; known ones are shown in the interface language. */
 export function apiErrorFromBody(status: number, body: unknown) {
   const record = body && typeof body === "object" ? body as Record<string, unknown> : {};
   const message =
     typeof record.error === "string"
-      ? record.error
-      : "Не удалось выполнить действие.";
+      ? t(record.error)
+      : t("Не удалось выполнить действие.");
   const rawCode = typeof record.code === "string" ? record.code : "";
   const code = safeApiErrorCodes.has(rawCode)
     ? rawCode as ApiErrorCode

@@ -5,6 +5,7 @@ import {
   isBottomNavigationSelected,
   navigateToBottomItem,
 } from "./navigation";
+import { t } from "./i18n";
 
 const navigationIcons = {
   home: House,
@@ -21,7 +22,7 @@ export function BottomNavigation({
   navigate: (path: string) => void;
 }) {
   return (
-    <nav aria-label="Основная навигация" className="bottom-navigation">
+    <nav aria-label={t("Основная навигация")} className="bottom-navigation">
       <div className="bottom-navigation-inner">
         {bottomNavigationItems.map((item, index) => {
           const selected = isBottomNavigationSelected(currentPath, item.path);
@@ -30,7 +31,7 @@ export function BottomNavigation({
             <Fragment key={item.id}>
               {index === 2 && (
                 <button
-                  aria-label="Новая встреча"
+                  aria-label={t("Новая встреча")}
                   className="bottom-navigation-create"
                   onClick={() => navigate("/create")}
                   type="button"
@@ -40,13 +41,13 @@ export function BottomNavigation({
               )}
               <button
                 aria-current={selected ? "page" : undefined}
-                aria-label={item.label === item.shortLabel ? undefined : item.label}
+                aria-label={item.label === item.shortLabel ? undefined : t(item.label)}
                 className={`bottom-navigation-item ${selected ? "selected" : ""}`}
                 onClick={() => navigateToBottomItem(item.path, navigate)}
                 type="button"
               >
                 <Icon aria-hidden="true" size={22} strokeWidth={2} />
-                <span>{item.shortLabel}</span>
+                <span>{t(item.shortLabel)}</span>
               </button>
             </Fragment>
           );

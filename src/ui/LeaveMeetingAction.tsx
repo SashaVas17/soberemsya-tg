@@ -4,6 +4,7 @@ import { canLeaveMeeting, leaveMeetingOnce } from "../leave-meeting";
 import { haptic } from "../telegram";
 import type { EventData } from "../types";
 import type { Navigate } from "../app-types";
+import { t } from "../i18n";
 
 export function LeaveMeetingAction({
   event,
@@ -22,7 +23,7 @@ export function LeaveMeetingAction({
     if (leaving || leaveLock.current) return;
     if (
       !window.confirm(
-        "Покинуть встречу?\nВаше участие и голоса будут удалены.",
+        t("Покинуть встречу?\nВаше участие и голоса будут удалены."),
       )
     )
       return;
@@ -38,7 +39,7 @@ export function LeaveMeetingAction({
       haptic();
       navigate("/my-events");
     } catch {
-      setError("Не удалось покинуть встречу. Попробуйте ещё раз.");
+      setError(t("Не удалось покинуть встречу. Попробуйте ещё раз."));
       haptic("error");
     } finally {
       setLeaving(false);
@@ -52,7 +53,7 @@ export function LeaveMeetingAction({
         onClick={() => void leave()}
         type="button"
       >
-        {leaving ? "Выходим…" : "Покинуть встречу"}
+        {leaving ? t("Выходим…") : t("Покинуть встречу")}
       </button>
       {error && <p className="form-error" role="alert">{error}</p>}
     </div>

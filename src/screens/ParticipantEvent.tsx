@@ -23,6 +23,7 @@ import { PublicPreviewScreen } from "./PublicPreviewScreen";
 import { LeaveMeetingAction } from "../ui/LeaveMeetingAction";
 import { SafetyActions } from "../ui/Moderation";
 import { Result } from "./Result";
+import { t } from "../i18n";
 
 function localProposalDefaults() {
   const today = new Date();
@@ -56,7 +57,7 @@ function ParticipantTimeProposal({
   const submit = async () => {
     const startsAt = createTimeOption(date, time);
     if (!startsAt) {
-      setError("Выберите корректные дату и время.");
+      setError(t("Выберите корректные дату и время."));
       return;
     }
     setSaving(true);
@@ -67,7 +68,7 @@ function ParticipantTimeProposal({
       setOpen(false);
       haptic();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Не удалось предложить время.");
+      setError(reason instanceof Error ? reason.message : t("Не удалось предложить время."));
       haptic("error");
     } finally {
       setSaving(false);
@@ -77,27 +78,26 @@ function ParticipantTimeProposal({
     <div className="participant-option-proposal">
       <button className="secondary-action" onClick={openProposal} type="button">
         <Plus size={18} />
-        Предложить время
-      </button>
+        {t("Предложить время")}</button>
       {open && (
         <div className="time-picker-backdrop" role="presentation">
           <section aria-labelledby="participant-time-proposal-title" aria-modal="true" className="time-picker-dialog" role="dialog">
             <div className="section-row">
-              <h2 id="participant-time-proposal-title">Предложить время</h2>
-              <button aria-label="Закрыть предложение времени" className="icon-action" disabled={saving} onClick={() => setOpen(false)} type="button">×</button>
+              <h2 id="participant-time-proposal-title">{t("Предложить время")}</h2>
+              <button aria-label={t("Закрыть предложение времени")} className="icon-action" disabled={saving} onClick={() => setOpen(false)} type="button">×</button>
             </div>
             <label className="field">
-              <span>Дата</span>
+              <span>{t("Дата")}</span>
               <input min={defaults.date} onChange={(event) => setDate(event.target.value)} type="date" value={date} />
             </label>
             <label className="field">
-              <span>Время</span>
+              <span>{t("Время")}</span>
               <input onChange={(event) => setTime(event.target.value)} type="time" value={time} />
             </label>
             <ErrorNote message={error} />
             <div className="time-picker-actions">
-              <button className="secondary-action" disabled={saving} onClick={() => setOpen(false)} type="button">Отмена</button>
-              <button className="primary-action" disabled={saving} onClick={() => void submit()} type="button">{saving ? "Добавляем…" : "Предложить"}</button>
+              <button className="secondary-action" disabled={saving} onClick={() => setOpen(false)} type="button">{t("Отмена")}</button>
+              <button className="primary-action" disabled={saving} onClick={() => void submit()} type="button">{saving ? t("Добавляем…") : t("Предложить")}</button>
             </div>
           </section>
         </div>
@@ -130,7 +130,7 @@ function ParticipantPlaceProposal({
   };
   const submit = async () => {
     if (!title.trim()) {
-      setError("Укажите место.");
+      setError(t("Укажите место."));
       return;
     }
     setSaving(true);
@@ -145,7 +145,7 @@ function ParticipantPlaceProposal({
       setOpen(false);
       haptic();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Не удалось предложить место.");
+      setError(reason instanceof Error ? reason.message : t("Не удалось предложить место."));
       haptic("error");
     } finally {
       setSaving(false);
@@ -155,26 +155,25 @@ function ParticipantPlaceProposal({
     <div className="participant-option-proposal">
       <button className="secondary-action" onClick={openProposal} type="button">
         <Plus size={18} />
-        Предложить место
-      </button>
+        {t("Предложить место")}</button>
       {open && (
         <div className="participant-place-proposal">
           <label className="field">
-            <span>Место</span>
-            <input onChange={(event) => setTitle(event.target.value)} placeholder="Название места" value={title} />
+            <span>{t("Место")}</span>
+            <input onChange={(event) => setTitle(event.target.value)} placeholder={t("Название места")} value={title} />
           </label>
           <label className="field">
-            <span>Район или метро</span>
-            <input onChange={(event) => setArea(event.target.value)} placeholder="Район, метро или ориентир" value={area} />
+            <span>{t("Район или метро")}</span>
+            <input onChange={(event) => setArea(event.target.value)} placeholder={t("Район, метро или ориентир")} value={area} />
           </label>
           <label className="field">
-            <span>Бюджет этого места, BYN</span>
-            <input inputMode="numeric" onChange={(event) => setBudgetInput(normalizeNumericInput(event.target.value))} pattern="[0-9]*" placeholder="Например, 30" type="text" value={budgetInput} />
+            <span>{t("Бюджет этого места, BYN")}</span>
+            <input inputMode="numeric" onChange={(event) => setBudgetInput(normalizeNumericInput(event.target.value))} pattern="[0-9]*" placeholder={t("Например, 30")} type="text" value={budgetInput} />
           </label>
           <ErrorNote message={error} />
           <div className="participant-proposal-actions">
-            <button className="secondary-action" disabled={saving} onClick={() => setOpen(false)} type="button">Отмена</button>
-            <button className="primary-action" disabled={saving || !title.trim()} onClick={() => void submit()} type="button">{saving ? "Добавляем…" : "Предложить"}</button>
+            <button className="secondary-action" disabled={saving} onClick={() => setOpen(false)} type="button">{t("Отмена")}</button>
+            <button className="primary-action" disabled={saving || !title.trim()} onClick={() => void submit()} type="button">{saving ? t("Добавляем…") : t("Предложить")}</button>
           </div>
         </div>
       )}
@@ -248,7 +247,7 @@ export function ParticipantEvent({
       state.setError(
         reason instanceof Error
           ? reason.message
-          : "Не удалось отправить заявку.",
+          : t("Не удалось отправить заявку."),
       );
       haptic("error");
     } finally {
@@ -282,7 +281,7 @@ export function ParticipantEvent({
       state.setError(
         reason instanceof Error
           ? reason.message
-          : "Не удалось сохранить ответ.",
+          : t("Не удалось сохранить ответ."),
       );
       haptic("error");
     } finally {
@@ -300,7 +299,7 @@ export function ParticipantEvent({
     state,
   ]);
   useMainButton(
-    saving ? "Сохраняем…" : "Отправить ответ",
+    saving ? t("Сохраняем…") : t("Отправить ответ"),
     Boolean(state.event && !saving && state.event.status === "collecting"),
     submit,
     Boolean(state.event && !saved && state.event.status === "collecting"),
@@ -319,15 +318,15 @@ export function ParticipantEvent({
       );
     return (
       <main className="voting-screen">
-        <Header navigate={navigate} onBack={onBack} title="Встреча" variant="nested" />
+        <Header navigate={navigate} onBack={onBack} title={t("Встреча")} variant="nested" />
         {state.error ? (
           <RetryState
             message={state.error}
             onRetry={() => void state.load()}
-            title="Встреча не загрузилась"
+            title={t("Встреча не загрузилась")}
           />
         ) : (
-          <Loading label="Загружаем встречу…" />
+          <Loading label={t("Загружаем встречу…")} />
         )}
       </main>
     );
@@ -339,15 +338,15 @@ export function ParticipantEvent({
   if (saved)
     return (
       <main className="voting-screen voting-saved-screen">
-        <Header navigate={navigate} onBack={onBack} title="Встреча" variant="nested" />
+        <Header navigate={navigate} onBack={onBack} title={t("Встреча")} variant="nested" />
         <section className="voting-saved-page">
           <span className="voting-saved-icon"><Check size={44} /></span>
-          <p className="create-step-label">Ваш ответ сохранён</p>
-          <h1>Спасибо!</h1>
+          <p className="create-step-label">{t("Ваш ответ сохранён")}</p>
+          <h1>{t("Спасибо!")}</h1>
           <p className="voting-saved-summary">
             {bestSlot(event)
-              ? `Сейчас лучше всего подходит ${formatSlot(bestSlot(event)!.startsAt)}.`
-              : "Результаты появятся после ответов."}
+              ? t("Сейчас лучше всего подходит {time}.", { time: formatSlot(bestSlot(event)!.startsAt) })
+              : t("Результаты появятся после ответов.")}
           </p>
           <div className="voting-saved-actions">
             <button
@@ -355,24 +354,22 @@ export function ParticipantEvent({
               onClick={() => setSaved(false)}
               type="button"
             >
-              Изменить мой ответ
-            </button>
+              {t("Изменить мой ответ")}</button>
             <button
               className="secondary-action"
               onClick={() => navigate(`/result/${eventId}`)}
               type="button"
             >
-              Посмотреть рекомендацию
-            </button>
+              {t("Посмотреть рекомендацию")}</button>
           </div>
         </section>
       </main>
     );
   return (
     <main className="voting-screen">
-      <Header navigate={navigate} onBack={onBack} title="Встреча" variant="nested" />
+      <Header navigate={navigate} onBack={onBack} title={t("Встреча")} variant="nested" />
       <section className="voting-intro">
-        <p className="create-step-label">{event.canManage ? "Ваша встреча" : "Вас приглашают"}</p>
+        <p className="create-step-label">{event.canManage ? t("Ваша встреча") : t("Вас приглашают")}</p>
         <h1>{event.title}</h1>
         {event.canManage && (
           <button
@@ -380,8 +377,7 @@ export function ParticipantEvent({
             onClick={() => navigate(managementPath(eventId))}
             type="button"
           >
-            Управлять встречей
-          </button>
+            {t("Управлять встречей")}</button>
         )}
         {event.description && <p>{event.description}</p>}
       <div className="event-meta">
@@ -390,11 +386,11 @@ export function ParticipantEvent({
           <span>{plural(event.participants.length, "ответ", "ответа", "ответов")}</span>
         </div>
         <div className="participant-next-action">
-          <strong>{event.myResponse ? "Ваш ответ сохранён" : "Нужно ответить"}</strong>
+          <strong>{event.myResponse ? t("Ваш ответ сохранён") : t("Нужно ответить")}</strong>
           <span>
             {event.myResponse
-              ? "Вы можете изменить его, если ваши планы поменялись."
-              : "Выберите подходящие даты и заполните пожелания ниже."}
+              ? t("Вы можете изменить его, если ваши планы поменялись.")
+              : t("Выберите подходящие даты и заполните пожелания ниже.")}
           </span>
         </div>
       </section>
@@ -406,8 +402,8 @@ export function ParticipantEvent({
         }}
       >
         <section className="panel voting-time-panel">
-          <h2>Выберите подходящие даты</h2>
-          <p className="panel-hint">Можно выбрать несколько вариантов.</p>
+          <h2>{t("Выберите подходящие даты")}</h2>
+          <p className="panel-hint">{t("Можно выбрать несколько вариантов.")}</p>
           <div className="availability-grid">
             {event.timeOptions.map((slot) => {
               const can = available.includes(slot.id);
@@ -425,7 +421,7 @@ export function ParticipantEvent({
                     {can && <Check size={18} strokeWidth={3} />}
                   </span>
                   <strong>{formatSlot(slot.startsAt)}</strong>
-                  <span className="availability-state">{can ? "Подходит" : "Не подходит"}</span>
+                  <span className="availability-state">{can ? t("Подходит") : t("Не подходит")}</span>
                 </button>
               );
             })}
@@ -438,15 +434,15 @@ export function ParticipantEvent({
           )}
         </section>
         <section className="panel voting-place-panel">
-          <h2>Выберите подходящие места</h2>
-          <p className="panel-hint">Можно выбрать несколько вариантов.</p>
+          <h2>{t("Выберите подходящие места")}</h2>
+          <p className="panel-hint">{t("Можно выбрать несколько вариантов.")}</p>
           {event.placeOptions.length ? (
             <div className="availability-grid">
               {event.placeOptions.map((place) => {
                 const selected = selectedPlaces.includes(place.id);
                 const details = [
                   place.area,
-                  place.estimatedBudget > 0 ? `до ${place.estimatedBudget} BYN` : "",
+                  place.estimatedBudget > 0 ? t("до {budget} BYN", { budget: place.estimatedBudget }) : "",
                 ].filter(Boolean).join(" · ");
                 return (
                   <button
@@ -460,13 +456,13 @@ export function ParticipantEvent({
                       {selected && <Check size={18} strokeWidth={3} />}
                     </span>
                     <strong>{place.title}</strong>
-                    <span className="availability-state">{details || "Без ориентира"}</span>
+                    <span className="availability-state">{details || t("Без ориентира")}</span>
                   </button>
                 );
               })}
             </div>
           ) : (
-            <p className="participant-options-empty">Пока нет предложенных мест.</p>
+            <p className="participant-options-empty">{t("Пока нет предложенных мест.")}</p>
           )}
           {canProposeOptions && (
             <ParticipantPlaceProposal
@@ -477,44 +473,44 @@ export function ParticipantEvent({
           )}
         </section>
         <section className="panel voting-details-panel">
-          <h2>Ваши пожелания</h2>
-          <p className="panel-hint">Все поля ниже необязательны.</p>
+          <h2>{t("Ваши пожелания")}</h2>
+          <p className="panel-hint">{t("Все поля ниже необязательны.")}</p>
           <label className="field">
-            <span>Район или метро</span>
+            <span>{t("Район или метро")}</span>
             <input
               value={area}
-              placeholder="Район, метро или ориентир"
+              placeholder={t("Район, метро или ориентир")}
               onChange={(input) => setArea(input.target.value)}
             />
           </label>
           <label className="field">
-            <span>Бюджет, BYN</span>
+            <span>{t("Бюджет, BYN")}</span>
             <input
               inputMode="numeric"
               onChange={(input) =>
                 setBudgetInput(normalizeNumericInput(input.target.value))
               }
               pattern="[0-9]*"
-              placeholder="Например, 30"
+              placeholder={t("Например, 30")}
               type="text"
               value={budgetInput}
             />
           </label>
           <label className="field">
-            <span>Предпочтения</span>
+            <span>{t("Предпочтения")}</span>
             <textarea
               rows={2}
               value={preferences}
-              placeholder="Например, тихий стол или веранда"
+              placeholder={t("Например, тихий стол или веранда")}
               onChange={(input) => setPreferences(input.target.value)}
             />
           </label>
           <label className="field">
-            <span>Ограничения</span>
+            <span>{t("Ограничения")}</span>
             <textarea
               rows={2}
               value={restrictions}
-              placeholder="Например, без орехов"
+              placeholder={t("Например, без орехов")}
               onChange={(input) => setRestrictions(input.target.value)}
             />
           </label>
@@ -526,10 +522,10 @@ export function ParticipantEvent({
           type="submit"
         >
           {saving
-            ? "Сохраняем…"
+            ? t("Сохраняем…")
             : event.myResponse
-              ? "Обновить ответ"
-              : "Отправить ответ"}
+              ? t("Обновить ответ")
+              : t("Отправить ответ")}
         </button>
         <LeaveMeetingAction event={event} eventId={eventId} navigate={navigate} />
         {!event.canManage && event.visibility === "public" && <SafetyActions eventId={eventId} />}

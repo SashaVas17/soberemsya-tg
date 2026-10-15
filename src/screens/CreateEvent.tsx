@@ -26,6 +26,7 @@ import type { Navigate, EditablePlaceDraft, CreatedGroup } from "../app-types";
 import { CategoryChip, Header, ErrorNote } from "../ui/common";
 import { VenuePicker } from "../ui/Venues";
 import { clearVenueForNextMeeting, venueForNextMeeting, venuePlaceDraft } from "../venues";
+import { t } from "../i18n";
 
 function SlotBuilder({
   slots,
@@ -62,11 +63,11 @@ function SlotBuilder({
   const confirmPicker = () => {
     const option = createTimeOption(pickerDate, pickerTime);
     if (!option) {
-      setPickerError("Выберите корректные дату и время.");
+      setPickerError(t("Выберите корректные дату и время."));
       return;
     }
     if (slots.includes(option)) {
-      setPickerError("Этот вариант уже добавлен.");
+      setPickerError(t("Этот вариант уже добавлен."));
       return;
     }
     onChange(addTimeOption(slots, option));
@@ -81,7 +82,7 @@ function SlotBuilder({
           return (
             <section className="slot-option-card" key={slot}>
               <label className="field">
-                <span>Дата</span>
+                <span>{t("Дата")}</span>
                 <input
                   min={defaultDate}
                   onChange={(event) => change(slot, event.target.value, values.time)}
@@ -90,7 +91,7 @@ function SlotBuilder({
                 />
               </label>
               <label className="field">
-                <span>Время</span>
+                <span>{t("Время")}</span>
                 <input
                   onChange={(event) => change(slot, values.date, event.target.value)}
                   type="time"
@@ -99,10 +100,10 @@ function SlotBuilder({
               </label>
               {slots.length > 1 && (
                 <button
-                  aria-label="Удалить вариант"
+                  aria-label={t("Удалить вариант")}
                   className="icon-action danger"
                   onClick={() => onChange(removeTimeOption(slots, slot))}
-                  title="Удалить вариант"
+                  title={t("Удалить вариант")}
                   type="button"
                 >
                   <Trash2 size={18} />
@@ -118,8 +119,7 @@ function SlotBuilder({
         type="button"
       >
         <Plus size={18} />
-        Добавить время
-      </button>
+        {t("Добавить время")}</button>
       {pickerOpen && (
         <div className="time-picker-backdrop" role="presentation">
           <section
@@ -129,9 +129,9 @@ function SlotBuilder({
             role="dialog"
           >
             <div className="section-row">
-              <h2 id="time-picker-title">Новый вариант времени</h2>
+              <h2 id="time-picker-title">{t("Новый вариант времени")}</h2>
               <button
-                aria-label="Закрыть выбор времени"
+                aria-label={t("Закрыть выбор времени")}
                 className="icon-action"
                 onClick={() => setPickerOpen(false)}
                 type="button"
@@ -140,7 +140,7 @@ function SlotBuilder({
               </button>
             </div>
             <label className="field">
-              <span>Дата</span>
+              <span>{t("Дата")}</span>
               <input
                 min={defaultDate}
                 onChange={(event) => setPickerDate(event.target.value)}
@@ -149,7 +149,7 @@ function SlotBuilder({
               />
             </label>
             <label className="field">
-              <span>Время</span>
+              <span>{t("Время")}</span>
               <input
                 onChange={(event) => setPickerTime(event.target.value)}
                 type="time"
@@ -163,15 +163,13 @@ function SlotBuilder({
                 onClick={() => setPickerOpen(false)}
                 type="button"
               >
-                Отмена
-              </button>
+                {t("Отмена")}</button>
               <button
                 className="primary-action"
                 onClick={confirmPicker}
                 type="button"
               >
-                Добавить
-              </button>
+                {t("Добавить")}</button>
             </div>
           </section>
         </div>
@@ -205,7 +203,7 @@ export function CreateEvent({
       .then(({ groupLink }) => { if (active) setGroupTitle(groupLink.chatTitle); })
       .catch((reason) => {
         if (active)
-          setGroupError(reason instanceof Error ? reason.message : "Не удалось открыть ссылку из группы.");
+          setGroupError(reason instanceof Error ? reason.message : t("Не удалось открыть ссылку из группы."));
       });
     return () => { active = false; };
   }, [groupToken]);
@@ -307,22 +305,20 @@ export function CreateEvent({
   }, [budgetLimit, category, description, groupTitle, groupToken, hasParticipantLimit, maxParticipants, maxParticipantsInput, navigate, onCreated, places, saving, timeOptions, title, visibility]);
   return (
     <main className="create-screen">
-      <Header navigate={navigate} onBack={onBack} title="Создание встречи" variant="nested" />
+      <Header navigate={navigate} onBack={onBack} title={t("Создание встречи")} variant="nested" />
       <section className="create-intro">
         {groupTitle !== null && (
           <p className="group-create-note">
-            Встреча для чата «{groupTitle}». После создания карточка для голосования появится в чате.
-          </p>
+            {t("Встреча для чата «")}{groupTitle}{t("». После создания карточка для голосования появится в чате.")}</p>
         )}
         {groupError && <p className="group-create-note group-create-note-error">{groupError}</p>}
-        <p className="create-step-label">Шаг {step} из 3</p>
-        <h1>{step === 1 ? "Что планируем?" : step === 2 ? "Когда встречаемся?" : "Где и сколько?"}</h1>
+        <p className="create-step-label">{t("Шаг")} {step}  {t("из 3")}</p>
+        <h1>{step === 1 ? t("Что планируем?") : step === 2 ? t("Когда встречаемся?") : t("Где и сколько?")}</h1>
         {step === 2 && (
           <p className="create-step-description">
-            Добавьте несколько вариантов дат, чтобы участники могли выбрать удобное время.
-          </p>
+            {t("Добавьте несколько вариантов дат, чтобы участники могли выбрать удобное время.")}</p>
         )}
-        <div className="step-progress" aria-label={`Шаг ${step} из 3`}>
+        <div className="step-progress" aria-label={t("Шаг {step} из 3", { step })}>
           <span style={{ width: `${(step / 3) * 100}%` }} />
         </div>
       </section>
@@ -336,19 +332,19 @@ export function CreateEvent({
       >
         {step === 1 && <section className="panel wizard-panel">
           <label className="field">
-            <span>Название встречи</span>
+            <span>{t("Название встречи")}</span>
             <input
               autoFocus
-              placeholder="Например, шашлыки с друзьями"
+              placeholder={t("Например, шашлыки с друзьями")}
               required
               value={title}
               onChange={(event) => setTitle(event.target.value)}
             />
           </label>
           <label className="field">
-            <span>Описание (необязательно)</span>
+            <span>{t("Описание (необязательно)")}</span>
             <textarea
-              placeholder="Добавьте детали, чтобы все были в курсе…"
+              placeholder={t("Добавьте детали, чтобы все были в курсе…")}
               rows={3}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
@@ -356,7 +352,7 @@ export function CreateEvent({
           </label>
           {categoryChoices.length > 0 && (
             <fieldset className="category-picker">
-              <legend>Категория <span>необязательно</span></legend>
+              <legend>{t("Категория")} <span>{t("необязательно")}</span></legend>
               <div className="category-chips category-chips-wrap">
                 {categoryChoices.map((choice) => (
                   <CategoryChip
@@ -370,7 +366,7 @@ export function CreateEvent({
             </fieldset>
           )}
           <fieldset className="visibility-selector">
-            <legend>Кто сможет присоединиться?</legend>
+            <legend>{t("Кто сможет присоединиться?")}</legend>
             <button
               aria-pressed={visibility === "private"}
               className={`visibility-option${visibility === "private" ? " selected" : ""}`}
@@ -380,8 +376,8 @@ export function CreateEvent({
               }}
               type="button"
             >
-              <span className="visibility-option-title"><strong>По приглашению</strong><span className="visibility-option-mark" aria-hidden="true">{visibility === "private" && <Check size={16} />}</span></span>
-              <span>Встречу увидят только те, кому вы отправите ссылку</span>
+              <span className="visibility-option-title"><strong>{t("По приглашению")}</strong><span className="visibility-option-mark" aria-hidden="true">{visibility === "private" && <Check size={16} />}</span></span>
+              <span>{t("Встречу увидят только те, кому вы отправите ссылку")}</span>
             </button>
             <button
               aria-pressed={visibility === "public"}
@@ -395,14 +391,14 @@ export function CreateEvent({
               }}
               type="button"
             >
-              <span className="visibility-option-title"><strong>Открытая встреча</strong><span className="visibility-option-mark" aria-hidden="true">{visibility === "public" && <Check size={16} />}</span></span>
-              <span>Пользователи Flockly смогут найти встречу и отправить заявку</span>
+              <span className="visibility-option-title"><strong>{t("Открытая встреча")}</strong><span className="visibility-option-mark" aria-hidden="true">{visibility === "public" && <Check size={16} />}</span></span>
+              <span>{t("Пользователи Flockly смогут найти встречу и отправить заявку")}</span>
             </button>
           </fieldset>
           {visibility === "public" && (
             <fieldset className="capacity-selector">
-              <legend>Сколько человек может быть на встрече?</legend>
-              <p>Всего людей, включая вас</p>
+              <legend>{t("Сколько человек может быть на встрече?")}</legend>
+              <p>{t("Всего людей, включая вас")}</p>
               <label className="capacity-option">
                 <input
                   checked={hasParticipantLimit}
@@ -413,9 +409,9 @@ export function CreateEvent({
                   }}
                   type="radio"
                 />
-                <span>Ограничить</span>
+                <span>{t("Ограничить")}</span>
                 <input
-                  aria-label="Лимит участников"
+                  aria-label={t("Лимит участников")}
                   disabled={!hasParticipantLimit}
                   inputMode="numeric"
                   onChange={(event) =>
@@ -433,7 +429,7 @@ export function CreateEvent({
                   onChange={() => setHasParticipantLimit(false)}
                   type="radio"
                 />
-                <span>Без ограничения</span>
+                <span>{t("Без ограничения")}</span>
               </label>
             </fieldset>
           )}
@@ -441,15 +437,14 @@ export function CreateEvent({
         {step === 2 && <section className="wizard-time-panel">
           <div className="section-row create-section-heading">
             <div>
-              <h2>Варианты времени</h2>
-              <p>Добавьте хотя бы один вариант, чтобы участники могли выбрать удобное время.</p>
+              <h2>{t("Варианты времени")}</h2>
+              <p>{t("Добавьте хотя бы один вариант, чтобы участники могли выбрать удобное время.")}</p>
             </div>
             <Clock3 aria-hidden="true" size={24} />
           </div>
           {!hasValidTimeOption && (
             <p className="create-inline-hint" role="status">
-              Добавьте хотя бы один вариант даты и времени, чтобы продолжить.
-            </p>
+              {t("Добавьте хотя бы один вариант даты и времени, чтобы продолжить.")}</p>
           )}
           <SlotBuilder
             slots={timeOptions}
@@ -462,20 +457,20 @@ export function CreateEvent({
         {step === 3 && <section className="panel wizard-panel">
           <div className="section-row">
             <div>
-              <h2>Места</h2>
-              <p className="create-section-helper">Места необязательны. Выберите из подборки или добавьте своё, если участникам нужно выбрать локацию.</p>
+              <h2>{t("Места")}</h2>
+              <p className="create-section-helper">{t("Места необязательны. Выберите из подборки или добавьте своё, если участникам нужно выбрать локацию.")}</p>
             </div>
             <MapPin aria-hidden="true" size={24} />
           </div>
           {!places.length && (
-            <p className="create-empty-options">Пока нет добавленных мест.</p>
+            <p className="create-empty-options">{t("Пока нет добавленных мест.")}</p>
           )}
           {places.map((place, index) => (
             <div className="place-draft" key={index}>
               <label className="field">
-                <span>Место</span>
+                <span>{t("Место")}</span>
                 <input
-                  placeholder="Название места"
+                  placeholder={t("Название места")}
                   value={place.title}
                   onChange={(event) =>
                     setPlaces(
@@ -489,9 +484,9 @@ export function CreateEvent({
                 />
               </label>
               <label className="field">
-                <span>Район или метро</span>
+                <span>{t("Район или метро")}</span>
                 <input
-                  placeholder="Район, метро или ориентир"
+                  placeholder={t("Район, метро или ориентир")}
                   value={place.area}
                   onChange={(event) =>
                     setPlaces(
@@ -505,12 +500,12 @@ export function CreateEvent({
                 />
               </label>
               <label className="field">
-                <span>Бюджет этого места, BYN</span>
+                <span>{t("Бюджет этого места, BYN")}</span>
                 <input
                   min="0"
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  placeholder="Например, 30"
+                  placeholder={t("Например, 30")}
                   type="text"
                   value={place.estimatedBudget}
                   onChange={(event) =>
@@ -533,7 +528,7 @@ export function CreateEvent({
                   onClick={() =>
                     setPlaces(places.filter((_, i) => i !== index))
                   }
-                  title="Удалить место"
+                  title={t("Удалить место")}
                   type="button"
                 >
                   <Trash2 size={18} />
@@ -559,18 +554,17 @@ export function CreateEvent({
             type="button"
           >
             <Plus size={22} />
-            Добавить место
-          </button>
+            {t("Добавить место")}</button>
           <label className="field budget-field">
-            <span>Общий бюджет встречи, BYN</span>
-            <small>Общий ориентир для всей встречи. Бюджет места выше задаётся отдельно.</small>
+            <span>{t("Общий бюджет встречи, BYN")}</span>
+            <small>{t("Общий ориентир для всей встречи. Бюджет места выше задаётся отдельно.")}</small>
             <input
               inputMode="numeric"
               onChange={(event) =>
                 setBudgetLimitInput(normalizeNumericInput(event.target.value))
               }
               pattern="[0-9]*"
-              placeholder="Например, 30"
+              placeholder={t("Например, 30")}
               type="text"
               value={budgetLimitInput}
             />
@@ -580,15 +574,14 @@ export function CreateEvent({
         <div className={`wizard-actions${step === 2 ? " step-2-actions" : ""}`}>
           {step === 3 && (
             <button className="secondary-action" disabled={saving} onClick={() => { setError(""); setStep((current) => previousCreateStep(current)); }} type="button">
-              Назад
-            </button>
+              {t("Назад")}</button>
           )}
           <button
             className="primary-action"
             disabled={saving || (step === 2 && !hasValidTimeOption)}
             type="submit"
           >
-            {step < 3 ? "Продолжить" : saving ? "Создаём…" : "Создать встречу"}
+            {step < 3 ? t("Продолжить") : saving ? t("Создаём…") : t("Создать встречу")}
           </button>
         </div>
       </form>

@@ -22,6 +22,7 @@ import {
 import { useEvent } from "../app-hooks";
 import { SafetyActions } from "../ui/Moderation";
 import { usePreparedShare, shareEvent } from "../share";
+import { t } from "../i18n";
 
 export function Manage({
   eventId,
@@ -99,7 +100,7 @@ export function Manage({
     } catch (reason) {
       const message = reason instanceof Error
         ? reason.message
-        : "Не удалось изменить встречу.";
+        : t("Не удалось изменить встречу.");
       if (removalKind === "time") setTimeRemovalError(message);
       else if (removalKind === "place") setPlaceRemovalError(message);
       else if (removalKind === "category") setCategoryError(message);
@@ -123,7 +124,7 @@ export function Manage({
       haptic();
     } catch {
       setParticipantRemovalError(
-        "Не удалось исключить участника. Попробуйте ещё раз.",
+        t("Не удалось исключить участника. Попробуйте ещё раз."),
       );
       haptic("error");
     } finally {
@@ -133,12 +134,12 @@ export function Manage({
   if (!state.event)
     return (
       <main className="manage-screen">
-        <Header navigate={navigate} onBack={onBack} title="Управление встречей" variant="nested" />
+        <Header navigate={navigate} onBack={onBack} title={t("Управление встречей")} variant="nested" />
         {state.error ? (
           <RetryState
             message={state.error}
             onRetry={() => void state.load()}
-            title="Управление не загрузилось"
+            title={t("Управление не загрузилось")}
           />
         ) : (
           <Loading />
@@ -147,35 +148,35 @@ export function Manage({
     );
   const event = state.event;
   const missingDecisionOptions = [
-    event.timeOptions.length ? "" : "время",
-    event.placeOptions.length ? "" : "место",
+    event.timeOptions.length ? "" : t("время"),
+    event.placeOptions.length ? "" : t("место"),
   ].filter(Boolean);
   const decisionHint =
     event.status === "decided"
-      ? "Итог выбран. При необходимости встречу можно возобновить."
+      ? t("Итог выбран. При необходимости встречу можно возобновить.")
       : missingDecisionOptions.length
-        ? `Добавьте варианты: ${missingDecisionOptions.join(" и ")}, затем выберите итог.`
-        : "Выберите итоговое время и место, когда будете готовы принять решение.";
+        ? t("Добавьте варианты: {options}, затем выберите итог.", { options: missingDecisionOptions.join(t(" и ")) })
+        : t("Выберите итоговое время и место, когда будете готовы принять решение.");
   if (!event.canManage)
     return (
       <main className="manage-screen">
-        <Header navigate={navigate} onBack={onBack} title="Управление встречей" variant="nested" />
+        <Header navigate={navigate} onBack={onBack} title={t("Управление встречей")} variant="nested" />
         <RetryState
-          message="Управлять встречей может только её организатор."
-          title="Нет доступа"
+          message={t("Управлять встречей может только её организатор.")}
+          title={t("Нет доступа")}
         />
       </main>
     );
   return (
     <main className="manage-screen">
-      <Header navigate={navigate} onBack={onBack} title="Управление встречей" variant="nested" />
+      <Header navigate={navigate} onBack={onBack} title={t("Управление встречей")} variant="nested" />
       <section className="manage-intro">
-        <p className="create-step-label">Управление встречей</p>
+        <p className="create-step-label">{t("Управление встречей")}</p>
         <h1>{event.title}</h1>
         {event.description && <p className="manage-description">{event.description}</p>}
         <div className="event-meta">
           <StatusBadge status={event.status} />
-          {event.visibility === "public" && <span className="visibility-badge">Открытая</span>}
+          {event.visibility === "public" && <span className="visibility-badge">{t("Открытая")}</span>}
           {event.category && <CategoryBadge category={event.category} />}
           <span>
             {plural(
@@ -195,15 +196,13 @@ export function Manage({
         />
         {event.hiddenByModerator && (
           <p className="moderation-notice" role="status">
-            Администратор скрыл встречу из ленты открытых встреч: новые люди не найдут её и не смогут
-            подать заявку. Участники по-прежнему её видят.
-          </p>
+            {t("Администратор скрыл встречу из ленты открытых встреч: новые люди не найдут её и не смогут подать заявку. Участники по-прежнему её видят.")}</p>
         )}
         <section className="manage-next-action" aria-labelledby="manage-next-action-title">
           <div>
-            <p className="manage-section-kicker">Следующий шаг</p>
+            <p className="manage-section-kicker">{t("Следующий шаг")}</p>
             <h2 id="manage-next-action-title">
-              {event.status === "decided" ? "Решение принято" : "Подготовьте итог встречи"}
+              {event.status === "decided" ? t("Решение принято") : t("Подготовьте итог встречи")}
             </h2>
             <p>{decisionHint}</p>
           </div>
@@ -216,16 +215,16 @@ export function Manage({
           />
         )}
         <section className="panel manage-card manage-details-card">
-          <h2><span>Описание</span><small>Основная информация о встрече</small></h2>
+          <h2><span>{t("Описание")}</span><small>{t("Основная информация о встрече")}</small></h2>
           <label className="field">
-            <span>Название</span>
+            <span>{t("Название")}</span>
             <input
               value={title}
               onChange={(input) => setTitle(input.target.value)}
             />
           </label>
           <label className="field">
-            <span>Комментарий</span>
+            <span>{t("Комментарий")}</span>
             <textarea
               rows={3}
               value={description}
@@ -240,11 +239,10 @@ export function Manage({
             }
             type="button"
           >
-            Сохранить описание
-          </button>
+            {t("Сохранить описание")}</button>
           {categoryChoices.length > 0 && (
             <fieldset className="category-picker">
-              <legend>Категория <span>меняется сразу</span></legend>
+              <legend>{t("Категория")} <span>{t("меняется сразу")}</span></legend>
               <div className="category-chips category-chips-wrap">
                 {categoryChoices.map((choice) => {
                   const selected = event.category?.id === choice.id;
@@ -264,7 +262,7 @@ export function Manage({
           )}
         </section>
         <section className="panel manage-card manage-time-card">
-          <h2><CalendarDays size={24} /><span>Время<small>Варианты, за которые могут голосовать участники</small></span></h2>
+          <h2><CalendarDays size={24} /><span>{t("Время")}<small>{t("Варианты, за которые могут голосовать участники")}</small></span></h2>
           {event.timeOptions.map((slot) => (
             <div className="slot-card" key={slot.id}>
               <div>
@@ -274,13 +272,13 @@ export function Manage({
                 </span>
               </div>
               <button
-                aria-label="Удалить вариант времени"
+                aria-label={t("Удалить вариант времени")}
                 className="icon-action danger"
                 onClick={async () => {
                   if (
                     slot.availableCount &&
                     !confirm(
-                      `За вариант проголосовали ${slot.availableCount}. Удалить его и голоса?`,
+                      t("За вариант проголосовали {count}. Удалить его и голоса?", { count: slot.availableCount }),
                     )
                   )
                     return;
@@ -292,7 +290,7 @@ export function Manage({
                     "time",
                   );
                 }}
-                title="Удалить время"
+                title={t("Удалить время")}
                 type="button"
               >
                 <Trash2 size={18} />
@@ -319,31 +317,30 @@ export function Manage({
               type="button"
             >
               <Plus size={18} />
-              Добавить
-            </button>
+              {t("Добавить")}</button>
           </div>
         </section>
         <ErrorNote message={timeRemovalError} />
         <section className="panel manage-card manage-places-card">
-          <h2><MapPin size={24} /><span>Места<small>Варианты локации и ориентир по бюджету</small></span></h2>
+          <h2><MapPin size={24} /><span>{t("Места")}<small>{t("Варианты локации и ориентир по бюджету")}</small></span></h2>
           {!event.placeOptions.length && (
-            <p className="manage-empty-options">Мест пока нет. Добавьте вариант, если участникам нужно выбрать локацию.</p>
+            <p className="manage-empty-options">{t("Мест пока нет. Добавьте вариант, если участникам нужно выбрать локацию.")}</p>
           )}
           {event.placeOptions.map((item) => (
             <div className="slot-card" key={item.id}>
               <div>
                 <strong>{item.title}</strong>
                 <span>
-                  {item.area} · до {item.estimatedBudget} BYN
+                  {item.area}  {t("· до")} {item.estimatedBudget} BYN
                 </span>
               </div>
               <button
-                aria-label="Удалить вариант места"
+                aria-label={t("Удалить вариант места")}
                 className="icon-action danger"
                 onClick={() =>
                   void mutate(managePayloads.removePlace(item.id), "place")
                 }
-                title="Удалить место"
+                title={t("Удалить место")}
                 type="button"
               >
                 <Trash2 size={18} />
@@ -352,14 +349,14 @@ export function Manage({
           ))}
           <div className="add-place">
             <input
-              placeholder="Место"
+              placeholder={t("Место")}
               value={place.title}
               onChange={(input) =>
                 setPlace({ ...place, title: input.target.value })
               }
             />
             <input
-              placeholder="Район"
+              placeholder={t("Район")}
               value={place.area}
               onChange={(input) =>
                 setPlace({ ...place, area: input.target.value })
@@ -368,7 +365,7 @@ export function Manage({
             <input
               inputMode="numeric"
               pattern="[0-9]*"
-              placeholder="До, BYN"
+              placeholder={t("До, BYN")}
               type="text"
               value={place.estimatedBudget}
               onChange={(input) =>
@@ -395,53 +392,52 @@ export function Manage({
               type="button"
             >
               <Plus size={18} />
-              Добавить
-            </button>
+              {t("Добавить")}</button>
           </div>
         </section>
         <ErrorNote message={placeRemovalError} />
         <section className="panel manage-card manage-participants-card">
-          <h2><Users size={24} /><span>Ответы участников<small>Разверните строку, чтобы посмотреть ответ и действия</small></span></h2>
+          <h2><Users size={24} /><span>{t("Ответы участников")}<small>{t("Разверните строку, чтобы посмотреть ответ и действия")}</small></span></h2>
           {event.participants.length ? (
             event.participants.map((person) => (
               <details className="participant-answer" key={person.id}>
                 <summary>
                   <strong>{person.name}</strong>
-                  <span>{person.area || "Район не указан"}</span>
+                  <span>{person.area || t("Район не указан")}</span>
                 </summary>
                 <div>
                   <p>
-                    <b>Могу:</b>{" "}
+                    <b>{t("Могу:")}</b>{" "}
                     {event.timeOptions
                       .filter((slot) =>
                         person.availableTimeOptionIds.includes(slot.id),
                       )
                       .map((slot) => formatSlot(slot.startsAt))
-                      .join(" · ") || "нет"}
+                      .join(" · ") || t("нет")}
                   </p>
                   <p>
-                    <b>Не могу:</b>{" "}
+                    <b>{t("Не могу:")}</b>{" "}
                     {event.timeOptions
                       .filter((slot) =>
                         person.unavailableTimeOptionIds.includes(slot.id),
                       )
                       .map((slot) => formatSlot(slot.startsAt))
-                      .join(" · ") || "нет"}
+                      .join(" · ") || t("нет")}
                   </p>
                   <p>
-                    <b>Бюджет:</b> {person.budget} BYN
+                    <b>{t("Бюджет:")}</b> {person.budget} BYN
                   </p>
                   <p>
-                    <b>Предпочтения:</b> {person.preferences || "нет"}
+                    <b>{t("Предпочтения:")}</b> {person.preferences || t("нет")}
                   </p>
                   <p>
-                    <b>Ограничения:</b> {person.restrictions || "нет"}
+                    <b>{t("Ограничения:")}</b> {person.restrictions || t("нет")}
                   </p>
                   {event.myResponse?.id !== person.id && person.userId && (
                     <SafetyActions
                       eventId={eventId}
                       personLabel={person.name}
-                      reportSubject={`Жалоба на участника ${person.name}`}
+                      reportSubject={t("Жалоба на участника {name}", { name: person.name })}
                       target={{ kind: "participant", participantId: person.id }}
                     />
                   )}
@@ -456,8 +452,8 @@ export function Manage({
                       type="button"
                     >
                       {removingParticipantId === person.id
-                        ? "Исключаем…"
-                        : "Исключить из встречи"}
+                        ? t("Исключаем…")
+                        : t("Исключить из встречи")}
                     </button>
                   )}
                 </div>
@@ -465,8 +461,8 @@ export function Manage({
             ))
           ) : (
             <EmptyState
-              text="Отправьте приглашение в чат — ответы появятся здесь."
-              title="Ответов пока нет"
+              text={t("Отправьте приглашение в чат — ответы появятся здесь.")}
+              title={t("Ответов пока нет")}
             />
           )}
         </section>
@@ -478,8 +474,8 @@ export function Manage({
               className="participant-remove-dialog"
               role="dialog"
             >
-              <h2 id="participant-remove-title">Исключить участника?</h2>
-              <p>Его ответ и голоса будут удалены.</p>
+              <h2 id="participant-remove-title">{t("Исключить участника?")}</h2>
+              <p>{t("Его ответ и голоса будут удалены.")}</p>
               {participantRemovalError && (
                 <p className="participant-remove-error" role="alert">
                   {participantRemovalError}
@@ -495,30 +491,29 @@ export function Manage({
                   }}
                   type="button"
                 >
-                  Отмена
-                </button>
+                  {t("Отмена")}</button>
                 <button
                   className="danger-button"
                   disabled={Boolean(removingParticipantId)}
                   onClick={() => void removeParticipant()}
                   type="button"
                 >
-                  {removingParticipantId ? "Исключаем…" : "Исключить"}
+                  {removingParticipantId ? t("Исключаем…") : t("Исключить")}
                 </button>
               </div>
             </section>
           </div>
         )}
         <section className="panel manage-card decision-panel">
-          <h2><Check size={24} /> <span>Окончательное решение<small>{event.status === "decided" ? "Итог встречи" : "Выберите финальные варианты"}</small></span></h2>
+          <h2><Check size={24} /> <span>{t("Окончательное решение")}<small>{event.status === "decided" ? t("Итог встречи") : t("Выберите финальные варианты")}</small></span></h2>
           <p className="decision-hint">{decisionHint}</p>
           <label className="field">
-            <span>Время</span>
+            <span>{t("Время")}</span>
             <select
               value={finalTime}
               onChange={(input) => setFinalTime(input.target.value)}
             >
-              <option value="">Выберите время</option>
+              <option value="">{t("Выберите время")}</option>
               {event.timeOptions.map((slot) => (
                 <option key={slot.id} value={slot.id}>
                   {formatSlot(slot.startsAt)}
@@ -527,12 +522,12 @@ export function Manage({
             </select>
           </label>
           <label className="field">
-            <span>Место</span>
+            <span>{t("Место")}</span>
             <select
               value={finalPlace}
               onChange={(input) => setFinalPlace(input.target.value)}
             >
-              <option value="">Выберите место</option>
+              <option value="">{t("Выберите место")}</option>
               {event.placeOptions.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.title} · {item.area}
@@ -541,7 +536,7 @@ export function Manage({
             </select>
           </label>
           {event.status === "cancelled" && (
-            <p className="settings-note">Встреча отменена. Итог и сбор ответов больше недоступны.</p>
+            <p className="settings-note">{t("Встреча отменена. Итог и сбор ответов больше недоступны.")}</p>
           )}
           <button
             className="primary-action"
@@ -551,16 +546,14 @@ export function Manage({
             }
             type="button"
           >
-            Принять решение
-          </button>
+            {t("Принять решение")}</button>
           {event.status === "collecting" && (
             <button
               className="secondary-action"
               onClick={() => void mutate(managePayloads.close())}
               type="button"
             >
-              Закрыть сбор ответов
-            </button>
+              {t("Закрыть сбор ответов")}</button>
           )}
           {event.status !== "collecting" && event.status !== "cancelled" && (
             <button
@@ -568,54 +561,50 @@ export function Manage({
               onClick={() => void mutate(managePayloads.reopen())}
               type="button"
             >
-              Возобновить сбор ответов
-            </button>
+              {t("Возобновить сбор ответов")}</button>
           )}
         </section>
         <div className="action-row manage-actions">
           <div className="manage-secondary-actions">
-            <p className="manage-section-kicker">Дополнительно</p>
+            <p className="manage-section-kicker">{t("Дополнительно")}</p>
             <button
               className="secondary-action"
               onClick={() => shareEvent(event.id, invitePrepared)}
               type="button"
             >
               <Send size={18} />
-              Отправить в чат
-            </button>
+              {t("Отправить в чат")}</button>
             <button
               className="secondary-action"
               onClick={() => navigate(`/result/${event.id}`)}
               type="button"
             >
-              Открыть результат
-            </button>
+              {t("Открыть результат")}</button>
           </div>
           {event.status !== "cancelled" && (
             <div className="manage-secondary-actions">
-              <p className="manage-section-kicker">Отмена</p>
-              <p>Встреча останется в истории, участники получат уведомление.</p>
+              <p className="manage-section-kicker">{t("Отмена")}</p>
+              <p>{t("Встреча останется в истории, участники получат уведомление.")}</p>
               <button
                 className="secondary-action"
                 disabled={saving}
                 onClick={() => {
-                  if (confirm("Отменить встречу? Участники получат уведомление."))
+                  if (confirm(t("Отменить встречу? Участники получат уведомление.")))
                     void mutate(managePayloads.cancel());
                 }}
                 type="button"
               >
                 <XCircle size={18} />
-                Отменить встречу
-              </button>
+                {t("Отменить встречу")}</button>
             </div>
           )}
           <div className="manage-danger-zone">
-            <p className="manage-section-kicker">Удаление</p>
-            <p>Удаление встречи необратимо для всех участников.</p>
+            <p className="manage-section-kicker">{t("Удаление")}</p>
+            <p>{t("Удаление встречи необратимо для всех участников.")}</p>
             <button
               className="danger-button"
               onClick={async () => {
-                if (confirm("Удалить встречу?")) {
+                if (confirm(t("Удалить встречу?"))) {
                   const removed = await runActionOnce(actionLock, () =>
                     api.remove(event.id),
                   );
@@ -625,8 +614,7 @@ export function Manage({
               type="button"
             >
               <Trash2 size={18} />
-              Удалить встречу
-            </button>
+              {t("Удалить встречу")}</button>
           </div>
         </div>
         <ErrorNote message={state.error} />

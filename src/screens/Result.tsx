@@ -11,6 +11,7 @@ import { Header, Loading, RetryState, Refresh } from "../ui/common";
 import { useEvent } from "../app-hooks";
 import { LeaveMeetingAction } from "../ui/LeaveMeetingAction";
 import { usePreparedShare, shareResult } from "../share";
+import { t } from "../i18n";
 
 export function Result({
   eventId,
@@ -31,12 +32,12 @@ export function Result({
   if (!event)
     return (
       <main>
-        <Header navigate={navigate} onBack={onBack} title="Итог встречи" variant="nested" />
+        <Header navigate={navigate} onBack={onBack} title={t("Итог встречи")} variant="nested" />
         {state.error ? (
           <RetryState
             message={state.error}
             onRetry={() => void state.load()}
-            title="Результат не загрузился"
+            title={t("Результат не загрузился")}
           />
         ) : (
           <Loading />
@@ -73,14 +74,14 @@ export function Result({
       const { icsUrl } = await api.calendarLink(event.id);
       openExternalUrl(icsUrl);
     } catch {
-      setCalendarError("Не удалось открыть календарь. Попробуйте ещё раз.");
+      setCalendarError(t("Не удалось открыть календарь. Попробуйте ещё раз."));
     } finally {
       setCalendarOpening(false);
     }
   };
   return (
     <main className="result-screen">
-      <Header navigate={navigate} onBack={onBack} title="Итог встречи" variant="nested" />
+      <Header navigate={navigate} onBack={onBack} title={t("Итог встречи")} variant="nested" />
       <section className="result-page">
         {!initial && (
           <Refresh
@@ -92,31 +93,31 @@ export function Result({
         <section className="result-success-intro">
           <span className="result-success-icon"><Check size={44} strokeWidth={2.5} /></span>
           <p className="create-step-label">
-            {event.status === "decided" ? "Итог встречи" : "Текущая рекомендация"}
+            {event.status === "decided" ? t("Итог встречи") : t("Текущая рекомендация")}
           </p>
-          <h1>{event.status === "decided" ? "Решение принято" : event.title}</h1>
+          <h1>{event.status === "decided" ? t("Решение принято") : event.title}</h1>
           {event.status === "decided" && <p className="result-event-title">{event.title}</p>}
         </section>
         <section className="result-summary-card">
           <div className="result-summary-row">
             <span className="result-summary-icon"><CalendarDays size={25} /></span>
             <div>
-              <span>Дата и время</span>
-              <strong>{recommendedTime ? formatSlot(recommendedTime.startsAt) : "Пока нет голосов"}</strong>
+              <span>{t("Дата и время")}</span>
+              <strong>{recommendedTime ? formatSlot(recommendedTime.startsAt) : t("Пока нет голосов")}</strong>
             </div>
           </div>
           <div className="result-summary-row">
             <span className="result-summary-icon"><MapPin size={25} /></span>
             <div>
-              <span>Место</span>
-              <strong>{finalPlace ? finalPlace.title : "Место ещё не выбрано"}</strong>
+              <span>{t("Место")}</span>
+              <strong>{finalPlace ? finalPlace.title : t("Место ещё не выбрано")}</strong>
               {finalPlace?.area && <small>{finalPlace.area}</small>}
             </div>
           </div>
           <div className="result-summary-row">
             <span className="result-summary-icon"><Users size={25} /></span>
             <div>
-              <span>Участники</span>
+              <span>{t("Участники")}</span>
               <strong>{event.participants.length}</strong>
             </div>
           </div>
@@ -124,9 +125,9 @@ export function Result({
         <div className="result-grid">
           <section className="panel">
             <MapPin size={22} />
-            <h3>Район</h3>
+            <h3>{t("Район")}</h3>
             <strong className="result-value">
-              {tie ? "Нет единого района" : (areas[0]?.[0] ?? "Нет данных")}
+              {tie ? t("Нет единого района") : (areas[0]?.[0] ?? t("Нет данных"))}
             </strong>
             {areas.map(([area, count]) => (
               <span key={area}>
@@ -136,14 +137,14 @@ export function Result({
           </section>
           <section className="panel">
             <Clock3 size={22} />
-            <h3>Могут прийти</h3>
+            <h3>{t("Могут прийти")}</h3>
             <strong className="result-value">
               {recommendedTime?.availableCount ?? 0}
             </strong>
           </section>
         </div>
         <section className="panel">
-          <h2>Кто участвует</h2>
+          <h2>{t("Кто участвует")}</h2>
           <div className="name-list">
             {event.participants.map((person, index) => (
               <span key={`${person.name}-${index}`}>{person.name}</span>
@@ -157,8 +158,7 @@ export function Result({
             type="button"
           >
             <Send size={18} />
-            Поделиться результатом
-          </button>
+            {t("Поделиться результатом")}</button>
           <button
             className="secondary-action calendar-action"
             onClick={addGoogleCalendar}
@@ -174,8 +174,7 @@ export function Result({
             type="button"
           >
             <CalendarPlus size={18} />
-            Календарь iPhone
-          </button>
+            {t("Календарь iPhone")}</button>
           {calendarError && <p className="form-error">{calendarError}</p>}
           <LeaveMeetingAction event={event} eventId={eventId} navigate={navigate} />
           <button
@@ -183,8 +182,7 @@ export function Result({
             onClick={() => navigate("/")}
             type="button"
           >
-            Вернуться на главную
-          </button>
+            {t("Вернуться на главную")}</button>
         </div>
       </section>
     </main>

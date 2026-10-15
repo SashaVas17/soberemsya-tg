@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 // Stage 2.4: reports, blocks and the community rules. The server enforces
 // everything; this module holds texts and small helpers for the screens.
 
@@ -15,7 +16,8 @@ export type ReportReason = (typeof REPORT_REASONS)[number]["id"];
 export const REPORT_COMMENT_MAX_LENGTH = 500;
 
 export function reportReasonLabel(reason: string) {
-  return REPORT_REASONS.find((item) => item.id === reason)?.label ?? "Другое";
+  const label = REPORT_REASONS.find((item) => item.id === reason)?.label;
+  return label ? t(label) : t("Другое");
 }
 
 /** A person in a meeting: the organizer by default, or one the organizer sees. */
@@ -42,6 +44,6 @@ export const COMMUNITY_RULES = [
 ] as const;
 
 export function personName(name: string | null, username: string | null) {
-  const label = name?.trim() || "Пользователь Telegram";
+  const label = name?.trim() || t("Пользователь Telegram");
   return username ? `${label} (@${username})` : label;
 }

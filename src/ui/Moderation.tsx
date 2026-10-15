@@ -11,6 +11,7 @@ import {
   type ReportReason,
 } from "../moderation";
 import { haptic } from "../telegram";
+import { t } from "../i18n";
 
 function errorText(reason: unknown, fallback: string) {
   return reason instanceof Error && reason.message ? reason.message : fallback;
@@ -67,7 +68,7 @@ function ReportDialog({
       setSent(result.alreadyReported ? "existing" : "created");
       haptic();
     } catch (reasonError) {
-      setError(errorText(reasonError, "Не удалось отправить жалобу. Попробуйте ещё раз."));
+      setError(errorText(reasonError, t("Не удалось отправить жалобу. Попробуйте ещё раз.")));
       haptic("error");
     } finally {
       lock.current = false;
@@ -78,20 +79,19 @@ function ReportDialog({
     return (
       <Dialog labelledBy="report-dialog-title">
         <h2 id="report-dialog-title">
-          {sent === "existing" ? "Жалоба уже отправлена" : "Жалоба отправлена"}
+          {sent === "existing" ? t("Жалоба уже отправлена") : t("Жалоба отправлена")}
         </h2>
-        <p>Администратор рассмотрит её. Чтобы больше не видеть встречи этого человека, заблокируйте его.</p>
+        <p>{t("Администратор рассмотрит её. Чтобы больше не видеть встречи этого человека, заблокируйте его.")}</p>
         <button className="primary-action" onClick={onClose} type="button">
-          Понятно
-        </button>
+          {t("Понятно")}</button>
       </Dialog>
     );
   return (
     <Dialog labelledBy="report-dialog-title">
-      <h2 id="report-dialog-title">Пожаловаться</h2>
-      <p>{subject}. Жалобу видит только администратор.</p>
+      <h2 id="report-dialog-title">{t("Пожаловаться")}</h2>
+      <p>{subject}{t(". Жалобу видит только администратор.")}</p>
       <fieldset className="report-reasons">
-        <legend>Причина</legend>
+        <legend>{t("Причина")}</legend>
         {REPORT_REASONS.map((item) => (
           <label className="report-reason" key={item.id}>
             <input
@@ -100,12 +100,12 @@ function ReportDialog({
               onChange={() => setReason(item.id)}
               type="radio"
             />
-            <span>{item.label}</span>
+            <span>{t(item.label)}</span>
           </label>
         ))}
       </fieldset>
       <label className="field">
-        <span>Комментарий, если нужно</span>
+        <span>{t("Комментарий, если нужно")}</span>
         <textarea
           maxLength={REPORT_COMMENT_MAX_LENGTH}
           onChange={(input) => setComment(input.target.value)}
@@ -120,15 +120,14 @@ function ReportDialog({
       )}
       <div className="participant-remove-actions">
         <button className="secondary-action" disabled={sending} onClick={onClose} type="button">
-          Отмена
-        </button>
+          {t("Отмена")}</button>
         <button
           className="danger-button"
           disabled={sending || !reason}
           onClick={() => void submit()}
           type="button"
         >
-          {sending ? "Отправляем…" : "Отправить"}
+          {sending ? t("Отправляем…") : t("Отправить")}
         </button>
       </div>
     </Dialog>
@@ -162,7 +161,7 @@ function BlockDialog({
       onClose();
       onBlocked?.();
     } catch (reason) {
-      setError(errorText(reason, "Не удалось заблокировать. Попробуйте ещё раз."));
+      setError(errorText(reason, t("Не удалось заблокировать. Попробуйте ещё раз.")));
       haptic("error");
     } finally {
       lock.current = false;
@@ -171,11 +170,9 @@ function BlockDialog({
   };
   return (
     <Dialog labelledBy="block-dialog-title">
-      <h2 id="block-dialog-title">Заблокировать {personLabel}?</h2>
+      <h2 id="block-dialog-title">{t("Заблокировать")} {personLabel}?</h2>
       <p>
-        Вы перестанете видеть открытые встречи друг друга, а заявки этого человека на ваши встречи будут
-        отклонены. Разблокировать можно внизу ленты «Открытые», в разделе «Заблокированные».
-      </p>
+        {t("Вы перестанете видеть открытые встречи друг друга, а заявки этого человека на ваши встречи будут отклонены. Разблокировать можно внизу ленты «Открытые», в разделе «Заблокированные».")}</p>
       {error && (
         <p className="participant-remove-error" role="alert">
           {error}
@@ -183,10 +180,9 @@ function BlockDialog({
       )}
       <div className="participant-remove-actions">
         <button className="secondary-action" disabled={blocking} onClick={onClose} type="button">
-          Отмена
-        </button>
+          {t("Отмена")}</button>
         <button className="danger-button" disabled={blocking} onClick={() => void block()} type="button">
-          {blocking ? "Блокируем…" : "Заблокировать"}
+          {blocking ? t("Блокируем…") : t("Заблокировать")}
         </button>
       </div>
     </Dialog>
@@ -200,8 +196,8 @@ function BlockDialog({
 export function SafetyActions({
   eventId,
   onBlocked,
-  personLabel = "организатора",
-  reportSubject = "Жалоба на встречу и её организатора",
+  personLabel = t("организатора"),
+  reportSubject = t("Жалоба на встречу и её организатора"),
   target = { kind: "organizer" },
 }: {
   eventId: string;
@@ -215,12 +211,10 @@ export function SafetyActions({
     <div className="safety-actions">
       <button className="safety-action" onClick={() => setOpen("report")} type="button">
         <Flag aria-hidden="true" size={15} />
-        Пожаловаться
-      </button>
+        {t("Пожаловаться")}</button>
       <button className="safety-action" onClick={() => setOpen("block")} type="button">
         <Ban aria-hidden="true" size={15} />
-        Заблокировать
-      </button>
+        {t("Заблокировать")}</button>
       {open === "report" && (
         <ReportDialog eventId={eventId} onClose={() => setOpen(null)} subject={reportSubject} target={target} />
       )}
@@ -241,7 +235,7 @@ export function CommunityRulesList() {
   return (
     <ol className="community-rules">
       {COMMUNITY_RULES.map((rule) => (
-        <li key={rule}>{rule}</li>
+        <li key={rule}>{t(rule)}</li>
       ))}
     </ol>
   );
@@ -258,14 +252,14 @@ export function CommunityRulesDialog({ onAccepted }: { onAccepted: () => void })
       await api.acceptCommunityRules();
       onAccepted();
     } catch (reason) {
-      setError(errorText(reason, "Не удалось сохранить. Попробуйте ещё раз."));
+      setError(errorText(reason, t("Не удалось сохранить. Попробуйте ещё раз.")));
     } finally {
       setSaving(false);
     }
   };
   return (
     <Dialog labelledBy="community-rules-title">
-      <h2 id="community-rules-title">{COMMUNITY_RULES_TITLE}</h2>
+      <h2 id="community-rules-title">{t(COMMUNITY_RULES_TITLE)}</h2>
       <CommunityRulesList />
       {error && (
         <p className="participant-remove-error" role="alert">
@@ -273,7 +267,7 @@ export function CommunityRulesDialog({ onAccepted }: { onAccepted: () => void })
         </p>
       )}
       <button className="primary-action" disabled={saving} onClick={() => void accept()} type="button">
-        {saving ? "Сохраняем…" : "Понятно, соблюдаю"}
+        {saving ? t("Сохраняем…") : t("Понятно, соблюдаю")}
       </button>
     </Dialog>
   );

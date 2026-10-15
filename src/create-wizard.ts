@@ -5,6 +5,7 @@ import {
   type CreateRequestKeyStorage,
 } from "./create-request-key";
 import type { MeetingVisibility } from "./types";
+import { t } from "./i18n";
 
 export type { MeetingVisibility } from "./types";
 
@@ -45,11 +46,11 @@ export type SubmissionLock = { current: boolean };
 
 export function validateCreateStep(step: number, draft: CreateWizardDraft) {
   if (step === 1 && !draft.title.trim()) {
-    return "Введите название встречи.";
+    return t("Введите название встречи.");
   }
   if (step === 1) {
     if (draft.visibility === "private" && draft.maxParticipants !== null)
-      return "Для встречи по приглашению лимит участников не задаётся.";
+      return t("Для встречи по приглашению лимит участников не задаётся.");
     if (
       draft.visibility === "public" &&
       draft.maxParticipants !== null &&
@@ -57,13 +58,13 @@ export function validateCreateStep(step: number, draft: CreateWizardDraft) {
         draft.maxParticipants < 2 ||
         draft.maxParticipants > 50)
     )
-      return "Лимит участников должен быть целым числом от 2 до 50.";
+      return t("Лимит участников должен быть целым числом от 2 до 50.");
   }
   if (
     step === 2 &&
     !draft.timeOptions.some((option) => !Number.isNaN(Date.parse(option)))
   ) {
-    return "Добавьте хотя бы один вариант даты и времени.";
+    return t("Добавьте хотя бы один вариант даты и времени.");
   }
   return "";
 }
@@ -163,6 +164,6 @@ export function createEventErrorMessage(reason: unknown) {
     name === "AbortError" ||
     name === "TimeoutError"
   )
-    return CREATE_EVENT_NETWORK_ERROR;
-  return reason instanceof Error ? reason.message : "Не удалось создать встречу.";
+    return t(CREATE_EVENT_NETWORK_ERROR);
+  return reason instanceof Error ? reason.message : t("Не удалось создать встречу.");
 }
