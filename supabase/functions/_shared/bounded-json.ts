@@ -1,5 +1,7 @@
 export const TELEGRAM_AUTH_BODY_LIMIT_BYTES = 8 * 1024;
 export const API_JSON_BODY_LIMIT_BYTES = 32 * 1024;
+/** An Overpass answer the administrator's app uploads (up to OVERPASS_MAX_ELEMENTS). */
+export const OSM_IMPORT_BODY_LIMIT_BYTES = 8 * 1024 * 1024;
 export const TELEGRAM_WEBHOOK_BODY_LIMIT_BYTES = 256 * 1024;
 
 export class RequestBodyError extends Error {
