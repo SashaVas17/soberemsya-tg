@@ -50,9 +50,10 @@ export function venuesPath(filters: VenueFilters = {}, offset = 0) {
   return `/venues${query ? `?${query}` : ""}`;
 }
 
-export function adminVenuesPath(status: VenueStatus, filters: VenueFilters = {}, offset = 0) {
+export function adminVenuesPath(status: VenueStatus, filters: VenueFilters = {}, offset = 0, cityId?: string | null) {
   const params = venueParams(filters, offset);
   params.set("status", status);
+  if (cityId) params.set("cityId", cityId);
   return `/admin/venues?${params.toString()}`;
 }
 

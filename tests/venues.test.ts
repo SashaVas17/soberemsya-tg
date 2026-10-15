@@ -169,7 +169,7 @@ describe("OpenStreetMap import", () => {
     expect(query).toMatch(/out center tags \d+;$/);
     expect(OSM_CATEGORY_FILTERS.other).toBeUndefined();
     expect(status(() => parseOsmImportRequest({ categoryId: "other" }, "minsk"))).toBe(400);
-    expect(status(() => parseOsmImportRequest({ categoryId: "bar" }, "brest"))).toBe(400);
+    expect(status(() => parseOsmImportRequest({ categoryId: "bar" }, "tokyo"))).toBe(400);
     expect(parseOsmImportRequest({ categoryId: "bar" }, "minsk")).toEqual({ categoryId: "bar" });
   });
 

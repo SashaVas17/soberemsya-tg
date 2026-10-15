@@ -249,6 +249,11 @@ export const OVERPASS_MAX_ELEMENTS = 5000;
 /** south, west, north, east: the city with its ring road and a margin. */
 export const OSM_CITY_BBOX: Record<string, readonly [number, number, number, number]> = {
   minsk: [53.8, 27.37, 53.99, 27.76],
+  brest: [52.03, 23.58, 52.16, 23.86],
+  vitebsk: [55.12, 30.08, 55.27, 30.35],
+  gomel: [52.35, 30.85, 52.51, 31.1],
+  grodno: [53.62, 23.72, 53.74, 23.97],
+  mogilev: [53.83, 30.2, 53.97, 30.45],
 };
 
 /**

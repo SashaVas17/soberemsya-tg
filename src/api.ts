@@ -1,7 +1,7 @@
 import { apiErrorFromBody } from "./api-error";
 import type { CreateEventRequest } from "./create-wizard";
 import { isSessionExpiredError, notifySessionExpired } from "./session";
-import type { AdminReport, AdminStats, AuthResult, BlockedUser, ReportStatus, EventData, NotificationSettings, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PlaceOption, MeetingCategory, PublicEventPreview, PublicMeetingFeedPage, UserCity, AdminVenuePage, VenueDraft, VenueImportResult, VenuePage, VenuePriceLevel, VenueStatus, MapPoints, Venue } from "./types";
+import type { AdminCity, AdminReport, AdminStats, AuthResult, BlockedUser, ReportStatus, EventData, NotificationSettings, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PlaceOption, MeetingCategory, PublicEventPreview, PublicMeetingFeedPage, UserCity, AdminVenuePage, VenueDraft, VenueImportResult, VenuePage, VenuePriceLevel, VenueStatus, MapPoints, Venue } from "./types";
 import { publicFeedPath, type PublicFeedFilters } from "./public-feed";
 import { mockApi } from "./mock-api";
 import { adminVenuesPath, venuesPath, type VenueFilters } from "./venues";
@@ -279,14 +279,25 @@ export const api = {
     useMock
       ? mockApi.mapPoints(category)
       : request<MapPoints>(`/map${category ? `?category=${encodeURIComponent(category)}` : ""}`),
-  adminVenues: (status: VenueStatus, filters?: VenueFilters, offset = 0) =>
+  /** cityId: the city chosen in «Каталог мест», open or not; null — the administrator's own city. */
+  adminVenues: (status: VenueStatus, filters?: VenueFilters, offset = 0, cityId?: string | null) =>
     useMock
-      ? mockApi.adminVenues(status, filters, offset)
-      : request<AdminVenuePage>(adminVenuesPath(status, filters, offset)),
-  adminCreateVenue: (draft: VenueDraft) =>
+      ? mockApi.adminVenues(status, filters, offset, cityId)
+      : request<AdminVenuePage>(adminVenuesPath(status, filters, offset, cityId)),
+  adminCreateVenue: (draft: VenueDraft, cityId?: string | null) =>
     useMock
       ? mockApi.adminCreateVenue(draft)
-      : request<{ venueId: string }>("/admin/venues", { method: "POST", body: JSON.stringify(draft) }),
+      : request<{ venueId: string }>("/admin/venues", {
+          method: "POST",
+          body: JSON.stringify({ ...draft, cityId: cityId ?? undefined }),
+        }),
+  adminSetCityActive: (cityId: string, isActive: boolean) =>
+    useMock
+      ? mockApi.adminSetCityActive(cityId, isActive)
+      : request<{ cities: AdminCity[] }>("/admin/cities/active", {
+          method: "POST",
+          body: JSON.stringify({ cityId, isActive }),
+        }),
   adminUpdateVenue: (
     venueId: string,
     update: { status: VenueStatus; categoryId: string; priceLevel: VenuePriceLevel | null; featured: boolean },
@@ -302,10 +313,13 @@ export const api = {
       ? mockApi.adminPublishVenues(ids)
       : request<{ published: number }>("/admin/venues/publish", { method: "POST", body: JSON.stringify({ ids }) }),
   /** elements: the Overpass answer the app got itself; without it the server asks Overpass. */
-  adminImportVenues: (categoryId: string, elements?: unknown[]) =>
+  adminImportVenues: (categoryId: string, elements?: unknown[], cityId?: string | null) =>
     useMock
       ? mockApi.adminImportVenues(categoryId)
-      : request<VenueImportResult>("/admin/venues/import", { method: "POST", body: JSON.stringify({ categoryId, elements }) }),
+      : request<VenueImportResult>("/admin/venues/import", {
+          method: "POST",
+          body: JSON.stringify({ categoryId, elements, cityId: cityId ?? undefined }),
+        }),
   calendarLink: (id: string) =>
     useMock
       ? mockApi.calendarLink(id)

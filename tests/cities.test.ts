@@ -1,10 +1,14 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  adminCity,
+  adminCityResponse,
+  cityHttpError,
   cityTimeZone,
   citiesFromRows,
   DEFAULT_CITY_ID,
   DEFAULT_TIME_ZONE,
+  parseCityActive,
   parseCityId,
   requireActiveCity,
   resolveUserCity,
@@ -132,5 +136,34 @@ describe("cities in the API and the app", () => {
     expect(appSource).toContain("await api.userCity(cityId)");
     // A late answer for the previous city never overwrites the new list.
     expect(appSource).toContain("if (requestId !== latestRequest.current) return;");
+  });
+});
+
+describe("regional centres in «Каталог мест»", () => {
+  const cities = citiesFromRows(rows);
+  const own = resolveUserCity(cities, null);
+
+  it("lets the administrator pick a closed city and falls back to their own", () => {
+    expect(adminCity(cities, "brest", own)).toMatchObject({ id: "brest", isActive: false });
+    expect(adminCity(cities, undefined, own).id).toBe("minsk");
+    expect(adminCity(cities, "", own).id).toBe("minsk");
+    expect(() => adminCity(cities, "gomel", own)).toThrow("Такого города нет.");
+    expect(() => adminCity(cities, "../x", own)).toThrow();
+    expect(adminCityResponse(cities[1])).toEqual({ id: "brest", name: "Брест", isActive: false });
+  });
+
+  it("parses the open-city request and maps database errors", () => {
+    expect(parseCityActive({ cityId: "brest", isActive: true })).toEqual({ cityId: "brest", isActive: true });
+    expect(() => parseCityActive({ cityId: "brest", isActive: "yes" })).toThrow();
+    expect(cityHttpError({ message: "CITY_DEFAULT_REQUIRED" })).toMatchObject({ status: 400 });
+    expect(cityHttpError({ message: "CITY_INVALID" })).toMatchObject({ status: 404 });
+    expect(cityHttpError(new Error("boom")).message).toBe("Не удалось изменить город.");
+  });
+
+  it("keeps Minsk open and lets closed cities get hand-added venues", () => {
+    const sql = readFileSync("supabase/migrations/20261015142642_regional_cities.sql", "utf8");
+    expect(sql).toContain("p_city_id = 'minsk' and not p_is_active");
+    expect(sql).toContain("grant execute on function public.admin_set_city_active(text, boolean) to service_role");
+    expect(sql).not.toMatch(/c\.id = p_city_id and c\.is_active/);
   });
 });

@@ -3,7 +3,7 @@ import { DownloadCloud, ExternalLink, Search, X } from "lucide-react";
 import { api } from "../api";
 import { FEED_SEARCH_MAX_LENGTH, normalizeFeedSearch } from "../public-feed";
 import { haptic, openExternalUrl } from "../telegram";
-import type { AdminVenue, MeetingCategory, VenueDraft, VenuePriceLevel, VenueStatus } from "../types";
+import type { AdminCity, AdminVenue, MeetingCategory, VenueDraft, VenuePriceLevel, VenueStatus } from "../types";
 import type { Navigate } from "../app-types";
 import { mergeVenues, PRICE_LEVELS } from "../venues";
 import { CategoryChip, EmptyState, ErrorNote, Header, Loading, RetryState } from "../ui/common";
@@ -152,7 +152,15 @@ const emptyDraft = (categoryId: string): VenueDraft => ({
   website: "",
 });
 
-function AddVenueForm({ categories, onAdded }: { categories: MeetingCategory[]; onAdded: () => void }) {
+function AddVenueForm({
+  categories,
+  cityId,
+  onAdded,
+}: {
+  categories: MeetingCategory[];
+  cityId: string | null;
+  onAdded: () => void;
+}) {
   const [draft, setDraft] = useState<VenueDraft>(() => emptyDraft(categories[0]?.id ?? ""));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -168,7 +176,7 @@ function AddVenueForm({ categories, onAdded }: { categories: MeetingCategory[]; 
     setError("");
     setDone("");
     try {
-      await api.adminCreateVenue({ ...draft, categoryId });
+      await api.adminCreateVenue({ ...draft, categoryId }, cityId);
       haptic();
       setDone(t("«{name}» опубликовано.", { name: draft.name.trim() }));
       setDraft(emptyDraft(categoryId));
@@ -219,17 +227,26 @@ function AddVenueForm({ categories, onAdded }: { categories: MeetingCategory[]; 
 
 function ImportPanel({
   categories,
+  cityId,
   importCategories,
   overpass,
   onImported,
+  onRunningChange,
 }: {
   categories: MeetingCategory[];
+  cityId: string | null;
   importCategories: string[];
   /** Overpass servers and queries: the app asks them itself (src/osm-import.ts). */
   overpass: OverpassSource | null;
   onImported: () => void;
+  /** The city must not change while its categories are being imported. */
+  onRunningChange: (running: boolean) => void;
 }) {
-  const [running, setRunning] = useState(false);
+  const [running, setRunningState] = useState(false);
+  const setRunning = (value: boolean) => {
+    setRunningState(value);
+    onRunningChange(value);
+  };
   const [log, setLog] = useState<string[]>([]);
   const nameOf = (id: string) => t(categories.find((category) => category.id === id)?.name ?? id);
   const run = async (ids: string[]) => {
@@ -245,7 +262,7 @@ function ImportPanel({
         try {
           const query = overpass?.queries[id];
           const elements = overpass && query ? await fetchOverpassElements(overpass.urls, query) : undefined;
-          const result = await api.adminImportVenues(id, elements);
+          const result = await api.adminImportVenues(id, elements, cityId);
           imported = true;
           setLog((lines) => [
             ...lines.slice(0, -1),
@@ -301,9 +318,67 @@ function ImportPanel({
   );
 }
 
+/**
+ * The city whose catalog is shown. A regional centre is filled while closed
+ * and opened once its catalog is ready; Minsk always stays open.
+ */
+function CityPanel({
+  busy,
+  chosenCityId,
+  cities,
+  city,
+  onChoose,
+  onSetActive,
+}: {
+  busy: boolean;
+  /** The city picked in the list; `city` is the one whose catalog has loaded. */
+  chosenCityId: string;
+  cities: AdminCity[];
+  city: AdminCity | null;
+  onChoose: (cityId: string) => void;
+  onSetActive: (city: AdminCity, isActive: boolean) => void;
+}) {
+  if (!city || cities.length < 2) return null;
+  const loaded = city.id === chosenCityId;
+  return (
+    <div className="panel admin-venue-section admin-venue-city">
+      <label className="field">
+        <span>{t("Город")}</span>
+        <select disabled={busy} onChange={(event) => onChoose(event.target.value)} value={chosenCityId}>
+          {cities.map((choice) => (
+            <option key={choice.id} value={choice.id}>
+              {choice.isActive ? t(choice.name) : t("{city} — закрыт", { city: t(choice.name) })}
+            </option>
+          ))}
+        </select>
+      </label>
+      {loaded && <p className="create-section-helper">
+        {city.isActive
+          ? t("Город открыт: его выбирают в «Открытых встречах», места видны в подборке и на карте.")
+          : t("Город закрыт: люди его не видят. Загрузите и опубликуйте места, затем откройте город.")}
+      </p>}
+      {loaded && city.id !== "minsk" && (
+        <button
+          className={`${city.isActive ? "secondary-action" : "primary-action"} compact-action`}
+          disabled={busy}
+          onClick={() => onSetActive(city, !city.isActive)}
+          type="button"
+        >
+          {city.isActive ? t("Закрыть город") : t("Открыть город")}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // Visible only to administrators: the API answers 404 to everyone else.
 export function AdminVenuesScreen({ navigate, onBack }: { navigate: Navigate; onBack: () => void }) {
   const [status, setStatus] = useState<VenueStatus>("pending");
+  const [cityId, setCityId] = useState<string | null>(null);
+  const [city, setCity] = useState<AdminCity | null>(null);
+  const [cities, setCities] = useState<AdminCity[]>([]);
+  const [cityBusy, setCityBusy] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [items, setItems] = useState<AdminVenue[] | null>(null);
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [categories, setCategories] = useState<MeetingCategory[]>([]);
@@ -329,8 +404,10 @@ export function AdminVenuesScreen({ navigate, onBack }: { navigate: Navigate; on
     setError("");
     if (offset > 0) setLoadingMore(true);
     try {
-      const page = await api.adminVenues(status, { category: categoryId, q: search }, offset);
+      const page = await api.adminVenues(status, { category: categoryId, q: search }, offset, cityId);
       if (requestId !== latestRequest.current) return;
+      if (page.city) setCity(page.city);
+      if (page.cities) setCities(page.cities);
       setItems((current) => mergeVenues(offset > 0 ? current ?? [] : [], page.items));
       setNextOffset(page.nextOffset);
       if (page.categories) setCategories(page.categories);
@@ -342,7 +419,7 @@ export function AdminVenuesScreen({ navigate, onBack }: { navigate: Navigate; on
     } finally {
       if (requestId === latestRequest.current) setLoadingMore(false);
     }
-  }, [categoryId, search, status]);
+  }, [categoryId, cityId, search, status]);
 
   useEffect(() => {
     setItems(null);
@@ -373,6 +450,27 @@ export function AdminVenuesScreen({ navigate, onBack }: { navigate: Navigate; on
     }
   };
 
+  const setCityActive = async (target: AdminCity, isActive: boolean) => {
+    if (cityBusy) return;
+    const question = isActive
+      ? t("Открыть {city}? Город появится в выборе города, его места — в подборке и на карте.", { city: t(target.name) })
+      : t("Закрыть {city}? Город пропадёт из выбора, у его жителей откроется Минск.", { city: t(target.name) });
+    if (!window.confirm(question)) return;
+    setCityBusy(true);
+    setActionError("");
+    try {
+      const result = await api.adminSetCityActive(target.id, isActive);
+      haptic();
+      setCities(result.cities);
+      setCity(result.cities.find((choice) => choice.id === target.id) ?? target);
+    } catch (reason) {
+      haptic("error");
+      setActionError(reason instanceof Error ? reason.message : t("Не удалось изменить город."));
+    } finally {
+      setCityBusy(false);
+    }
+  };
+
   const publishShown = async () => {
     const ids = (items ?? []).map((item) => item.id).slice(0, 200);
     if (!ids.length || publishing) return;
@@ -391,23 +489,48 @@ export function AdminVenuesScreen({ navigate, onBack }: { navigate: Navigate; on
     }
   };
 
+  // Adding and importing wait until the chosen city's catalog has loaded, so
+  // they never write to a city other than the one on screen.
+  const chosenCityId = cityId ?? city?.id ?? "";
+  const targetCityId = city && city.id === chosenCityId ? city.id : null;
+
   return (
     <main className="settings-screen">
       <Header navigate={navigate} onBack={onBack} title={t("Каталог мест")} variant="nested" />
       <section className="settings-page admin-venues">
-        <details className="panel admin-venue-section">
-          <summary>{t("Загрузить из OpenStreetMap")}</summary>
-          <ImportPanel
-            categories={categories}
-            importCategories={importCategories}
-            overpass={overpass}
-            onImported={() => void load()}
-          />
-        </details>
-        <details className="panel admin-venue-section">
-          <summary>{t("Добавить место вручную")}</summary>
-          {categories.length > 0 && <AddVenueForm categories={categories} onAdded={() => void load()} />}
-        </details>
+        <CityPanel
+          busy={cityBusy || importing}
+          chosenCityId={chosenCityId}
+          cities={cities}
+          city={city}
+          onChoose={(id) => {
+            setCityId(id);
+            setOverpass(null);
+          }}
+          onSetActive={(target, isActive) => void setCityActive(target, isActive)}
+        />
+        {targetCityId && (
+          <details className="panel admin-venue-section">
+            <summary>{t("Загрузить из OpenStreetMap")}</summary>
+            <ImportPanel
+              categories={categories}
+              cityId={targetCityId}
+              importCategories={importCategories}
+              key={targetCityId}
+              overpass={overpass}
+              onImported={() => void load()}
+              onRunningChange={setImporting}
+            />
+          </details>
+        )}
+        {targetCityId && (
+          <details className="panel admin-venue-section">
+            <summary>{t("Добавить место вручную")}</summary>
+            {categories.length > 0 && (
+              <AddVenueForm categories={categories} cityId={targetCityId} key={targetCityId} onAdded={() => void load()} />
+            )}
+          </details>
+        )}
         <div aria-label={t("Статус мест")} className="meeting-segments admin-report-tabs" role="tablist">
           {statusTabs.map((tab) => (
             <button

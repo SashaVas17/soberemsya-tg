@@ -49,9 +49,13 @@ import { isAdminTelegramId, parseAdminIds, parseClientAnalyticsEvent, startParam
 import { buildShareCard, parseShareCardKind } from "../_shared/share-card.ts";
 import { type Language, LANGUAGE_HEADER, languageFromTelegram, parseLanguage } from "../_shared/i18n.ts";
 import {
+  adminCity,
+  adminCityResponse,
+  cityHttpError,
   cityTimeZone,
   citiesFromRows,
   type CityRow,
+  parseCityActive,
   parseCityId,
   publicCity,
   requireActiveCity,
@@ -232,12 +236,15 @@ const REFERENCE_DATA_TTL_MS = 60_000;
 
 function cachedFor<T>(ttlMs: number, load: () => Promise<T>) {
   let cached: { loadedAt: number; value: T } | null = null;
-  return async () => {
-    if (cached && Date.now() - cached.loadedAt < ttlMs) return cached.value;
+  const fresh = async () => {
     const value = await load();
     cached = { loadedAt: Date.now(), value };
     return value;
   };
+  return Object.assign(async () => {
+    if (cached && Date.now() - cached.loadedAt < ttlMs) return cached.value;
+    return await fresh();
+  }, { fresh });
 }
 
 const loadCities = cachedFor(REFERENCE_DATA_TTL_MS, async () => {
@@ -1464,18 +1471,45 @@ async function mapPoints(request: Request, auth: AuthContext) {
   });
 }
 
+// The city chosen in «Каталог мест», open or not; cities are read fresh so a
+// city opened a moment ago shows as open. Other isolates of the function may
+// see the change up to REFERENCE_DATA_TTL_MS later.
+async function adminRequestedCity(auth: AuthContext, requestedCityId: unknown) {
+  const cities = await loadCities.fresh();
+  const ownCity = requestedCityId ? null : resolveUserCity(cities, await loadUserCityId(auth.user.id));
+  return { city: ownCity ?? adminCity(cities, requestedCityId, resolveUserCity(cities, null)), cities };
+}
+
+// Opens a city once its catalog is filled, or closes it again.
+async function adminSetCityActive(request: Request, auth: AuthContext) {
+  if (!isAdmin(auth)) return adminNotFound();
+  const { cityId, isActive } = parseCityActive(await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES));
+  const { error } = await db.rpc("admin_set_city_active", { p_city_id: cityId, p_is_active: isActive });
+  if (error) {
+    logModerationRpcError("admin_set_city_active_rpc_failed", error);
+    throw cityHttpError(error);
+  }
+  const cities = await loadCities.fresh();
+  console.log("admin_city_active", cityId, isActive);
+  return json({ cities: cities.map(adminCityResponse) });
+}
+
 async function adminVenues(request: Request, auth: AuthContext) {
   if (!isAdmin(auth)) return adminNotFound();
   if (request.method === "POST") return await adminCreateVenue(request, auth);
   const params = new URL(request.url).searchParams;
   const status = parseVenueStatus(params.get("status") ?? "pending");
   const filters = parseVenueListFilters(params);
-  const [city, categories] = await Promise.all([viewerCity(auth.user.id), loadCategories()]);
+  const [{ city, cities }, categories] = await Promise.all([
+    adminRequestedCity(auth, params.get("cityId")),
+    loadCategories(),
+  ]);
   const { rows, nextOffset } = await venueRows({ cityId: city.id, status, filters, featuredFirst: false });
   return json({
     items: rows.map(adminVenueResponse),
     nextOffset,
-    city: publicCity(city),
+    city: adminCityResponse(city),
+    cities: cities.map(adminCityResponse),
     categories,
     importCategories: osmImportCategories(),
     overpass: overpassClientSource(city.id),
@@ -1483,8 +1517,9 @@ async function adminVenues(request: Request, auth: AuthContext) {
 }
 
 async function adminCreateVenue(request: Request, auth: AuthContext) {
-  const input = parseVenueCreate(await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES));
-  const city = await viewerCity(auth.user.id);
+  const body = await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES);
+  const input = parseVenueCreate(body);
+  const { city } = await adminRequestedCity(auth, body.cityId);
   const { data, error } = await db.rpc("admin_create_venue", {
     p_admin_user_id: auth.user.id,
     p_city_id: city.id,
@@ -1588,7 +1623,7 @@ async function adminImportVenues(request: Request, auth: AuthContext) {
   if (!isAdmin(auth)) return adminNotFound();
   // Only an administrator gets this far, so only they may upload a large answer.
   const body = await readJsonObject(request, OSM_IMPORT_BODY_LIMIT_BYTES);
-  const [city, categories] = await Promise.all([viewerCity(auth.user.id), loadCategories()]);
+  const [{ city }, categories] = await Promise.all([adminRequestedCity(auth, body.cityId), loadCategories()]);
   const { categoryId } = parseOsmImportRequest(body, city.id);
   if (!categoryById(categories, categoryId)) throw venueHttpError({ code: "P0001", message: "VENUE_CATEGORY_INVALID" });
   // The app sends what it got from Overpass; an older app leaves it to the server.
@@ -1634,6 +1669,7 @@ function allowedMethods(path: string) {
   if (/^\/venues\/[^/]+$/.test(path)) return ["GET"];
   if (path === "/admin/venues") return ["GET", "POST"];
   if (path === "/admin/venues/import" || path === "/admin/venues/publish") return ["POST"];
+  if (path === "/admin/cities/active") return ["POST"];
   if (/^\/admin\/venues\/[^/]+$/.test(path)) return ["PATCH"];
   if (path === "/me/blocks") return ["GET"];
   if (/^\/me\/blocks\/[^/]+$/.test(path)) return ["DELETE"];
@@ -1715,6 +1751,7 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
   if (path === "/admin/venues") return await adminVenues(request, auth);
   if (path === "/admin/venues/import") return await adminImportVenues(request, auth);
   if (path === "/admin/venues/publish") return await adminPublishVenues(request, auth);
+  if (path === "/admin/cities/active") return await adminSetCityActive(request, auth);
   const adminVenueMatch = path.match(/^\/admin\/venues\/([^/]+)$/);
   if (adminVenueMatch) return await adminUpdateVenue(request, decodeURIComponent(adminVenueMatch[1]), auth);
   if (path === "/me/blocks") return await blockedUsers(auth);
