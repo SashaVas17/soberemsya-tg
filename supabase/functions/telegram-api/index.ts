@@ -85,7 +85,7 @@ import {
   optionalVenueId,
   nextVenueOffset,
   OVERPASS_MAX_RESPONSE_BYTES,
-  OVERPASS_URL,
+  OVERPASS_URLS,
   overpassFailed,
   overpassQuery,
   overpassTruncated,
@@ -1497,43 +1497,52 @@ async function adminPublishVenues(request: Request, auth: AuthContext) {
   return json({ published: data?.published ?? 0 });
 }
 
+// `expose`: the message is safe and useful for the administrator, so errorResponse keeps it despite the 503.
 const osmUnavailable = () =>
-  Object.assign(new Error("OpenStreetMap сейчас не отвечает. Попробуйте через несколько минут."), { status: 503 });
+  Object.assign(new Error("OpenStreetMap сейчас не отвечает. Попробуйте через несколько минут."), { status: 503, expose: true });
 
-async function fetchOverpass(query: string) {
+async function fetchOverpassFrom(url: string, query: string) {
   let response: Response;
   try {
-    response = await fetch(OVERPASS_URL, {
+    response = await fetch(url, {
       method: "POST",
       headers: {
-        accept: "application/json",
+        accept: "*/*",
         "content-type": "application/x-www-form-urlencoded",
-        "user-agent": `Flockly/1.0 (https://t.me/${botUsername})`,
+        "user-agent": `Flockly/1.0 (+https://t.me/${botUsername}; Telegram Mini App, venue catalog import)`,
       },
       body: new URLSearchParams({ data: query }),
-      signal: AbortSignal.timeout(110_000),
+      signal: AbortSignal.timeout(40_000),
     });
   } catch (error) {
-    console.error("overpass_request_failed", error instanceof Error ? error.name : "unknown");
-    throw osmUnavailable();
+    console.error("overpass_request_failed", new URL(url).hostname, error instanceof Error ? error.name : "unknown");
+    return null;
   }
   if (!response.ok) {
     await response.body?.cancel();
-    console.error("overpass_status", response.status);
-    throw osmUnavailable();
+    console.error("overpass_status", new URL(url).hostname, response.status);
+    return null;
   }
   let answer: unknown;
   try {
     answer = await readBoundedJson(response, OVERPASS_MAX_RESPONSE_BYTES);
   } catch (error) {
     console.error("overpass_body_failed", error instanceof Error ? error.message : "unknown");
-    throw osmUnavailable();
+    return null;
   }
   if (overpassFailed(answer)) {
-    console.error("overpass_remark");
-    throw osmUnavailable();
+    console.error("overpass_remark", new URL(url).hostname);
+    return null;
   }
   return answer;
+}
+
+async function fetchOverpass(query: string) {
+  for (const url of OVERPASS_URLS) {
+    const answer = await fetchOverpassFrom(url, query);
+    if (answer) return answer;
+  }
+  throw osmUnavailable();
 }
 
 // Imports one category of the administrator's city: new venues wait for

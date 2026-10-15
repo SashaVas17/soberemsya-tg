@@ -237,6 +237,12 @@ export function venueHttpError(error: unknown) {
 // OpenStreetMap import ------------------------------------------------------
 
 export const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
+/** Tried in order when the main server refuses or does not answer (it answered 406 to the Edge Function). */
+export const OVERPASS_URLS = [
+  OVERPASS_URL,
+  "https://overpass.private.coffee/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+] as const;
 export const OVERPASS_MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
 export const OVERPASS_MAX_ELEMENTS = 5000;
 
