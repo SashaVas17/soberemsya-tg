@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { contentSecurityPolicy } from "../csp.ts";
+import { contentSecurityPolicy, OVERPASS_ORIGINS } from "../csp.ts";
+import { OVERPASS_URLS } from "../supabase/functions/_shared/venues.ts";
 import { json } from "../supabase/functions/_shared/http.ts";
 import { timingSafeEqual } from "../supabase/functions/_shared/telegram.ts";
 
@@ -82,8 +83,13 @@ describe("Content-Security-Policy of the build", () => {
     expect(directive("base-uri")).toBe("base-uri 'self'");
   });
 
-  it("connects only to the API origin and the map tiles", () => {
-    expect(directive("connect-src")).toBe("connect-src 'self' https://tiles.openfreemap.org https://project.supabase.co");
+  it("connects only to the API origin, the map tiles and the Overpass servers of the venue import", () => {
+    expect(directive("connect-src")).toBe(
+      "connect-src 'self' https://tiles.openfreemap.org https://overpass-api.de https://overpass.private.coffee " +
+        "https://overpass.kumi.systems https://project.supabase.co",
+    );
+    // The app asks exactly the servers the server lists for it.
+    expect(OVERPASS_URLS.map((url) => new URL(url).origin)).toEqual(OVERPASS_ORIGINS);
   });
 
   it("is added to the production build only", () => {

@@ -101,6 +101,11 @@
   «Поделиться», даты в списках и превью; в группах — на языке организатора. Меню команд бота — английское
   по умолчанию и русское для СНГ (`scripts/configure-telegram.*`).
 
+- Загрузка каталога из OpenStreetMap: проверка 2026-10-15 через `pg_net` показала, что публичные серверы Overpass
+  (overpass-api.de и его lz4/z, private.coffee, kumi, mail.ru, openstreetmap.ru/.fr/.jp) не отвечают облаку
+  Supabase — 5xx, таймауты, «only white-listed», даже на `node(1)`. Теперь Overpass спрашивает приложение
+  администратора, сервер проверяет и сохраняет (`src/osm-import.ts`, `elements` в `/admin/venues/import`).
+
 **В процессе**
 - После деплоя #28 — повторить «Загрузить все категории». Если снова ошибка — смотреть логи `telegram-api`
   (`overpass_status <хост> <код>`).

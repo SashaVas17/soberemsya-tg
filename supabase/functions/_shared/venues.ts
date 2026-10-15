@@ -367,6 +367,31 @@ function osmAddress(tags: Record<string, unknown>) {
 }
 
 /** Overpass stops at the output limit silently: an answer that reached it may miss venues. */
+/**
+ * Overpass servers and a query per category for the administrator's app,
+ * which asks Overpass itself: public servers do not serve cloud servers.
+ * Null when the city has no import area.
+ */
+export function overpassClientSource(cityId: string) {
+  if (!OSM_CITY_BBOX[cityId]) return null;
+  return {
+    urls: [...OVERPASS_URLS],
+    queries: Object.fromEntries(osmImportCategories().map((categoryId) => [categoryId, overpassQuery(cityId, categoryId)])),
+  };
+}
+
+/**
+ * Elements of an Overpass answer uploaded by the app; undefined means the
+ * server asks Overpass itself. Every element is still checked by
+ * venuesFromOverpass, as for an answer the server fetched.
+ */
+export function parseOsmClientElements(value: unknown): unknown[] | null {
+  if (value === undefined || value === null) return null;
+  if (!Array.isArray(value)) badRequest("Некорректный ответ OpenStreetMap.");
+  if (value.length > OVERPASS_MAX_ELEMENTS) badRequest("Слишком много мест в ответе OpenStreetMap.");
+  return value;
+}
+
 export function overpassTruncated(answer: unknown) {
   const elements = (answer as { elements?: unknown } | null)?.elements;
   return Array.isArray(elements) && elements.length >= OVERPASS_MAX_ELEMENTS;

@@ -266,6 +266,8 @@ export type AdminVenuePage = {
   categories?: MeetingCategory[];
   /** Categories that can be imported from OpenStreetMap. */
   importCategories?: string[];
+  /** Overpass servers and a query per category; null — no import for this city. */
+  overpass?: { urls: string[]; queries: Record<string, string> } | null;
 };
 
 export type VenueImportResult = {

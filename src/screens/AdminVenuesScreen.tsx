@@ -9,6 +9,7 @@ import { mergeVenues, PRICE_LEVELS } from "../venues";
 import { CategoryChip, EmptyState, ErrorNote, Header, Loading, RetryState } from "../ui/common";
 import { FeaturedBadge, OsmAttribution, VenueMeta } from "../ui/Venues";
 import { t } from "../i18n";
+import { fetchOverpassElements, type OverpassSource } from "../osm-import";
 
 const statusTabs: { id: VenueStatus; label: string }[] = [
   { id: "pending", label: "Новые" },
@@ -219,10 +220,13 @@ function AddVenueForm({ categories, onAdded }: { categories: MeetingCategory[]; 
 function ImportPanel({
   categories,
   importCategories,
+  overpass,
   onImported,
 }: {
   categories: MeetingCategory[];
   importCategories: string[];
+  /** Overpass servers and queries: the app asks them itself (src/osm-import.ts). */
+  overpass: OverpassSource | null;
   onImported: () => void;
 }) {
   const [running, setRunning] = useState(false);
@@ -239,7 +243,9 @@ function ImportPanel({
       for (const id of ids) {
         setLog((lines) => [...lines, t("{category}: загружаем…", { category: nameOf(id) })]);
         try {
-          const result = await api.adminImportVenues(id);
+          const query = overpass?.queries[id];
+          const elements = overpass && query ? await fetchOverpassElements(overpass.urls, query) : undefined;
+          const result = await api.adminImportVenues(id, elements);
           imported = true;
           setLog((lines) => [
             ...lines.slice(0, -1),
@@ -302,6 +308,7 @@ export function AdminVenuesScreen({ navigate, onBack }: { navigate: Navigate; on
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [categories, setCategories] = useState<MeetingCategory[]>([]);
   const [importCategories, setImportCategories] = useState<string[]>([]);
+  const [overpass, setOverpass] = useState<OverpassSource | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -328,6 +335,7 @@ export function AdminVenuesScreen({ navigate, onBack }: { navigate: Navigate; on
       setNextOffset(page.nextOffset);
       if (page.categories) setCategories(page.categories);
       if (page.importCategories) setImportCategories(page.importCategories);
+      if ("overpass" in page && page.overpass !== undefined) setOverpass(page.overpass);
     } catch (reason) {
       if (requestId === latestRequest.current)
         setError(reason instanceof Error ? reason.message : t("Не удалось загрузить места."));
@@ -392,6 +400,7 @@ export function AdminVenuesScreen({ navigate, onBack }: { navigate: Navigate; on
           <ImportPanel
             categories={categories}
             importCategories={importCategories}
+            overpass={overpass}
             onImported={() => void load()}
           />
         </details>

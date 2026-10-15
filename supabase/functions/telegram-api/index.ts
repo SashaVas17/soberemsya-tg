@@ -1,6 +1,7 @@
 import { createAdminClient } from "../_shared/admin-client.ts";
 import {
   API_JSON_BODY_LIMIT_BYTES,
+  OSM_IMPORT_BODY_LIMIT_BYTES,
   readJsonObject,
   TELEGRAM_AUTH_BODY_LIMIT_BYTES,
 } from "../_shared/bounded-json.ts";
@@ -88,9 +89,11 @@ import {
   OVERPASS_MAX_RESPONSE_BYTES,
   OVERPASS_URLS,
   overpassFailed,
+  overpassClientSource,
   overpassQuery,
   overpassTruncated,
   osmImportCategories,
+  parseOsmClientElements,
   parseOsmImportRequest,
   parseVenueCreate,
   parseVenueId,
@@ -1475,6 +1478,7 @@ async function adminVenues(request: Request, auth: AuthContext) {
     city: publicCity(city),
     categories,
     importCategories: osmImportCategories(),
+    overpass: overpassClientSource(city.id),
   });
 }
 
@@ -1582,11 +1586,14 @@ async function fetchOverpass(query: string) {
 // curation, known ones get fresh OSM fields.
 async function adminImportVenues(request: Request, auth: AuthContext) {
   if (!isAdmin(auth)) return adminNotFound();
-  const body = await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES);
+  // Only an administrator gets this far, so only they may upload a large answer.
+  const body = await readJsonObject(request, OSM_IMPORT_BODY_LIMIT_BYTES);
   const [city, categories] = await Promise.all([viewerCity(auth.user.id), loadCategories()]);
   const { categoryId } = parseOsmImportRequest(body, city.id);
   if (!categoryById(categories, categoryId)) throw venueHttpError({ code: "P0001", message: "VENUE_CATEGORY_INVALID" });
-  const answer = await fetchOverpass(overpassQuery(city.id, categoryId));
+  // The app sends what it got from Overpass; an older app leaves it to the server.
+  const elements = parseOsmClientElements(body.elements);
+  const answer = elements ? { elements } : await fetchOverpass(overpassQuery(city.id, categoryId));
   const items = venuesFromOverpass(answer, categoryId);
   let inserted = 0;
   let updated = 0;

@@ -301,10 +301,11 @@ export const api = {
     useMock
       ? mockApi.adminPublishVenues(ids)
       : request<{ published: number }>("/admin/venues/publish", { method: "POST", body: JSON.stringify({ ids }) }),
-  adminImportVenues: (categoryId: string) =>
+  /** elements: the Overpass answer the app got itself; without it the server asks Overpass. */
+  adminImportVenues: (categoryId: string, elements?: unknown[]) =>
     useMock
       ? mockApi.adminImportVenues(categoryId)
-      : request<VenueImportResult>("/admin/venues/import", { method: "POST", body: JSON.stringify({ categoryId }) }),
+      : request<VenueImportResult>("/admin/venues/import", { method: "POST", body: JSON.stringify({ categoryId, elements }) }),
   calendarLink: (id: string) =>
     useMock
       ? mockApi.calendarLink(id)
