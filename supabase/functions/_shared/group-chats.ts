@@ -93,6 +93,9 @@ export function isGroupChatType(chatType: unknown) {
   return chatType === "group" || chatType === "supergroup";
 }
 
+/** Commands the bot answers in a group; others get no reply. */
+export const GROUP_REPLY_COMMANDS = new Set(["/new", "/start", "/help", "/my"]);
+
 /** In groups web_app buttons are not allowed, so replies use t.me links. */
 export function groupCommandReply(command: string, appUrl: string, createUrl: string | null, language: Language = "ru") {
   const t = (ru: string, en: string) => tr(language, ru, en);

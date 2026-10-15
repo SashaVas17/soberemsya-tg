@@ -802,9 +802,14 @@ async function userLanguagePreference(request: Request, auth: AuthContext) {
   return json({ language });
 }
 
+// Optional for sign-in: on a failed read the field is left out and the app
+// keeps its own choice.
 async function storedLanguage(userId: string) {
   const { data, error } = await db.from("users").select("language").eq("id", userId).maybeSingle<{ language: string | null }>();
-  if (error) throw error;
+  if (error) {
+    console.error("stored_language_read_failed", error.code);
+    return undefined;
+  }
   return parseLanguage(data?.language);
 }
 

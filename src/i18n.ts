@@ -12,7 +12,10 @@ export type LanguagePreference = Language | "auto";
 export const LANGUAGE_STORAGE_KEY = "flockly.language";
 
 // Telegram languages that read Russian more easily than English.
-const russianFirst = new Set(["ru", "be", "uk", "kk", "ky", "uz", "tg", "tk", "hy", "az"]);
+// Same list on the server (supabase/functions/_shared/i18n.ts) and in the bot
+// setup scripts; tests/server-language.test.ts keeps them equal.
+export const RUSSIAN_FIRST_LANGUAGES = ["ru", "be", "uk", "kk", "ky", "uz", "tg", "tk", "hy", "az"];
+const russianFirst = new Set(RUSSIAN_FIRST_LANGUAGES);
 
 export function languageFromTelegram(code: string | null | undefined): Language {
   const base = (code ?? "").toLowerCase().split(/[-_]/)[0];
@@ -77,17 +80,38 @@ export function saveLanguagePreference(preference: LanguagePreference, store: La
   setLanguage(resolveLanguage(preference, telegramLanguageCode()));
 }
 
-export type LanguageSync = { adopt: Language } | { send: Language | null } | null;
+/** Set once the device choice is known to be saved on the server. */
+export const LANGUAGE_SYNCED_KEY = "flockly.language.synced";
+
+export function readLanguageSynced(store: LanguageStorage | null = storage()) {
+  try {
+    return store?.getItem(LANGUAGE_SYNCED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function writeLanguageSynced(synced: boolean, store: LanguageStorage | null = storage()) {
+  try {
+    if (synced) store?.setItem(LANGUAGE_SYNCED_KEY, "1");
+    else store?.removeItem(LANGUAGE_SYNCED_KEY);
+  } catch {
+    // Private mode: the next sign-in compares again.
+  }
+}
+
+export type LanguageSync = { adopt: LanguagePreference } | { send: Language | null } | null;
 
 /**
- * After sign-in: a device without its own choice takes the one saved on the
- * server (made on another device); a device with a choice the server lacks
- * sends it, so the bot and notifications speak the same language.
- * `server` is undefined for a server that does not know languages yet.
+ * After sign-in. Once this device's choice reached the server, the server
+ * holds the latest one (it may come from another device) and is adopted.
+ * A choice that never reached it (made before step 2, or a failed save) is
+ * sent. `server` is undefined for a server that does not know languages.
  */
-export function languageSync(local: LanguagePreference, server: Language | null | undefined): LanguageSync {
+export function languageSync(local: LanguagePreference, synced: boolean, server: Language | null | undefined): LanguageSync {
   if (server === undefined) return null;
-  if (local === "auto") return server ? { adopt: server } : null;
+  const serverPreference: LanguagePreference = server ?? "auto";
+  if (synced || local === "auto") return serverPreference === local ? null : { adopt: serverPreference };
   return local === server ? null : { send: local };
 }
 

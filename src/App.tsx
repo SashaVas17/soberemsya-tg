@@ -21,7 +21,8 @@ import { ParticipantEvent } from "./screens/ParticipantEvent";
 import { MyEvents } from "./screens/MyEvents";
 import { Manage } from "./screens/Manage";
 import { Result } from "./screens/Result";
-import { language, languageSync, refreshLanguage, saveLanguagePreference, readLanguagePreference, t, type LanguagePreference } from "./i18n";
+import { language, languageSync, readLanguageSynced, refreshLanguage, saveLanguagePreference, readLanguagePreference, t, writeLanguageSynced, type LanguagePreference } from "./i18n";
+import { saveLanguageOnServer } from "./language-preference";
 
 export default function App() {
   const { path, navigate, goBack } = usePath();
@@ -34,11 +35,10 @@ export default function App() {
     setLanguagePreferenceState(next);
     setCurrentLanguage(language());
   }, []);
-  // The server keeps the choice for the bot and notifications; a failed save
-  // only leaves them in the previous language.
+  // The server keeps the choice for the bot and notifications.
   const setLanguagePreference = useCallback((next: LanguagePreference) => {
     applyLanguagePreference(next);
-    api.saveLanguage(next === "auto" ? null : next).catch(() => undefined);
+    void saveLanguageOnServer(next);
   }, [applyLanguagePreference]);
   const [auth, setAuth] = useState<AuthResult | null>(null);
   const [error, setError] = useState("");
@@ -73,9 +73,12 @@ export default function App() {
     api
       .auth(raw)
       .then((result) => {
-        const sync = languageSync(readLanguagePreference(), result.language);
-        if (sync && "adopt" in sync) applyLanguagePreference(sync.adopt);
-        else if (sync) api.saveLanguage(sync.send).catch(() => undefined);
+        const sync = languageSync(readLanguagePreference(), readLanguageSynced(), result.language);
+        if (sync && "adopt" in sync) {
+          applyLanguagePreference(sync.adopt);
+          writeLanguageSynced(true);
+        } else if (sync) void saveLanguageOnServer(sync.send ?? "auto");
+        else if (result.language !== undefined) writeLanguageSynced(true);
         setAuth(result);
         if (result.startParam?.startsWith("event_"))
           navigate(`/event/${result.startParam.slice(6)}`, true);

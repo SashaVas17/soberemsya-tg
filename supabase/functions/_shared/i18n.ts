@@ -8,8 +8,10 @@ export type Language = "ru" | "en";
 /** Header with the app's current language on every API request. */
 export const LANGUAGE_HEADER = "x-flockly-language";
 
-// Telegram languages that read Russian more easily than English.
-const russianFirst = new Set(["ru", "be", "uk", "kk", "ky", "uz", "tg", "tk", "hy", "az"]);
+// Telegram languages that read Russian more easily than English; the same
+// list as src/i18n.ts and the bot setup scripts (checked by a test).
+export const RUSSIAN_FIRST_LANGUAGES = ["ru", "be", "uk", "kk", "ky", "uz", "tg", "tk", "hy", "az"];
+const russianFirst = new Set(RUSSIAN_FIRST_LANGUAGES);
 
 export function languageFromTelegram(code: string | null | undefined): Language {
   const base = (code ?? "").toLowerCase().split(/[-_]/)[0];

@@ -1,11 +1,15 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { languageFromTelegram as clientLanguageFromTelegram } from "../src/i18n.ts";
+import {
+  languageFromTelegram as clientLanguageFromTelegram,
+  RUSSIAN_FIRST_LANGUAGES as CLIENT_RUSSIAN_FIRST,
+} from "../src/i18n.ts";
 import { groupCommandReply, renderGroupMessage } from "../supabase/functions/_shared/group-chats.ts";
 import {
   dateLocale,
   languageFromTelegram,
   parseLanguage,
+  RUSSIAN_FIRST_LANGUAGES,
   tr,
   userLanguage,
 } from "../supabase/functions/_shared/i18n.ts";
@@ -20,6 +24,13 @@ const cyrillic = /[А-Яа-яЁё]/;
 const startsAt = "2026-10-24T15:00:00Z"; // Saturday 18:00 in Minsk
 
 describe("server language rule", () => {
+  it("keeps one list of Russian-first languages in the app, the server and the bot scripts", () => {
+    expect(RUSSIAN_FIRST_LANGUAGES).toEqual(CLIENT_RUSSIAN_FIRST);
+    expect(read("scripts/configure-telegram.sh")).toContain(`for language in ${RUSSIAN_FIRST_LANGUAGES.join(" ")}; do`);
+    expect(read("scripts/configure-telegram.ps1"))
+      .toContain(`foreach ($language in @(${RUSSIAN_FIRST_LANGUAGES.map((code) => `"${code}"`).join(", ")}))`);
+  });
+
   it("matches the app: CIS Telegram languages read Russian, the rest English", () => {
     for (const code of ["ru", "be", "uk-UA", "kk", "en", "de", "pl", "", null, undefined])
       expect(languageFromTelegram(code), String(code)).toBe(clientLanguageFromTelegram(code));

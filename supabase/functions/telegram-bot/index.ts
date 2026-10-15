@@ -6,7 +6,7 @@ import {
 } from "../_shared/bounded-json.ts";
 import { timingSafeEqual } from "../_shared/telegram.ts";
 import { type AdminStats, formatStatsText, isAdminTelegramId, parseAdminIds } from "../_shared/admin-stats.ts";
-import { groupCommandReply, groupCreateUrl, isGroupChatType, parseBotCommand } from "../_shared/group-chats.ts";
+import { GROUP_REPLY_COMMANDS, groupCommandReply, groupCreateUrl, isGroupChatType, parseBotCommand } from "../_shared/group-chats.ts";
 import { type Language, languageFromTelegram, tr, userLanguage } from "../_shared/i18n.ts";
 
 const token = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
@@ -66,7 +66,7 @@ async function telegram(method: string, body: unknown) {
 
 async function handleGroupMessage(message: BotMessage) {
   const command = parseBotCommand(message.text, botUsername);
-  if (!command) return;
+  if (!command || !GROUP_REPLY_COMMANDS.has(command)) return;
   let createUrl: string | null = null;
   if (command === "/new" && message.senderId !== null) {
     if (!supabaseUrl || !serviceKey) throw new Error("Database access is not configured");
