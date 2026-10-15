@@ -625,6 +625,17 @@ export const en: Record<string, string> = {
   "Гомель": "Gomel",
   "Гродно": "Grodno",
   "Могилёв": "Mogilev",
+  "{city} — закрыт": "{city} — closed",
+  "Город открыт: его выбирают в «Открытых встречах», места видны в подборке и на карте.": "The city is open: people choose it in Open meetings, its places are in the picks and on the map.",
+  "Город закрыт: люди его не видят. Загрузите и опубликуйте места, затем откройте город.": "The city is closed: people do not see it. Import and publish places, then open the city.",
+  "Закрыть город": "Close city",
+  "Открыть город": "Open city",
+  "Открыть {city}? Город появится в выборе города, его места — в подборке и на карте.": "Open {city}? It will appear in the city choice, its places in the picks and on the map.",
+  "Закрыть {city}? Город пропадёт из выбора, у его жителей откроется Минск.": "Close {city}? It will leave the city choice, its people will see Minsk.",
+  "Не удалось изменить город.": "Could not change the city.",
+  "Минск нельзя закрыть: это город по умолчанию.": "Minsk cannot be closed: it is the default city.",
+  "Такого города нет.": "There is no such city.",
+  "Некорректный запрос.": "Invalid request.",
 };
 
 /** English [singular, plural] by the Russian "one" form passed to plural(). */

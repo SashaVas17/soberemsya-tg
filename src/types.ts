@@ -116,6 +116,9 @@ export type City = {
   name: string;
 };
 
+/** A city in «Каталог мест»: closed cities are listed too, their catalog is filled before they open. */
+export type AdminCity = City & { isActive: boolean };
+
 export type MeetingCategory = {
   id: string;
   name: string;
@@ -262,7 +265,8 @@ export type VenuePage = {
 export type AdminVenuePage = {
   items: AdminVenue[];
   nextOffset: number | null;
-  city?: City;
+  city?: AdminCity;
+  cities?: AdminCity[];
   categories?: MeetingCategory[];
   /** Categories that can be imported from OpenStreetMap. */
   importCategories?: string[];

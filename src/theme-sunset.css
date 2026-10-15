@@ -1021,6 +1021,7 @@ h1 {
 .admin-venue-section[open] summary {
   margin-bottom: var(--space-sm);
 }
+.admin-venue-city,
 .admin-venue-import,
 .admin-venue-form,
 .admin-venue-card {

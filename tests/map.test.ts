@@ -114,7 +114,22 @@ describe("map API", () => {
     });
     expect(mapPointsFromRpc(null)).toEqual({ venues: [], meetings: [] });
     expect(cityMapBounds("minsk")).toEqual({ south: 53.8, west: 27.37, north: 53.99, east: 27.76 });
-    expect(cityMapBounds("brest")).toEqual(cityMapBounds("minsk"));
+    expect(cityMapBounds("tokyo")).toEqual(cityMapBounds("minsk"));
+    // Every regional centre has its own import box around the city centre.
+    const centres: Record<string, [number, number]> = {
+      brest: [52.097, 23.734], vitebsk: [55.19, 30.205], gomel: [52.441, 30.988],
+      grodno: [53.678, 23.83], mogilev: [53.9, 30.33],
+    };
+    for (const [cityId, [latitude, longitude]] of Object.entries(centres)) {
+      const box = cityMapBounds(cityId);
+      expect(box).not.toEqual(cityMapBounds("minsk"));
+      expect(box.south).toBeLessThan(latitude);
+      expect(box.north).toBeGreaterThan(latitude);
+      expect(box.west).toBeLessThan(longitude);
+      expect(box.east).toBeGreaterThan(longitude);
+      // Small enough for one Overpass query per category.
+      expect((box.north - box.south) * (box.east - box.west)).toBeLessThan(0.1);
+    }
   });
 });
 

@@ -79,6 +79,36 @@ export function cityTimeZone(cities: City[], cityId: string | null | undefined) 
   return cities.find((city) => city.id === cityId)?.timeZone ?? DEFAULT_TIME_ZONE;
 }
 
+/**
+ * The city an administrator works on in «Каталог мест»: any city, open or
+ * not, so a catalog is filled before the city opens. Without a choice it is
+ * the administrator's own city.
+ */
+export function adminCity(cities: City[], requestedCityId: unknown, ownCity: City): City {
+  if (requestedCityId === undefined || requestedCityId === null || requestedCityId === "") return ownCity;
+  const cityId = parseCityId(requestedCityId);
+  return cities.find((city) => city.id === cityId) ?? badCity("Такого города нет.");
+}
+
+export type AdminCity = PublicCity & { isActive: boolean };
+
+export function adminCityResponse(city: City): AdminCity {
+  return { id: city.id, name: city.name, isActive: city.isActive };
+}
+
+export function parseCityActive(body: Record<string, unknown>) {
+  if (typeof body.isActive !== "boolean") badCity("Некорректный запрос.");
+  return { cityId: parseCityId(body.cityId), isActive: body.isActive };
+}
+
+export function cityHttpError(error: unknown) {
+  const message = error && typeof error === "object" ? String((error as { message?: unknown }).message ?? "") : "";
+  if (message.includes("CITY_DEFAULT_REQUIRED"))
+    return Object.assign(new Error("Минск нельзя закрыть: это город по умолчанию."), { status: 400 });
+  if (message.includes("CITY_INVALID")) return Object.assign(new Error("Такого города нет."), { status: 404 });
+  return new Error("Не удалось изменить город.");
+}
+
 export function publicCity(city: City): PublicCity {
   return { id: city.id, name: city.name };
 }

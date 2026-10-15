@@ -2,6 +2,7 @@ import type {
   AdminReport,
   AuthResult,
   BlockedUser,
+  AdminCity,
   City,
   MeetingCategory,
   MeetingListItem,
@@ -217,8 +218,18 @@ function assertMockParticipantProposalAllowed(eventId: string) {
 }
 
 // Like production: only Minsk is open for now.
-const mockCities: City[] = [{ id: "minsk", name: "Минск" }];
-let mockCity: City = mockCities[0];
+let mockAdminCities: AdminCity[] = [
+  { id: "minsk", name: "Минск", isActive: true },
+  { id: "brest", name: "Брест", isActive: false },
+  { id: "vitebsk", name: "Витебск", isActive: false },
+  { id: "gomel", name: "Гомель", isActive: false },
+  { id: "grodno", name: "Гродно", isActive: false },
+  { id: "mogilev", name: "Могилёв", isActive: false },
+];
+/** Open cities, as the user's city choice lists them. */
+const openMockCities = (): City[] =>
+  mockAdminCities.filter((city) => city.isActive).map(({ id, name }) => ({ id, name }));
+let mockCity: City = openMockCities()[0];
 
 // Same list as the meeting_categories migration.
 const mockCategories: MeetingCategory[] = [
@@ -343,7 +354,7 @@ export const mockApi = {
       ] : [],
       nextCursor: null,
       city: mockCity,
-      cities: mockCities,
+      cities: openMockCities(),
       categories: mockCategories,
       communityRulesAccepted: mockRulesAccepted,
     };
@@ -403,10 +414,10 @@ export const mockApi = {
     return { banned, hiddenEvents: banned ? 1 : 0 };
   },
   userCity: async (cityId?: string) => {
-    const city = mockCities.find((item) => item.id === cityId);
+    const city = openMockCities().find((item) => item.id === cityId);
     if (cityId && !city) throw new Error("Этот город пока недоступен.");
     if (city) mockCity = city;
-    return { city: mockCity, cities: mockCities } satisfies UserCity;
+    return { city: mockCity, cities: openMockCities() } satisfies UserCity;
   },
   createJoinRequest: async (eventId: string) => {
     void eventId;
@@ -657,10 +668,11 @@ export const mockApi = {
     bounds: { south: 53.8, west: 27.37, north: 53.99, east: 27.76 },
     categories: mockCategories,
   }),
-  adminVenues: async (status: VenueStatus, filters?: VenueFilters, offset = 0) => ({
+  adminVenues: async (status: VenueStatus, filters?: VenueFilters, offset = 0, cityId?: string | null) => ({
     items: clone(filterMockVenues(status, filters).slice(offset, offset + 30)),
     nextOffset: null,
-    city: clone(mockCity),
+    city: clone(mockAdminCities.find((city) => city.id === (cityId ?? mockCity.id)) ?? mockAdminCities[0]),
+    cities: clone(mockAdminCities),
     categories: mockCategories,
     importCategories: mockCategories.filter((category) => category.id !== "other").map((category) => category.id),
   }),
@@ -686,6 +698,10 @@ export const mockApi = {
       return { ...venue, status: "published" as const };
     });
     return { published };
+  },
+  adminSetCityActive: async (cityId: string, isActive: boolean) => {
+    mockAdminCities = mockAdminCities.map((city) => city.id === cityId ? { ...city, isActive } : city);
+    return { cities: clone(mockAdminCities) };
   },
   adminImportVenues: async (categoryId: string) => {
     void categoryId;
