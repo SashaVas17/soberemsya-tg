@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cleanText,
   cleanWebsite,
@@ -292,6 +292,23 @@ describe("venue routes", () => {
     const importStart = apiSource.indexOf("async function adminImportVenues(");
     const importBody = apiSource.slice(importStart, apiSource.indexOf("function apiPath(", importStart));
     expect(importBody.indexOf("categoryById(categories, categoryId)")).toBeLessThan(importBody.indexOf("fetchOverpass("));
+  });
+});
+
+describe("OpenStreetMap import errors", () => {
+  it("keeps the OpenStreetMap outage message, hides other server errors", async () => {
+    const { errorResponse } = await import("../supabase/functions/_shared/http.ts");
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    const outage = Object.assign(new Error("OpenStreetMap сейчас не отвечает."), { status: 503, expose: true });
+    expect(await errorResponse(outage).json()).toEqual({ error: "OpenStreetMap сейчас не отвечает." });
+    expect(await errorResponse(Object.assign(new Error("secret detail"), { status: 503 })).json()).toEqual({ error: "Не удалось выполнить действие." });
+    quiet.mockRestore();
+  });
+
+  it("falls back to mirrors when the main Overpass server refuses", async () => {
+    const { OVERPASS_URLS, OVERPASS_URL } = await import("../supabase/functions/_shared/venues.ts");
+    expect(OVERPASS_URLS[0]).toBe(OVERPASS_URL);
+    expect(OVERPASS_URLS.length).toBeGreaterThan(1);
   });
 });
 

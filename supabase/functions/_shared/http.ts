@@ -59,5 +59,6 @@ export function errorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : "Unexpected server error";
   const code = status < 500 ? safeApplicationErrorCode(error) : null;
   console.error(message);
-  return json({ error: status >= 500 ? "Не удалось выполнить действие." : message, ...(code ? { code } : {}) }, status);
+  const expose = typeof error === "object" && error && "expose" in error && (error as { expose?: unknown }).expose === true;
+  return json({ error: status >= 500 && !expose ? "Не удалось выполнить действие." : message, ...(code ? { code } : {}) }, status);
 }
