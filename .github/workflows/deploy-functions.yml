@@ -21,7 +21,7 @@ jobs:
     env:
       PROJECT_REF: qesuhhhiswwrfvfisfkp
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
@@ -32,7 +32,7 @@ jobs:
           for fn in telegram-api telegram-bot notifications-worker; do
             deno check --node-modules-dir=none "supabase/functions/$fn/index.ts"
           done
-      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
         with:
           version: 2.119.0
       # Schema migrations are applied separately through the Supabase
