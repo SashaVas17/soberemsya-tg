@@ -77,6 +77,20 @@ export function saveLanguagePreference(preference: LanguagePreference, store: La
   setLanguage(resolveLanguage(preference, telegramLanguageCode()));
 }
 
+export type LanguageSync = { adopt: Language } | { send: Language | null } | null;
+
+/**
+ * After sign-in: a device without its own choice takes the one saved on the
+ * server (made on another device); a device with a choice the server lacks
+ * sends it, so the bot and notifications speak the same language.
+ * `server` is undefined for a server that does not know languages yet.
+ */
+export function languageSync(local: LanguagePreference, server: Language | null | undefined): LanguageSync {
+  if (server === undefined) return null;
+  if (local === "auto") return server ? { adopt: server } : null;
+  return local === server ? null : { send: local };
+}
+
 /** Locale for dates and numbers. */
 export function locale() {
   return current === "en" ? "en-GB" : "ru-RU";

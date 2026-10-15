@@ -162,7 +162,8 @@ export type MeetingListItem = {
   createdAt: string;
 };
 
-export type AuthResult = { user: TelegramUser; startParam: string | null; isAdmin?: boolean };
+// language: the choice saved on the server; null — «as in Telegram».
+export type AuthResult = { user: TelegramUser; startParam: string | null; isAdmin?: boolean; language?: "ru" | "en" | null };
 
 export type AdminStats = {
   generatedAt: string;

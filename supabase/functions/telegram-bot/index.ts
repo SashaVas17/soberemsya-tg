@@ -7,6 +7,7 @@ import {
 import { timingSafeEqual } from "../_shared/telegram.ts";
 import { type AdminStats, formatStatsText, isAdminTelegramId, parseAdminIds } from "../_shared/admin-stats.ts";
 import { groupCommandReply, groupCreateUrl, isGroupChatType, parseBotCommand } from "../_shared/group-chats.ts";
+import { type Language, languageFromTelegram, tr, userLanguage } from "../_shared/i18n.ts";
 
 const token = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 const appUrl = Deno.env.get("TELEGRAM_MINI_APP_URL") ?? "";
@@ -37,7 +38,21 @@ function telegramMessage(update: Record<string, unknown>) {
     chatType: (chat as Record<string, unknown>).type,
     chatTitle: typeof chatTitle === "string" ? chatTitle : "",
     text: typeof text === "string" ? text : "",
+    languageCode: typeof sender?.language_code === "string" ? sender.language_code : null,
   };
+}
+
+type BotMessage = NonNullable<ReturnType<typeof telegramMessage>>;
+
+// The language chosen in the app; someone who never opened it gets the
+// language of their Telegram. A failed lookup also falls back to Telegram.
+async function senderLanguage(message: BotMessage): Promise<Language> {
+  const fallback = languageFromTelegram(message.languageCode);
+  if (message.senderId === null || !supabaseUrl || !serviceKey) return fallback;
+  const { data, error } = await db.from("users").select("language,language_code")
+    .eq("telegram_user_id", message.senderId).maybeSingle<{ language: string | null; language_code: string | null }>();
+  if (error) console.error("bot_language_lookup_failed", error.code);
+  return data ? userLanguage({ language: data.language, language_code: message.languageCode ?? data.language_code }) : fallback;
 }
 
 // 4xx (no rights in the chat, the bot was removed) will not succeed on a
@@ -49,7 +64,7 @@ async function telegram(method: string, body: unknown) {
   console.warn("telegram_api_rejected", method, response.status);
 }
 
-async function handleGroupMessage(message: NonNullable<ReturnType<typeof telegramMessage>>) {
+async function handleGroupMessage(message: BotMessage) {
   const command = parseBotCommand(message.text, botUsername);
   if (!command) return;
   let createUrl: string | null = null;
@@ -63,8 +78,21 @@ async function handleGroupMessage(message: NonNullable<ReturnType<typeof telegra
     if (error || typeof data !== "string") throw new Error("create_group_link failed");
     createUrl = groupCreateUrl(botUsername, appShortName, data);
   }
-  const reply = groupCommandReply(command, `https://t.me/${botUsername}/${appShortName}`, createUrl);
+  const reply = groupCommandReply(command, `https://t.me/${botUsername}/${appShortName}`, createUrl, await senderLanguage(message));
   if (reply) await telegram("sendMessage", { chat_id: message.chatId, ...reply });
+}
+
+function privateCommandReply(command: string, language: Language) {
+  const t = (ru: string, en: string) => tr(language, ru, en);
+  if (command === "/help")
+    return {
+      text: t("Создайте встречу, отправьте её в чат и соберите ответы без регистрации.",
+        "Create a meeting, send it to a chat and collect answers without any sign-up."),
+      button: t("Открыть Flockly", "Open Flockly"),
+    };
+  if (command === "/new") return { text: t("Создадим новую встречу.", "Let's create a new meeting."), button: t("Создать встречу", "Create meeting") };
+  if (command === "/my") return { text: t("Ваши встречи доступны в Mini App.", "Your meetings are in the Mini App."), button: t("Мои встречи", "My meetings") };
+  return { text: t("Откройте Flockly, чтобы организовать встречу.", "Open Flockly to organize a meeting."), button: t("Открыть Flockly", "Open Flockly") };
 }
 
 Deno.serve(async (request) => {
@@ -95,8 +123,8 @@ Deno.serve(async (request) => {
       return json({ ok: true });
     }
     const screens: Record<string, string> = { "/new": "create", "/my": "my-events" }; const screen = screens[command];
-    const text = command === "/help" ? "Создайте встречу, отправьте её в чат и соберите ответы без регистрации." : command === "/new" ? "Создадим новую встречу." : command === "/my" ? "Ваши встречи доступны в Mini App." : "Откройте Flockly, чтобы организовать встречу.";
-    await telegram("sendMessage", { chat_id: message.chatId, text, reply_markup: { inline_keyboard: [[{ text: command === "/new" ? "Создать встречу" : command === "/my" ? "Мои встречи" : "Открыть Flockly", web_app: { url: screen ? `${appUrl}?screen=${screen}` : appUrl } }]] } });
+    const reply = privateCommandReply(command, await senderLanguage(message));
+    await telegram("sendMessage", { chat_id: message.chatId, text: reply.text, reply_markup: { inline_keyboard: [[{ text: reply.button, web_app: { url: screen ? `${appUrl}?screen=${screen}` : appUrl } }]] } });
     return json({ ok: true });
   } catch (error) { return errorResponse(error); }
 });

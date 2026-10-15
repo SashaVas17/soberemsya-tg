@@ -28,7 +28,7 @@ describe("Edge Function HTTP hardening", () => {
     }));
     expect(response.status).toBe(204);
     expect(response.headers.get("access-control-allow-methods")).toBe("GET, POST, PUT, PATCH, DELETE, OPTIONS");
-    expect(response.headers.get("access-control-allow-headers")).toBe("apikey, content-type, x-telegram-init-data");
+    expect(response.headers.get("access-control-allow-headers")).toBe("apikey, content-type, x-flockly-language, x-telegram-init-data");
     expect(response.headers.get("access-control-max-age")).toBe("600");
     expect(response.headers.get("vary")).toBe("Origin");
     expect(response.headers.get("access-control-allow-credentials")).toBeNull();

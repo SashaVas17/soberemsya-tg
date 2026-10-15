@@ -1,4 +1,5 @@
 import { DEFAULT_TIME_ZONE } from "./cities.ts";
+import { dateLocale, type Language, tr } from "./i18n.ts";
 import { reportReasonLabel } from "./moderation.ts";
 
 export type NotificationKind =
@@ -26,15 +27,24 @@ type Payload = Record<string, unknown>;
 // All active cities share Minsk time for now; per-city zones here come with
 // the first city outside it (Stage 4).
 const timeZone = DEFAULT_TIME_ZONE;
-const whenFormatter = new Intl.DateTimeFormat("ru-RU", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-  hour: "2-digit",
-  minute: "2-digit",
-  hourCycle: "h23",
-  timeZone,
-});
+const whenFormatters = new Map<Language, Intl.DateTimeFormat>();
+
+function whenFormatter(language: Language) {
+  let formatter = whenFormatters.get(language);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(dateLocale(language), {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+      timeZone,
+    });
+    whenFormatters.set(language, formatter);
+  }
+  return formatter;
+}
 
 function text(payload: Payload, key: string) {
   const value = payload[key];
@@ -46,22 +56,30 @@ function count(payload: Payload, key: string) {
   return Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0;
 }
 
-export function formatMeetingTime(startsAt: string) {
+export function formatMeetingTime(startsAt: string, language: Language = "ru") {
   const value = new Date(startsAt);
   if (Number.isNaN(value.getTime())) return "";
-  return whenFormatter.format(value);
+  return whenFormatter(language).format(value);
 }
 
-/** "суббота, 20 октября, 18:00 · Парк, Центр" — the final time and place. */
-export function formatFinalDetails(startsAt: string | null | undefined, place?: string | null, area?: string | null) {
+/**
+ * "суббота, 20 октября, 18:00 · Парк, Центр" / "Saturday 20 October, 18:00 · …"
+ * — the final time and place.
+ */
+export function formatFinalDetails(
+  startsAt: string | null | undefined,
+  place?: string | null,
+  area?: string | null,
+  language: Language = "ru",
+) {
   return [
-    formatMeetingTime(startsAt ?? ""),
+    formatMeetingTime(startsAt ?? "", language),
     [place?.trim(), area?.trim()].filter(Boolean).join(", "),
   ].filter(Boolean).join(" · ");
 }
 
-function finalDetails(payload: Payload) {
-  return formatFinalDetails(text(payload, "startsAt"), text(payload, "place"), text(payload, "area"));
+function finalDetails(payload: Payload, language: Language) {
+  return formatFinalDetails(text(payload, "startsAt"), text(payload, "place"), text(payload, "area"), language);
 }
 
 export function eventDeepLink(bot: string, app: string, eventId: string | null) {
@@ -96,57 +114,100 @@ export function isNotificationStale(
   return eventDeleted || eventStatus === "cancelled";
 }
 
+/** A meeting title in the quotes of the language: «Кофе» / “Coffee”. */
+export function quotedTitle(title: string, language: Language) {
+  const value = title || tr(language, "Встреча", "Meeting");
+  return language === "en" ? `“${value}”` : `«${value}»`;
+}
+
 export function renderNotification(
   kind: NotificationKind,
   payload: Payload,
   url: string,
+  language: Language = "ru",
 ): NotificationMessage {
-  const title = `«${text(payload, "title") || "Встреча"}»`;
-  const open = (message: string, buttonText = "Открыть встречу") => ({ text: message, buttonText, url });
+  const t = (ru: string, en: string) => tr(language, ru, en);
+  const title = quotedTitle(text(payload, "title"), language);
+  const open = (message: string, buttonText = t("Открыть встречу", "Open meeting")) => ({ text: message, buttonText, url });
   switch (kind) {
-    case "response_each":
-      return open(`Новые ответы на встречу ${title}. Всего ответили: ${count(payload, "answered")}.`);
+    case "response_each": {
+      const answered = count(payload, "answered");
+      return open(t(
+        `Новые ответы на встречу ${title}. Всего ответили: ${answered}.`,
+        `New answers to the meeting ${title}. Answered so far: ${answered}.`,
+      ));
+    }
     case "response_summary": {
       const answered = count(payload, "answered");
       const available = count(payload, "available");
       const declined = count(payload, "declined");
-      return open(
+      return open(t(
         `Встреча ${title}: ответили ${answered}. Самое удобное время подходит ${available}, не подходит ${declined}.`,
+        `Meeting ${title}: ${answered} answered. The best time suits ${available}, does not suit ${declined}.`,
+      ));
+    }
+    case "join_request_new": {
+      const requester = text(payload, "requester") || t("Пользователь Telegram", "A Telegram user");
+      return open(
+        t(`${requester} хочет присоединиться к встрече ${title}.`, `${requester} wants to join the meeting ${title}.`),
+        t("Рассмотреть заявку", "Review the request"),
       );
     }
-    case "join_request_new":
-      return open(
-        `${text(payload, "requester") || "Пользователь Telegram"} хочет присоединиться к встрече ${title}.`,
-        "Рассмотреть заявку",
-      );
     case "join_request_approved":
-      return open(`Организатор одобрил вашу заявку на встречу ${title}. Выберите удобное время и место.`);
+      return open(t(
+        `Организатор одобрил вашу заявку на встречу ${title}. Выберите удобное время и место.`,
+        `The organizer approved your request to join ${title}. Choose a convenient time and place.`,
+      ));
     case "join_request_rejected":
-      return open(`Заявку на встречу ${title} не одобрили. Посмотрите другие открытые встречи.`, "Открыть Flockly");
+      return open(
+        t(
+          `Заявку на встречу ${title} не одобрили. Посмотрите другие открытые встречи.`,
+          `Your request to join ${title} was not approved. Have a look at other open meetings.`,
+        ),
+        t("Открыть Flockly", "Open Flockly"),
+      );
     case "event_decided": {
-      const details = finalDetails(payload);
-      return open(`Итог встречи ${title}${details ? `: ${details}` : " выбран"}.`, "Подробнее");
+      const details = finalDetails(payload, language);
+      return open(
+        details
+          ? t(`Итог встречи ${title}: ${details}.`, `The meeting ${title} is set: ${details}.`)
+          : t(`Итог встречи ${title} выбран.`, `The meeting ${title} is set.`),
+        t("Подробнее", "Details"),
+      );
     }
     case "event_cancelled":
-      return open(`Встреча ${title} отменена организатором.`);
+      return open(t(`Встреча ${title} отменена организатором.`, `The organizer cancelled the meeting ${title}.`));
     case "event_updated":
-      return open(`Организатор обновил описание встречи ${title}.`);
+      return open(t(`Организатор обновил описание встречи ${title}.`, `The organizer updated the description of ${title}.`));
     case "event_reopened":
-      return open(`Организатор снова собирает ответы на встречу ${title}. Прежний итог отменён.`);
+      return open(t(
+        `Организатор снова собирает ответы на встречу ${title}. Прежний итог отменён.`,
+        `The organizer is collecting answers to ${title} again. The previous result is cancelled.`,
+      ));
     case "reminder_24h": {
-      const details = finalDetails(payload);
-      return open(`Напоминание: завтра встреча ${title}${details ? ` — ${details}` : ""}.`);
+      const details = finalDetails(payload, language);
+      return open(t(
+        `Напоминание: завтра встреча ${title}${details ? ` — ${details}` : ""}.`,
+        `Reminder: the meeting ${title} is tomorrow${details ? ` — ${details}` : ""}.`,
+      ));
     }
     case "reminder_2h": {
-      const details = finalDetails(payload);
-      return open(`Через 2 часа встреча ${title}${details ? ` — ${details}` : ""}.`);
+      const details = finalDetails(payload, language);
+      return open(t(
+        `Через 2 часа встреча ${title}${details ? ` — ${details}` : ""}.`,
+        `The meeting ${title} starts in 2 hours${details ? ` — ${details}` : ""}.`,
+      ));
     }
     case "report_new": {
-      const reason = reportReasonLabel(payload.reason);
+      const reason = reportReasonLabel(payload.reason, language);
+      const name = text(payload, "targetName") || "Telegram";
       const target = text(payload, "targetType") === "user"
-        ? `на пользователя ${text(payload, "targetName") || "Telegram"} (встреча ${title})`
-        : `на встречу ${title}`;
-      return open(`Новая жалоба ${target}. Причина: ${reason}.`, "Открыть жалобы");
+        ? t(`на пользователя ${name} (встреча ${title})`, `about the user ${name} (meeting ${title})`)
+        : t(`на встречу ${title}`, `about the meeting ${title}`);
+      return open(
+        t(`Новая жалоба ${target}. Причина: ${reason}.`, `New report ${target}. Reason: ${reason}.`),
+        t("Открыть жалобы", "Open reports"),
+      );
     }
   }
 }

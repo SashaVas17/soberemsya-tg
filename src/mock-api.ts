@@ -107,6 +107,7 @@ const auth: AuthResult = {
   },
   startParam: new URLSearchParams(globalThis.location?.search ?? "").get("mockStartParam"),
   isAdmin: true,
+  language: null,
 };
 const clone = <T>(value: T): T => structuredClone(value);
 const cloneEventResponse = () => ({
@@ -281,6 +282,10 @@ let mockReports: AdminReport[] = [
 
 export const mockApi = {
   auth: async () => clone(auth),
+  saveLanguage: async (value: "ru" | "en" | null) => {
+    auth.language = value;
+    return { language: value };
+  },
   event: async (eventId: string) => {
     void eventId;
     const result = mockPublicEventAccess(event, currentPublicRole());

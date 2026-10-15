@@ -6,7 +6,7 @@ import { publicFeedPath, type PublicFeedFilters } from "./public-feed";
 import { mockApi } from "./mock-api";
 import { adminVenuesPath, venuesPath, type VenueFilters } from "./venues";
 import { moderationTargetBody, type ModerationTarget, type ReportReason } from "./moderation";
-import { t } from "./i18n";
+import { language, t, type Language } from "./i18n";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "") ?? "";
 const functionUrl =
@@ -39,6 +39,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       apikey: publishableKey,
       "content-type": "application/json",
       "x-telegram-init-data": initData,
+      // Dates and cards the server writes follow the app's language.
+      "x-flockly-language": language(),
       ...init?.headers,
     },
   });
@@ -61,6 +63,14 @@ export const api = {
           body: JSON.stringify({ initData: rawInitData }),
         });
   },
+  /** The language for the bot and notifications; null — «as in Telegram». */
+  saveLanguage: (value: Language | null) =>
+    useMock
+      ? mockApi.saveLanguage(value)
+      : request<{ language: Language | null }>("/me/language", {
+          method: "PUT",
+          body: JSON.stringify({ language: value }),
+        }),
   event: (id: string) =>
     useMock
       ? mockApi.event(id)

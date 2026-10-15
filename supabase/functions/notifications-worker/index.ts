@@ -1,5 +1,6 @@
 import { createAdminClient } from "../_shared/admin-client.ts";
 import { json } from "../_shared/http.ts";
+import { type Language, userLanguage } from "../_shared/i18n.ts";
 import { type GroupMessageKind, isGroupMessageStale, renderGroupMessage } from "../_shared/group-chats.ts";
 import {
   classifyTelegramResult,
@@ -62,6 +63,42 @@ async function sendMessage(chatId: number, message: NotificationMessage): Promis
   }
 }
 
+type LanguageRow = { id: string; telegram_user_id: number | string; language: string | null; language_code: string | null };
+
+// Messages go out in the language the person chose (or Telegram's). If the
+// lookup fails, they still go out, in Russian.
+async function languagesByTelegramId(telegramIds: number[]) {
+  const languages = new Map<string, Language>();
+  if (!telegramIds.length) return languages;
+  const { data, error } = await db.from("users").select("id,telegram_user_id,language,language_code")
+    .in("telegram_user_id", [...new Set(telegramIds)]);
+  if (error) console.error("notification_languages_failed", error.code);
+  for (const row of (data ?? []) as LanguageRow[]) languages.set(String(row.telegram_user_id), userLanguage(row));
+  return languages;
+}
+
+// A group has no language of its own: its messages follow the organizer.
+async function organizerLanguagesByEvent(eventIds: string[]) {
+  const languages = new Map<string, Language>();
+  if (!eventIds.length) return languages;
+  const { data: events, error } = await db.from("events").select("id,owner_user_id").in("id", [...new Set(eventIds)]);
+  if (error) {
+    console.error("group_languages_failed", error.code);
+    return languages;
+  }
+  const ownerIds = [...new Set((events ?? []).map((event) => event.owner_user_id).filter(Boolean))];
+  if (!ownerIds.length) return languages;
+  const { data: owners, error: ownerError } = await db.from("users").select("id,telegram_user_id,language,language_code")
+    .in("id", ownerIds);
+  if (ownerError) console.error("group_languages_failed", ownerError.code);
+  const byOwner = new Map(((owners ?? []) as LanguageRow[]).map((row) => [row.id, userLanguage(row)]));
+  for (const event of events ?? []) {
+    const language = byOwner.get(event.owner_user_id);
+    if (language) languages.set(event.id, language);
+  }
+  return languages;
+}
+
 async function complete(id: number, outcome: string, error?: string, retryAfterSeconds?: number) {
   const { error: rpcError } = await db.rpc("complete_notification", {
     p_id: id,
@@ -76,6 +113,7 @@ async function processPersonalBatch() {
   const { data, error } = await db.rpc("claim_notification_batch", { p_limit: BATCH_SIZE });
   if (error) throw error;
   const items = (data ?? []) as ClaimedNotification[];
+  const languages = await languagesByTelegramId(items.map((item) => item.telegram_user_id));
   let throttledFor: number | null = null;
   for (const item of items) {
     if (throttledFor !== null) {
@@ -88,7 +126,12 @@ async function processPersonalBatch() {
     }
     const result = await sendMessage(
       item.telegram_user_id,
-      renderNotification(item.kind, item.payload ?? {}, notificationLink(bot, app, item.kind, item.event_id)),
+      renderNotification(
+        item.kind,
+        item.payload ?? {},
+        notificationLink(bot, app, item.kind, item.event_id),
+        languages.get(String(item.telegram_user_id)) ?? "ru",
+      ),
     );
     if (result.outcome === "sent") await complete(item.id, "sent");
     else if (result.outcome === "retry") {
@@ -115,6 +158,7 @@ async function processGroupBatch() {
   const { data, error } = await db.rpc("claim_group_message_batch", { p_limit: BATCH_SIZE });
   if (error) throw error;
   const items = (data ?? []) as ClaimedGroupMessage[];
+  const languages = await organizerLanguagesByEvent(items.map((item) => item.event_id));
   let throttledFor: number | null = null;
   for (const item of items) {
     if (throttledFor !== null) {
@@ -127,7 +171,7 @@ async function processGroupBatch() {
     }
     const result = await sendMessage(
       item.chat_id,
-      renderGroupMessage(item.kind, item.payload ?? {}, eventDeepLink(bot, app, item.event_id)),
+      renderGroupMessage(item.kind, item.payload ?? {}, eventDeepLink(bot, app, item.event_id), languages.get(item.event_id) ?? "ru"),
     );
     if (result.outcome === "sent") await completeGroup(item.id, "sent");
     else if (result.outcome === "retry") {
