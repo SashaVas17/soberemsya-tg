@@ -110,6 +110,23 @@ const auth: AuthResult = {
   language: null,
 };
 const clone = <T>(value: T): T => structuredClone(value);
+const MOCK_LANGUAGE_KEY = "flockly.mock.serverLanguage";
+function readMockLanguage(): "ru" | "en" | null {
+  try {
+    const value = globalThis.sessionStorage?.getItem(MOCK_LANGUAGE_KEY);
+    return value === "ru" || value === "en" ? value : null;
+  } catch {
+    return null;
+  }
+}
+function writeMockLanguage(value: "ru" | "en" | null) {
+  try {
+    if (value) globalThis.sessionStorage?.setItem(MOCK_LANGUAGE_KEY, value);
+    else globalThis.sessionStorage?.removeItem(MOCK_LANGUAGE_KEY);
+  } catch {
+    // Private mode: the mock forgets, as a fresh server would.
+  }
+}
 const cloneEventResponse = () => ({
   event: { ...clone(event), category: mockEventCategory() } as unknown as import("./types").EventData,
 });
@@ -281,9 +298,10 @@ let mockReports: AdminReport[] = [
 ];
 
 export const mockApi = {
-  auth: async () => clone(auth),
+  // Like the real server, the mock keeps the language across reloads.
+  auth: async () => ({ ...clone(auth), language: readMockLanguage() }),
   saveLanguage: async (value: "ru" | "en" | null) => {
-    auth.language = value;
+    writeMockLanguage(value);
     return { language: value };
   },
   event: async (eventId: string) => {
