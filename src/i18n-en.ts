@@ -251,6 +251,7 @@ export const en: Record<string, string> = {
   "Начать": "Start",
   "Уведомления от бота": "Bot notifications",
   "Ваши встречи": "Your meetings",
+  "Ближайшая встреча": "Next meeting",
   "Загружаем встречи…": "Loading meetings…",
   "Встречи не загрузились": "Meetings didn't load",
   "Создайте встречу или откройте приглашение из Telegram.": "Create a meeting or open an invitation from Telegram.",
