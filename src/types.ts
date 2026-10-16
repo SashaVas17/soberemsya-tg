@@ -166,7 +166,14 @@ export type MeetingListItem = {
 };
 
 // language: the choice saved on the server; null — «as in Telegram».
-export type AuthResult = { user: TelegramUser; startParam: string | null; isAdmin?: boolean; language?: "ru" | "en" | null };
+export type AuthResult = {
+  user: TelegramUser;
+  startParam: string | null;
+  isAdmin?: boolean;
+  language?: "ru" | "en" | null;
+  /** Open cities to choose from: the person has not chosen a city yet. */
+  cityChoice?: City[];
+};
 
 export type AdminStats = {
   generatedAt: string;

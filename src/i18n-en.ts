@@ -636,6 +636,9 @@ export const en: Record<string, string> = {
   "Минск нельзя закрыть: это город по умолчанию.": "Minsk cannot be closed: it is the default city.",
   "Такого города нет.": "There is no such city.",
   "Некорректный запрос.": "Invalid request.",
+  "Ваш город": "Your city",
+  "Позже": "Later",
+  "Покажем открытые встречи и места этого города. Сменить город можно в «Открытых встречах».": "We will show open meetings and places of this city. You can change it in Open meetings.",
 };
 
 /** English [singular, plural] by the Russian "one" form passed to plural(). */

@@ -226,6 +226,11 @@ let mockAdminCities: AdminCity[] = [
   { id: "grodno", name: "Гродно", isActive: false },
   { id: "mogilev", name: "Могилёв", isActive: false },
 ];
+// ?mockCityChoice=1: Grodno is open too and the city is not chosen yet, so the
+// app asks for one on start (e2e).
+const mockAsksCity = new URLSearchParams(globalThis.location?.search ?? "").has("mockCityChoice");
+if (mockAsksCity) mockAdminCities = mockAdminCities.map((city) => city.id === "grodno" ? { ...city, isActive: true } : city);
+let mockCityChosen = !mockAsksCity;
 /** Open cities, as the user's city choice lists them. */
 const openMockCities = (): City[] =>
   mockAdminCities.filter((city) => city.isActive).map(({ id, name }) => ({ id, name }));
@@ -310,7 +315,11 @@ let mockReports: AdminReport[] = [
 
 export const mockApi = {
   // Like the real server, the mock keeps the language across reloads.
-  auth: async () => ({ ...clone(auth), language: readMockLanguage() }),
+  auth: async () => ({
+    ...clone(auth),
+    language: readMockLanguage(),
+    ...(mockCityChosen ? {} : { cityChoice: openMockCities() }),
+  }),
   saveLanguage: async (value: "ru" | "en" | null) => {
     writeMockLanguage(value);
     return { language: value };
@@ -416,7 +425,10 @@ export const mockApi = {
   userCity: async (cityId?: string) => {
     const city = openMockCities().find((item) => item.id === cityId);
     if (cityId && !city) throw new Error("Этот город пока недоступен.");
-    if (city) mockCity = city;
+    if (city) {
+      mockCity = city;
+      mockCityChosen = true;
+    }
     return { city: mockCity, cities: openMockCities() } satisfies UserCity;
   },
   createJoinRequest: async (eventId: string) => {

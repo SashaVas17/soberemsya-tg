@@ -133,7 +133,7 @@ describe("API and worker wiring", () => {
     expect(api).toContain("language: parseLanguage(request.headers.get(LANGUAGE_HEADER)) ?? languageFromTelegram(profile.language_code),");
     expect(api).toContain('if (path === "/me/language") return ["PUT"];');
     expect(api).toContain('db.rpc("set_user_language", { p_user_id: auth.user.id, p_language: language })');
-    expect(api).toContain("language: await storedLanguage(auth.user.id),");
+    expect(api).toContain("language: profile.language,");
   });
 
   it("renders queued messages in the recipient's or organizer's language", () => {

@@ -54,6 +54,7 @@ import {
   cityHttpError,
   cityTimeZone,
   citiesFromRows,
+  firstCityChoice,
   type CityRow,
   parseCityActive,
   parseCityId,
@@ -812,15 +813,25 @@ async function userLanguagePreference(request: Request, auth: AuthContext) {
   return json({ language });
 }
 
-// Optional for sign-in: on a failed read the field is left out and the app
-// keeps its own choice.
-async function storedLanguage(userId: string) {
-  const { data, error } = await db.from("users").select("language").eq("id", userId).maybeSingle<{ language: string | null }>();
+// Optional for sign-in: on a failed read the fields are left out, the app
+// keeps its own language and does not ask for a city.
+async function signInProfile(userId: string) {
+  const [{ data, error }, cities] = await Promise.all([
+    db.from("users").select("language,city_id").eq("id", userId)
+      .maybeSingle<{ language: string | null; city_id: string | null }>(),
+    loadCities().catch((reason) => {
+      console.error("sign_in_cities_read_failed", reason instanceof Error ? reason.message : "unknown");
+      return null;
+    }),
+  ]);
   if (error) {
-    console.error("stored_language_read_failed", error.code);
-    return undefined;
+    console.error("sign_in_profile_read_failed", error.code);
+    return { language: undefined, cityChoice: undefined };
   }
-  return parseLanguage(data?.language);
+  return {
+    language: parseLanguage(data?.language),
+    cityChoice: (cities && firstCityChoice(cities, data?.city_id)) ?? undefined,
+  };
 }
 
 async function notificationSettings(request: Request, auth: AuthContext) {
@@ -1715,7 +1726,10 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
     const body = await readJsonObject(request, TELEGRAM_AUTH_BODY_LIMIT_BYTES);
     const auth = await authenticate(request, String(body.initData ?? ""));
     const start = parseStartParam(auth.startParam);
-    await track("app_open", auth.user.id, start?.type === "event" ? start.eventId : null, startParamSource(auth.startParam));
+    const [, profile] = await Promise.all([
+      track("app_open", auth.user.id, start?.type === "event" ? start.eventId : null, startParamSource(auth.startParam)),
+      signInProfile(auth.user.id),
+    ]);
     return json({
       isAdmin: isAdminTelegramId(auth.user.telegram_user_id, adminIds),
       user: {
@@ -1728,7 +1742,9 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
       },
       startParam: auth.startParam,
       // null: «as in Telegram» (or not chosen yet).
-      language: await storedLanguage(auth.user.id),
+      language: profile.language,
+      // Open cities when the person has not chosen one yet; left out otherwise.
+      cityChoice: profile.cityChoice,
     });
   }
 

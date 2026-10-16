@@ -239,3 +239,12 @@ test("the theme is chosen in settings", async ({ page }) => {
   await page.getByRole("button", { name: "Светлая" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 });
+
+test("the first start asks for a city once a second city is open", async ({ page }) => {
+  await page.goto("./?mockCityChoice=1");
+  await expect(page.getByRole("heading", { name: "Ваш город" })).toBeVisible();
+  await page.getByRole("button", { name: "Гродно" }).click();
+  await expect(page.getByRole("heading", { name: "Ближайшая встреча" })).toBeVisible();
+  await page.getByRole("button", { name: "Открытые встречи" }).first().click();
+  await expect(page.locator(".city-picker select")).toHaveValue("grodno");
+});

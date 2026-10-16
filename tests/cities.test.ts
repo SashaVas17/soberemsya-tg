@@ -6,6 +6,7 @@ import {
   cityHttpError,
   cityTimeZone,
   citiesFromRows,
+  firstCityChoice,
   DEFAULT_CITY_ID,
   DEFAULT_TIME_ZONE,
   parseCityActive,
@@ -165,5 +166,17 @@ describe("regional centres in «Каталог мест»", () => {
     expect(sql).toContain("p_city_id = 'minsk' and not p_is_active");
     expect(sql).toContain("grant execute on function public.admin_set_city_active(text, boolean) to service_role");
     expect(sql).not.toMatch(/c\.id = p_city_id and c\.is_active/);
+  });
+});
+
+describe("city choice on the first start", () => {
+  const cities = citiesFromRows(rows);
+  it("lists open cities only while the person has not chosen one", () => {
+    expect(firstCityChoice(cities, null)).toEqual([{ id: "minsk", name: "Минск" }, { id: "tokyo", name: "Токио" }]);
+    expect(firstCityChoice(cities, "minsk")).toBeNull();
+    // A city that has closed asks again.
+    expect(firstCityChoice(cities, "brest")).toHaveLength(2);
+    // One open city: nothing to choose.
+    expect(firstCityChoice(cities.filter((city) => city.id !== "tokyo"), null)).toBeNull();
   });
 });
