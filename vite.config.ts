@@ -1,6 +1,6 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
-import { contentSecurityPolicy } from "./csp";
+import { contentSecurityPolicy } from "./csp.ts";
 
 // Adds the CSP <meta> to the built index.html only (see csp.ts).
 function cspMeta(): Plugin {
