@@ -1,0 +1,155 @@
+import type { Status } from "./domain.ts";
+import type { Category } from "./categories.ts";
+import { DEFAULT_TIME_ZONE } from "./cities.ts";
+import { dateLocale, type Language } from "./i18n.ts";
+
+export type JoinRequestStatus = "none" | "pending" | "approved" | "rejected";
+
+export type PublicEventPreview = {
+  id: string;
+  visibility: "public";
+  title: string;
+  description: string;
+  status: Status;
+  dateSummary: string | null;
+  budgetLimit: number;
+  participantCount: number;
+  maxParticipants: number | null;
+  joinRequestStatus: JoinRequestStatus;
+  category: Category | null;
+};
+
+type PreviewEvent = {
+  id: string;
+  title: string;
+  description: string;
+  status: Status;
+  budgetLimit: number;
+  maxParticipants: number | null;
+};
+
+const formattersByZone = new Map<string, { date: Intl.DateTimeFormat; parts: Intl.DateTimeFormat }>();
+
+function formattersFor(timeZone: string, language: Language) {
+  const cacheKey = `${language}:${timeZone}`;
+  let formatters = formattersByZone.get(cacheKey);
+  if (!formatters) {
+    formatters = {
+      date: new Intl.DateTimeFormat(dateLocale(language), { day: "numeric", month: "long", timeZone }),
+      parts: new Intl.DateTimeFormat("en-CA", {
+        day: "2-digit",
+        month: "2-digit",
+        timeZone,
+        year: "numeric",
+      }),
+    };
+    formattersByZone.set(cacheKey, formatters);
+  }
+  return formatters;
+}
+
+type PreviewDate = {
+  day: string;
+  key: string;
+  label: string;
+  month: string;
+  monthKey: string;
+};
+
+function previewDate(startsAt: string, timeZone: string, language: Language): PreviewDate | null {
+  const value = new Date(startsAt);
+  if (Number.isNaN(value.getTime())) return null;
+
+  const { date: dateFormatter, parts: datePartsFormatter } = formattersFor(timeZone, language);
+  const parts = Object.fromEntries(
+    datePartsFormatter
+      .formatToParts(value)
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  );
+  const label = dateFormatter.format(value);
+  const [day = "", ...monthParts] = label.split(" ");
+  const key = `${parts.year}-${parts.month}-${parts.day}`;
+  return {
+    day,
+    key,
+    label,
+    month: monthParts.join(" "),
+    monthKey: `${parts.year}-${parts.month}`,
+  };
+}
+
+export function publicDateSummary(
+  startsAtValues: string[],
+  timeZone: string = DEFAULT_TIME_ZONE,
+  language: Language = "ru",
+) {
+  const dates = [...new Set(startsAtValues)]
+    .map((startsAt) => previewDate(startsAt, timeZone, language))
+    .filter((date): date is PreviewDate => date !== null)
+    .sort((left, right) => left.key.localeCompare(right.key))
+    .filter((date, index, all) => index === 0 || date.key !== all[index - 1].key);
+  const first = dates[0];
+  const last = dates.at(-1);
+  if (!first || !last) return null;
+  if (first.key === last.key) return first.label;
+  if (first.monthKey === last.monthKey)
+    return `${first.day}–${last.day} ${first.month}`;
+  return `${first.label} – ${last.label}`;
+}
+
+export function publicParticipantCount(
+  ownerUserId: string | null,
+  participantUserIds: Array<string | null>,
+) {
+  if (!ownerUserId) return participantUserIds.length;
+  return (
+    1 +
+    participantUserIds.filter(
+      (participantUserId) =>
+        participantUserId === null || participantUserId !== ownerUserId,
+    ).length
+  );
+}
+
+export function resolveJoinRequestStatus(
+  participantExists: boolean,
+  requestStatus: string | null | undefined,
+): JoinRequestStatus {
+  if (participantExists) return "approved";
+  if (requestStatus === "pending" || requestStatus === "rejected")
+    return requestStatus;
+  return "none";
+}
+
+export function buildPublicEventPreview(input: {
+  event: PreviewEvent;
+  startsAtValues: string[];
+  participantUserIds: Array<string | null>;
+  ownerUserId: string | null;
+  participantExists: boolean;
+  requestStatus: string | null | undefined;
+  timeZone?: string;
+  category?: Category | null;
+  language?: Language;
+}): PublicEventPreview {
+  return {
+    id: input.event.id,
+    visibility: "public",
+    title: input.event.title,
+    description: input.event.description,
+    status: input.event.status,
+    dateSummary: publicDateSummary(input.startsAtValues, input.timeZone, input.language),
+    budgetLimit: input.event.budgetLimit,
+    participantCount: publicParticipantCount(
+      input.ownerUserId,
+      input.participantUserIds,
+    ),
+    maxParticipants: input.event.maxParticipants,
+    joinRequestStatus: resolveJoinRequestStatus(
+      input.participantExists,
+      input.requestStatus,
+    ),
+    category: input.category ?? null,
+  };
+}

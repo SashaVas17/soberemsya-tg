@@ -1,0 +1,157 @@
+:root {
+  --color-bg: #fff3ef;
+  --color-header-bg: rgb(255 247 244 / 72%);
+  --color-surface: rgb(255 255 255 / 55%);
+  --color-surface-secondary: rgb(255 255 255 / 45%);
+  --color-surface-elevated: rgb(255 255 255 / 82%);
+  --color-surface-variant: rgb(28 16 34 / 8%);
+  --color-text: #1c1022;
+  --color-text-secondary: #4f3f54;
+  --color-text-muted: #6b5a6f;
+  --color-border: rgb(28 16 34 / 13%);
+  --color-input-bg: rgb(255 255 255 / 85%);
+  --color-input-border: rgb(28 16 34 / 18%);
+  --color-primary: #5428d6;
+  --color-primary-hover: #4519c0;
+  --color-primary-strong: #6a3cf0;
+  --color-primary-soft: rgb(106 60 240 / 12%);
+  --color-on-primary-soft: #4519c0;
+  --color-on-primary-strong: #ffffff;
+  --color-on-primary: #ffffff;
+  --color-brand: #5428d6;
+  --color-on-brand: #ffffff;
+  --color-warning: #a14a17;
+  --color-error: #c4262e;
+  --color-error-container: #ffdad6;
+  --color-success: #1f7a5a;
+  --color-disabled: #6b5a6f;
+  --color-surface-solid: #fffaf8;
+  --glass-border: rgb(255 255 255 / 85%);
+  --backdrop-blob-1: #ffb07f;
+  --backdrop-blob-2: #ff8ec0;
+  --backdrop-blob-3: #b7a2ff;
+  --backdrop-opacity: 0.85;
+  --font-display: "Unbounded Variable", "Golos Text Variable", ui-sans-serif, sans-serif;
+  --font-text: "Golos Text Variable", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --color-telegram: #1976b9;
+  --color-on-telegram: #ffffff;
+  --color-nav-bg: rgb(255 255 255 / 82%);
+  --color-nav-inactive: #6b5a6f;
+  --color-nav-active: #1c1022;
+  --action-primary-bg: var(--color-primary-strong);
+  --action-primary-fg: var(--color-on-primary-strong);
+  --action-secondary-bg: var(--color-surface-secondary);
+  --action-secondary-fg: var(--color-text);
+  --action-secondary-border: var(--color-border);
+  --action-tertiary-fg: var(--color-primary);
+  --action-danger-bg: #fff1ee;
+  --action-danger-fg: var(--color-error);
+  --action-danger-border: var(--color-error);
+  --action-danger-quiet-bg: transparent;
+  --action-danger-quiet-fg: var(--color-error);
+  --action-danger-quiet-border: color-mix(in srgb, var(--color-error) 42%, var(--color-border));
+  --action-disabled-bg: var(--color-surface-secondary);
+  --action-disabled-fg: var(--color-text-secondary);
+  --action-disabled-border: var(--color-border);
+  --selection-indicator-bg: var(--color-surface-secondary);
+  --selection-indicator-border: var(--color-border);
+  --selection-indicator-fg: var(--color-text-muted);
+  --selection-indicator-selected-bg: var(--color-primary-soft);
+  --selection-indicator-selected-border: var(--color-primary);
+  --selection-indicator-selected-fg: var(--color-on-primary-soft);
+  --shadow-surface: 0 12px 36px rgb(120 40 90 / 12%);
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --page-gutter: 16px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* Transitional aliases for screens that will move to semantic tokens phase by phase. */
+  --paper: var(--color-surface);
+  --canvas: var(--color-bg);
+  --ink: var(--color-text);
+  --muted: var(--color-text-secondary);
+  --line: var(--color-border);
+  --teal: var(--color-primary);
+  --teal-dark: var(--color-primary-hover);
+  --yellow: var(--color-warning);
+  --coral: var(--color-error);
+  --shadow: var(--shadow-surface);
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --color-bg: #130a1a;
+  --color-header-bg: rgb(24 14 32 / 70%);
+  --color-surface: rgb(255 255 255 / 8%);
+  --color-surface-secondary: rgb(255 255 255 / 5%);
+  --color-surface-elevated: rgb(255 255 255 / 12%);
+  --color-surface-variant: rgb(255 255 255 / 16%);
+  --color-text: #fbf3f7;
+  --color-text-secondary: #d9c9d7;
+  --color-text-muted: #b4a1b2;
+  --color-border: rgb(255 255 255 / 15%);
+  --color-input-bg: rgb(255 255 255 / 7%);
+  --color-input-border: rgb(255 255 255 / 20%);
+  --color-primary: #c8b6ff;
+  --color-primary-hover: #ddd1ff;
+  --color-primary-strong: #b49bff;
+  --color-primary-soft: rgb(180 155 255 / 18%);
+  --color-on-primary-soft: #ddd1ff;
+  --color-on-primary-strong: #140a24;
+  --color-on-primary: #140a24;
+  --color-brand: #c8b6ff;
+  --color-on-brand: #140a24;
+  --color-warning: #ffb38a;
+  --color-error: #ffb4ab;
+  --color-error-container: #5c1414;
+  --color-success: #7fe0b8;
+  --color-disabled: #b4a1b2;
+  --color-surface-solid: #221530;
+  --glass-border: rgb(255 255 255 / 15%);
+  --backdrop-blob-1: #b4502c;
+  --backdrop-blob-2: #a53273;
+  --backdrop-blob-3: #5b3fc4;
+  --backdrop-opacity: 0.7;
+  --color-nav-bg: rgb(30 18 40 / 82%);
+  --color-nav-inactive: #b4a1b2;
+  --color-nav-active: #fbf3f7;
+  --action-primary-bg: var(--color-primary-strong);
+  --action-primary-fg: var(--color-on-primary-strong);
+  --action-secondary-bg: var(--color-surface-elevated);
+  --action-secondary-fg: var(--color-text);
+  --action-secondary-border: var(--color-border);
+  --action-tertiary-fg: var(--color-primary);
+  --action-danger-bg: #3d1a22;
+  --action-danger-fg: var(--color-error);
+  --action-danger-border: var(--color-error);
+  --action-danger-quiet-bg: transparent;
+  --action-danger-quiet-fg: var(--color-error);
+  --action-danger-quiet-border: color-mix(in srgb, var(--color-error) 48%, var(--color-border));
+  --action-disabled-bg: var(--color-surface-secondary);
+  --action-disabled-fg: var(--color-text-secondary);
+  --action-disabled-border: var(--color-border);
+  --selection-indicator-bg: var(--color-surface-secondary);
+  --selection-indicator-border: var(--color-border);
+  --selection-indicator-fg: var(--color-text-muted);
+  --selection-indicator-selected-bg: var(--color-primary-soft);
+  --selection-indicator-selected-border: var(--color-primary);
+  --selection-indicator-selected-fg: var(--color-on-primary-soft);
+  --shadow-surface: 0 14px 40px rgb(0 0 0 / 40%);
+
+  color-scheme: dark;
+}
+
+@media (min-width: 701px) {
+  :root {
+    --page-gutter: 32px;
+  }
+}
