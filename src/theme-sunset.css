@@ -1286,3 +1286,28 @@ h1 {
     transition: none;
   }
 }
+
+.city-choice {
+  border-style: solid;
+  padding: 24px 20px;
+}
+.city-choice h1 {
+  font-size: 24px;
+  margin: 0;
+}
+.city-choice-list {
+  display: grid;
+  gap: 10px;
+  margin-top: var(--space-sm);
+}
+.city-choice-list .secondary-action {
+  align-items: center;
+  justify-self: stretch;
+  margin-top: 0;
+  display: inline-flex;
+  gap: 8px;
+  justify-content: center;
+}
+.city-choice-later {
+  justify-self: center;
+}

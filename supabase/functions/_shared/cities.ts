@@ -113,6 +113,17 @@ export function publicCity(city: City): PublicCity {
   return { id: city.id, name: city.name };
 }
 
+/**
+ * Open cities to choose from on sign-in: when the person has not chosen a
+ * city yet, or their city has closed, and there is more than one to choose.
+ * Null otherwise.
+ */
+export function firstCityChoice(cities: City[], chosenCityId: string | null | undefined): PublicCity[] | null {
+  const open = activeCities(cities);
+  if (open.length < 2 || open.some((city) => city.id === chosenCityId)) return null;
+  return open.map(publicCity);
+}
+
 export function userCityResponse(cities: City[], chosenCityId: string | null | undefined) {
   return {
     city: publicCity(resolveUserCity(cities, chosenCityId)),

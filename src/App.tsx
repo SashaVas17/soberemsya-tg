@@ -14,6 +14,7 @@ import { Home } from "./screens/Home";
 import { PublicMeetings } from "./screens/PublicMeetings";
 import { PlacesScreen } from "./screens/PlacesScreen";
 import { AdminVenuesScreen } from "./screens/AdminVenuesScreen";
+import { CityChoiceScreen } from "./screens/CityChoiceScreen";
 import { CreateEvent } from "./screens/CreateEvent";
 import type { CreatedGroup } from "./app-types";
 import { Created } from "./screens/Created";
@@ -41,6 +42,8 @@ export default function App() {
     void saveLanguageOnServer(next);
   }, [applyLanguagePreference]);
   const [auth, setAuth] = useState<AuthResult | null>(null);
+  // Cleared once a city is chosen; links to a meeting open without asking.
+  const [cityChoice, setCityChoice] = useState<AuthResult["cityChoice"]>(undefined);
   const [error, setError] = useState("");
   const [outside, setOutside] = useState(false);
   const [backOverride, setBackOverride] = useState<(() => void) | null>(null);
@@ -80,6 +83,7 @@ export default function App() {
         } else if (sync) void saveLanguageOnServer(sync.send ?? "auto");
         else if (result.language !== undefined) writeLanguageSynced(true);
         setAuth(result);
+        if (result.cityChoice) setCityChoice(result.cityChoice);
         if (result.startParam?.startsWith("event_"))
           navigate(`/event/${result.startParam.slice(6)}`, true);
         // A report notification for the administrator.
@@ -124,6 +128,10 @@ export default function App() {
         <Loading label={t("Проверяем Telegram…")} />
       </main>
     );
+  // Asked before anything is created in the wrong city; a link to a meeting
+  // opens straight away.
+  if (cityChoice && !path.startsWith("/event/"))
+    return <CityChoiceScreen cities={cityChoice} onDone={() => setCityChoice(undefined)} />;
   // A new language re-creates the screen, so texts kept in its state
   // (errors, loaded messages) are shown again in that language.
   const keyed = (screen: ReactElement) => <Fragment key={currentLanguage}>{screen}</Fragment>;

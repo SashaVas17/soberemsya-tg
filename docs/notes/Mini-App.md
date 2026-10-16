@@ -9,7 +9,8 @@ React + Vite + TypeScript. Открывается как `https://t.me/flocklyap
 ## Структура `src/`
 - `App.tsx` — маршрутизация и каркас; экраны — `src/screens/`:
   `Home`, `CreateEvent`, `Created`, `ParticipantEvent` (голосование), `Result`, `Manage`, `MyEvents`,
-  `PublicMeetings` (открытые встречи), `PublicPreviewScreen`, `NotificationSettingsScreen`,
+  `PublicMeetings` (открытые встречи), `CityChoiceScreen` (выбор города при первом входе, пока город не выбран и
+  открыто больше одного; ссылки на встречу открываются без него), `PublicPreviewScreen`, `NotificationSettingsScreen`,
   `AdminStatsScreen` (только администратор), `SystemScreens` (ошибки, «сессия устарела», вне Telegram).
   `PlacesScreen` («Куда сходить», вкладка «Места», `/places`; старый путь `/map` ведёт туда же),
   `AdminVenuesScreen` (`/admin/venues`, только администратор).
