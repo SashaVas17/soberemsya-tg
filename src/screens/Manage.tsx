@@ -171,7 +171,6 @@ export function Manage({
     <main className="manage-screen">
       <Header navigate={navigate} onBack={onBack} title={t("Управление встречей")} variant="nested" />
       <section className="manage-intro">
-        <p className="create-step-label">{t("Управление встречей")}</p>
         <h1>{event.title}</h1>
         {event.description && <p className="manage-description">{event.description}</p>}
         <div className="event-meta">
@@ -200,7 +199,6 @@ export function Manage({
         )}
         <section className="manage-next-action" aria-labelledby="manage-next-action-title">
           <div>
-            <p className="manage-section-kicker">{t("Следующий шаг")}</p>
             <h2 id="manage-next-action-title">
               {event.status === "decided" ? t("Решение принято") : t("Подготовьте итог встречи")}
             </h2>
@@ -566,7 +564,7 @@ export function Manage({
         </section>
         <div className="action-row manage-actions">
           <div className="manage-secondary-actions">
-            <p className="manage-section-kicker">{t("Дополнительно")}</p>
+            <h3 className="manage-subheading">{t("Дополнительно")}</h3>
             <button
               className="secondary-action"
               onClick={() => shareEvent(event.id, invitePrepared)}
@@ -583,7 +581,7 @@ export function Manage({
           </div>
           {event.status !== "cancelled" && (
             <div className="manage-secondary-actions">
-              <p className="manage-section-kicker">{t("Отмена")}</p>
+              <h3 className="manage-subheading">{t("Отмена")}</h3>
               <p>{t("Встреча останется в истории, участники получат уведомление.")}</p>
               <button
                 className="secondary-action"
@@ -599,7 +597,7 @@ export function Manage({
             </div>
           )}
           <div className="manage-danger-zone">
-            <p className="manage-section-kicker">{t("Удаление")}</p>
+            <h3 className="manage-subheading">{t("Удаление")}</h3>
             <p>{t("Удаление встречи необратимо для всех участников.")}</p>
             <button
               className="danger-button"

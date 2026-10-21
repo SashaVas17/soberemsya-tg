@@ -155,7 +155,7 @@ describe("meeting list architecture", () => {
     expect(tokens).toContain("--color-bg: #130a1a");
     expect(tokens).toContain("--color-primary-strong: #b49bff");
     expect(appSource).toContain("user.firstName");
-    expect(appSource).toContain("meetingCount ?? \"—\"");
+    expect(appSource).toContain("value={meetingCount ?? undefined}");
     expect(appSource).toContain("<MeetingGroup");
     expect(appSource).not.toContain("Поездка в горы");
   });

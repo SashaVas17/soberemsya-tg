@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { BarChart3, Bell, CalendarDays, Flag, Plus, Store } from "lucide-react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { BarChart3, Bell, CalendarDays, ChevronRight, Flag, Plus, Store } from "lucide-react";
 import { api } from "../api";
 import { BottomNavigation } from "../BottomNavigation";
 import type { AuthResult, MeetingListItem } from "../types";
@@ -46,70 +46,15 @@ export function Home({
     <main className="screen-with-bottom-navigation">
       <Header navigate={navigate} variant="home" />
       <section className="home-page">
-        <h1 className="home-greeting">{t("Привет,")} {user.firstName} 👋</h1>
-        <div className="home-action-grid">
-          <button
-            className="home-create-card"
-            onClick={() => navigate("/create")}
-            type="button"
-          >
-            <span className="home-action-icon"><Plus size={28} /></span>
-            <span className="home-create-copy">
-              <strong>{t("Создать встречу")}</strong>
-              <small>{t("Организуйте новое событие с друзьями")}</small>
-            </span>
-            <span className="home-create-cta">
-              <Plus aria-hidden="true" size={18} />
-              {t("Начать")}</span>
-          </button>
-          <button
-            className="home-meetings-shortcut"
-            onClick={() => navigate("/my-events")}
-            type="button"
-          >
-            <CalendarDays size={25} />
-            <span>{t("Мои встречи")}</span>
-            <strong>{meetingCount ?? "—"}</strong>
-          </button>
-        </div>
+        <h1 className="home-greeting">{t("Привет,")} {user.firstName}</h1>
         <button
-          className="home-settings-link"
-          onClick={() => navigate("/settings/notifications")}
+          className="primary-action home-create-button"
+          onClick={() => navigate("/create")}
           type="button"
         >
-          <Bell size={18} />
-          <span>{t("Уведомления от бота")}</span>
+          <Plus aria-hidden="true" size={20} />
+          {t("Создать встречу")}
         </button>
-        {isAdmin && (
-          <button
-            className="home-settings-link"
-            onClick={() => navigate("/admin/stats")}
-            type="button"
-          >
-            <BarChart3 size={18} />
-            <span>{t("Статистика")}</span>
-          </button>
-        )}
-        {isAdmin && (
-          <button
-            className="home-settings-link"
-            onClick={() => navigate("/admin/reports")}
-            type="button"
-          >
-            <Flag size={18} />
-            <span>{t("Жалобы")}</span>
-          </button>
-        )}
-        {isAdmin && (
-          <button
-            className="home-settings-link"
-            onClick={() => navigate("/admin/venues")}
-            type="button"
-          >
-            <Store size={18} />
-            <span>{t("Каталог мест")}</span>
-          </button>
-        )}
         <div className="home-section-heading">
           <h2>{t("Ближайшая встреча")}</h2>
           <button onClick={() => navigate("/my-events")} type="button">{t("Все")}</button>
@@ -129,8 +74,44 @@ export function Home({
             navigate={navigate}
           />
         )}
+        <nav className="home-links" aria-label={t("Разделы")}>
+          <HomeLink icon={<CalendarDays size={18} />} label={t("Мои встречи")} onClick={() => navigate("/my-events")} value={meetingCount ?? undefined} />
+          <HomeLink icon={<Bell size={18} />} label={t("Уведомления от бота")} onClick={() => navigate("/settings/notifications")} />
+        </nav>
+        {isAdmin && (
+          <>
+            <h2 className="home-links-heading">{t("Администрирование")}</h2>
+            <nav className="home-links" aria-label={t("Администрирование")}>
+              <HomeLink icon={<BarChart3 size={18} />} label={t("Статистика")} onClick={() => navigate("/admin/stats")} />
+              <HomeLink icon={<Flag size={18} />} label={t("Жалобы")} onClick={() => navigate("/admin/reports")} />
+              <HomeLink icon={<Store size={18} />} label={t("Каталог мест")} onClick={() => navigate("/admin/venues")} />
+            </nav>
+          </>
+        )}
       </section>
       <BottomNavigation currentPath="/" navigate={navigate} />
     </main>
+  );
+}
+
+/** One row of a grouped list: icon, label, optional count, chevron. */
+function HomeLink({
+  icon,
+  label,
+  onClick,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  value?: number;
+}) {
+  return (
+    <button className="home-link" onClick={onClick} type="button">
+      {icon}
+      <span>{label}</span>
+      {value !== undefined && <span className="home-link-value">{value}</span>}
+      <ChevronRight aria-hidden="true" className="home-link-chevron" size={18} />
+    </button>
   );
 }

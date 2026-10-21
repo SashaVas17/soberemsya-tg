@@ -28,7 +28,7 @@ export function Created({
       <section className="created-page">
         <span className="created-success-icon"><Check size={52} strokeWidth={2.4} /></span>
         <div className="created-copy">
-          <h1>{t("Встреча создана 🎉")}</h1>
+          <h1>{t("Встреча создана")}</h1>
           {event?.visibility === "public" && <span className="visibility-badge">{t("Открытая")}</span>}
           <p>{t("Всё готово! Теперь можно приглашать друзей.")}</p>
           {group?.attached && (

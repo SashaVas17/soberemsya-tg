@@ -15,7 +15,7 @@ test("organizer creates a meeting and lands on its management screen", async ({ 
   await page.getByRole("button", { name: "Продолжить" }).click();
   await page.getByRole("button", { name: "Создать встречу" }).click();
 
-  await expect(page.getByText("Встреча создана 🎉")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Встреча создана" })).toBeVisible();
   await expect(page.getByText(/startapp=event_evt_/)).toBeVisible();
   await page.getByRole("button", { name: "Перейти к встрече" }).click();
   await expect(page).toHaveURL(/#\/manage\/evt_/);
@@ -126,7 +126,7 @@ test("organizer chooses a category and the open feed shows it", async ({ page })
   await page.getByRole("button", { name: "Добавить", exact: true }).click();
   await page.getByRole("button", { name: "Продолжить" }).click();
   await page.getByRole("button", { name: "Создать встречу" }).click();
-  await expect(page.getByText("Встреча создана 🎉")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Встреча создана" })).toBeVisible();
 
   await openFeed(page);
   const card = page.getByRole("button", { name: /E2E настолки/ });
@@ -192,7 +192,7 @@ test("a venue card starts a meeting with that place, and the picker adds another
   await page.getByRole("button", { name: "Добавить «Игротека»" }).click();
   await expect(page.getByPlaceholder("Название места")).toHaveCount(2);
   await page.getByRole("button", { name: "Создать встречу" }).click();
-  await expect(page.getByText("Встреча создана 🎉")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Встреча создана" })).toBeVisible();
 });
 
 test("the places map shows venues and open meetings and switches back to the list", async ({ page }) => {

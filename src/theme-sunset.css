@@ -1,5 +1,6 @@
 /*
- * Flockly «Закат» (design A2): warm blurred backdrop, glass chrome, violet accent.
+ * Flockly «Закат», cleaned (2026-10-21): flat ground, opaque surfaces with 1px borders,
+ * no glass, glows or gradients; shadows only on what floats (dialogs, map cards).
  * Loaded after styles.css; colours live in design-tokens.css.
  */
 
@@ -12,25 +13,7 @@ body {
   font-family: var(--font-text);
 }
 
-/* Soft colour fields behind the whole app; content surfaces are translucent over them. */
-.app-shell {
-  isolation: isolate;
-  position: relative;
-}
-.app-shell::before {
-  background:
-    radial-gradient(70vmax 70vmax at -12% -8%, var(--backdrop-blob-1) 0, transparent 62%),
-    radial-gradient(64vmax 64vmax at 112% 38%, var(--backdrop-blob-2) 0, transparent 62%),
-    radial-gradient(70vmax 70vmax at 8% 108%, var(--backdrop-blob-3) 0, transparent 62%);
-  content: "";
-  inset: 0;
-  opacity: var(--backdrop-opacity);
-  pointer-events: none;
-  position: fixed;
-  z-index: -1;
-}
-
-/* Screen containers let the backdrop show through. */
+/* Screens sit on the app ground. */
 .home-page,
 .my-meetings-page,
 .public-meetings-page,
@@ -72,12 +55,9 @@ h1 {
   font-weight: 700;
 }
 
-/* Glass chrome: only elements that float above scrolling content get the blur. */
 .topbar {
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  backdrop-filter: blur(20px) saturate(160%);
-  background: var(--color-header-bg);
-  border-bottom: 1px solid var(--glass-border);
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .icon-action {
@@ -96,13 +76,6 @@ h1 {
   min-height: 50px;
   padding: 0 20px;
 }
-.primary-action {
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--action-primary-bg) 38%, transparent);
-}
-.secondary-action {
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
-}
 
 /* Dialogs sit over other content, so they stay opaque. */
 .participant-remove-dialog,
@@ -111,20 +84,23 @@ h1 {
   border-color: var(--glass-border);
 }
 
-/* Floating glass navigation with the create button in the middle. */
+/* Navigation pinned to the bottom edge, with the create button in the middle. */
 .bottom-navigation {
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  backdrop-filter: blur(28px) saturate(180%);
   background: var(--color-nav-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-full);
-  bottom: max(14px, env(safe-area-inset-bottom));
-  box-shadow: var(--shadow-surface);
-  left: max(14px, env(safe-area-inset-left));
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  border-radius: 0;
+  bottom: 0;
+  box-shadow: none;
+  left: 0;
+  margin: 0;
+  max-width: none;
+  padding: 4px max(8px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  right: 0;
+}
+.bottom-navigation-inner {
   margin: 0 auto;
   max-width: 520px;
-  padding: 6px;
-  right: max(14px, env(safe-area-inset-right));
 }
 .bottom-navigation-inner {
   align-items: center;
@@ -146,9 +122,9 @@ h1 {
   white-space: nowrap;
 }
 .bottom-navigation-item.selected {
-  background: var(--color-primary-soft);
+  background: none;
   color: var(--color-nav-active);
-  font-weight: 700;
+  font-weight: 650;
 }
 /* The create button sits inside the bar, centred between two tabs on each side,
    without a ring or glow so it does not outshine the selected tab. */
@@ -157,7 +133,6 @@ h1 {
   background: var(--action-primary-bg);
   border: 0;
   border-radius: var(--radius-full);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--action-primary-bg) 22%, transparent);
   color: var(--action-primary-fg);
   cursor: pointer;
   display: inline-flex;
@@ -170,9 +145,6 @@ h1 {
 .bottom-navigation-create:active {
   transform: scale(0.96);
 }
-:root[data-theme="dark"] .bottom-navigation-create {
-  box-shadow: none;
-}
 @media (prefers-reduced-motion: reduce) {
   .bottom-navigation-create {
     transition: none;
@@ -183,95 +155,92 @@ h1 {
   outline-offset: 3px;
 }
 .screen-with-bottom-navigation {
-  padding-bottom: calc(112px + env(safe-area-inset-bottom));
+  padding-bottom: calc(96px + env(safe-area-inset-bottom));
 }
 
-/* Without blur support or with reduced transparency, glass becomes solid. */
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .topbar,
-  .bottom-navigation {
-    background: var(--color-surface-solid);
-  }
+/* Home: one primary action, the nearest meeting, then grouped links. */
+.home-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
-@media (prefers-reduced-transparency: reduce) {
-  :root {
-    --color-surface: var(--color-surface-solid);
-    --color-header-bg: var(--color-surface-solid);
-    --color-nav-bg: var(--color-surface-solid);
-  }
-  .app-shell::before {
-    display: none;
-  }
+.home-page > * {
+  margin-bottom: 0;
+  margin-top: 0;
 }
-
-/* Home: glass cards over the sunset backdrop. */
 .home-greeting {
-  font-size: clamp(24px, 6.6vw, 34px);
+  font-size: 24px;
+  line-height: 1.2;
 }
-.home-create-card {
-  background:
-    radial-gradient(120% 90% at 100% 0, color-mix(in srgb, var(--accent-warm) 55%, transparent) 0, transparent 60%),
-    var(--action-primary-bg);
-  border-radius: var(--radius-xl);
-  box-shadow: 0 16px 36px color-mix(in srgb, var(--action-primary-bg) 35%, transparent);
-  color: var(--action-primary-fg);
+.home-section-heading {
+  margin-top: 8px;
 }
-.home-create-card .home-action-icon {
-  background: color-mix(in srgb, var(--action-primary-fg) 18%, transparent);
-  color: var(--action-primary-fg);
+.home-create-button {
+  gap: 8px;
+  width: 100%;
 }
-.home-create-card small {
-  color: color-mix(in srgb, var(--action-primary-fg) 82%, transparent);
+.home-links-heading {
+  color: var(--color-text-secondary);
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 500;
+  margin: 8px 0 -8px;
 }
-.home-create-card strong {
-  font-family: var(--font-display);
-  font-size: 19px;
-  font-weight: 650;
-}
-.home-create-cta {
-  align-items: center;
-  align-self: flex-start;
-  background: color-mix(in srgb, var(--action-primary-fg) 18%, transparent);
-  border-radius: var(--radius-full);
-  color: var(--action-primary-fg);
-  display: inline-flex;
-  font-size: 14px;
-  font-weight: 650;
-  gap: 6px;
-  padding: 8px 14px;
-}
-.home-meetings-shortcut,
-.home-settings-link {
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  backdrop-filter: blur(18px) saturate(160%);
+.home-links {
   background: var(--color-surface);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  display: grid;
+  overflow: hidden;
 }
-.home-meetings-shortcut strong,
+.home-link {
+  align-items: center;
+  background: none;
+  border: 0;
+  color: var(--color-text);
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  font-size: 15px;
+  gap: 12px;
+  grid-template-columns: 18px minmax(0, 1fr) auto auto;
+  min-height: 52px;
+  padding: 0 14px 0 16px;
+  text-align: left;
+}
+.home-link + .home-link {
+  border-top: 1px solid var(--color-border);
+}
+.home-link > svg:first-child {
+  color: var(--color-text-secondary);
+}
+.home-link > span:nth-child(2) {
+  grid-column: 2;
+}
+.home-link-value {
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  grid-column: 3;
+}
+.home-link-chevron {
+  color: var(--color-text-muted);
+  grid-column: 4;
+}
+.home-link:active {
+  background: var(--color-surface-variant);
+}
+.home-link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
 .home-section-heading h2 {
   font-family: var(--font-display);
-}
-.home-section-heading h2 {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 650;
-}
-.home-settings-link {
-  border-radius: var(--radius-full);
-}
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .home-meetings-shortcut,
-  .home-settings-link,
-  .meeting-card {
-    background: var(--color-surface-solid);
-  }
 }
 
 /* My meetings: pill segments, glass cards and states. */
 .meeting-segments {
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  backdrop-filter: blur(18px) saturate(160%);
   background: var(--color-surface);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-full);
@@ -283,30 +252,17 @@ h1 {
 .meeting-segments button.selected {
   background: var(--action-primary-bg);
   border-color: transparent;
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--action-primary-bg) 35%, transparent);
   color: var(--action-primary-fg);
 }
 .my-meetings-page .empty-state,
 .my-meetings-page > .state-card,
 .my-meetings-pagination-error {
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  backdrop-filter: blur(18px) saturate(160%);
   background: var(--color-surface);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-surface);
 }
 .my-meetings-load-more {
   width: 100%;
-}
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .meeting-segments,
-  .my-meetings-page .meeting-card,
-  .my-meetings-page .empty-state,
-  .my-meetings-page > .state-card,
-  .my-meetings-pagination-error {
-    background: var(--color-surface-solid);
-  }
 }
 .meeting-card-title {
   -webkit-box-orient: vertical;
@@ -327,12 +283,9 @@ h1 {
 .public-feed-pagination-error,
 .public-preview-details,
 .public-preview-notice {
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  backdrop-filter: blur(18px) saturate(160%);
   background: var(--color-surface);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-surface);
 }
 .public-feed-load-more {
   width: 100%;
@@ -344,29 +297,18 @@ h1 {
   font-weight: 650;
   padding: 6px 14px;
 }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .public-meetings-page .meeting-card,
-  .public-meetings-page .empty-state,
-  .public-meetings-page > .state-card,
-  .public-feed-pagination-error,
-  .public-preview-details,
-  .public-preview-notice {
-    background: var(--color-surface-solid);
-  }
-}
 
 /* Meeting screen (voting): glass panels, tile options, sticky submit. */
 .voting-form .panel,
 .voting-screen .panel,
 .participant-next-action,
-.event-meta,
 .voting-saved-page {
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  backdrop-filter: blur(18px) saturate(160%);
   background: var(--color-surface);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-surface);
+}
+.voting-intro > .secondary-action {
+  margin-top: 12px;
 }
 .voting-screen .panel h2 {
   font-family: var(--font-display);
@@ -383,7 +325,6 @@ h1 {
 .availability-card.available {
   background: var(--color-primary-soft);
   border-color: var(--color-primary);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-primary) 22%, transparent);
 }
 .voting-screen input,
 .voting-screen textarea,
@@ -397,15 +338,6 @@ h1 {
   position: sticky;
   width: 100%;
   z-index: 5;
-}
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .voting-form .panel,
-  .voting-screen .panel,
-  .participant-next-action,
-  .event-meta,
-  .voting-saved-page {
-    background: var(--color-surface-solid);
-  }
 }
 .voting-form .availability-grid {
   gap: 10px;
@@ -423,18 +355,14 @@ h1 {
   border-color: var(--color-primary);
 }
 .voting-form .form-submit {
-  box-shadow: 0 12px 30px color-mix(in srgb, var(--action-primary-bg) 40%, transparent);
 }
 
 /* Create wizard: glass step panels, pill progress, rounded fields. */
 .create-wizard .wizard-panel,
 .create-wizard .wizard-time-panel {
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  backdrop-filter: blur(18px) saturate(160%);
   background: var(--color-surface);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-surface);
 }
 .create-wizard input,
 .create-wizard textarea {
@@ -450,7 +378,7 @@ h1 {
   border-radius: var(--radius-full);
 }
 .create-intro .step-progress span {
-  background: linear-gradient(90deg, var(--action-primary-bg), var(--accent-warm));
+  background: var(--action-primary-bg);
   border-radius: var(--radius-full);
 }
 .create-wizard .create-section-heading h2,
@@ -460,13 +388,6 @@ h1 {
   font-weight: 650;
 }
 .create-wizard .wizard-actions .primary-action {
-  box-shadow: 0 12px 30px color-mix(in srgb, var(--action-primary-bg) 40%, transparent);
-}
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .create-wizard .wizard-panel,
-  .create-wizard .wizard-time-panel {
-    background: var(--color-surface-solid);
-  }
 }
 
 /* Result and created screens. */
@@ -475,18 +396,14 @@ h1 {
 .result-grid .panel,
 .created-link-card,
 .group-create-note {
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  backdrop-filter: blur(18px) saturate(160%);
   background: var(--color-surface);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-surface);
 }
 .result-success-icon,
 .created-success-icon {
-  background: linear-gradient(135deg, var(--action-primary-bg), var(--accent-warm));
+  background: var(--action-primary-bg);
   border-radius: var(--radius-full);
-  box-shadow: 0 12px 30px color-mix(in srgb, var(--action-primary-bg) 38%, transparent);
   color: var(--action-primary-fg);
 }
 .result-event-title,
@@ -501,24 +418,11 @@ h1 {
 }
 .result-actions .primary-action,
 .created-actions .primary-action {
-  box-shadow: 0 12px 30px color-mix(in srgb, var(--action-primary-bg) 40%, transparent);
-}
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .result-summary-card,
-  .result-page > .panel,
-  .result-grid .panel,
-  .created-link-card,
-  .group-create-note {
-    background: var(--color-surface-solid);
-  }
 }
 
 /* Manage meeting: glass cards, calmer headings, rounded controls. */
 .manage-card,
 .manage-danger-zone {
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  backdrop-filter: blur(18px) saturate(160%);
-  box-shadow: var(--shadow-surface);
 }
 .manage-card {
   background: var(--color-surface);
@@ -552,9 +456,6 @@ h1 {
   border-style: dashed;
 }
 .manage-next-action {
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  backdrop-filter: blur(18px) saturate(160%);
-  box-shadow: var(--shadow-surface);
 }
 .manage-next-action h2 {
   font-family: var(--font-display);
@@ -564,12 +465,6 @@ h1 {
   border-radius: var(--radius-xl);
 }
 .manage-card .primary-action {
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--action-primary-bg) 38%, transparent);
-}
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .manage-card {
-    background: var(--color-surface-solid);
-  }
 }
 .manage-card > h2 > span {
   flex: 1 1 0;
@@ -588,12 +483,9 @@ h1 {
 .state-card,
 .outside-screen .state-card,
 .home-preview {
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
-  backdrop-filter: blur(18px) saturate(160%);
   background: var(--color-surface);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-surface);
 }
 .stat-card strong,
 .stat-day-values,
@@ -601,7 +493,7 @@ h1 {
   font-family: var(--font-display);
 }
 .stat-day-bar span {
-  background: linear-gradient(90deg, var(--action-primary-bg), var(--accent-warm));
+  background: var(--action-primary-bg);
   border-radius: var(--radius-full);
 }
 .stat-days {
@@ -614,32 +506,17 @@ h1 {
 .state-icon {
   border-radius: var(--radius-full);
 }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .settings-permission,
-  .settings-toggle,
-  .settings-note,
-  .stat-card,
-  .stat-days,
-  .stat-note,
-  .state-card,
-  .home-preview {
-    background: var(--color-surface-solid);
-  }
-}
 
 /* List cards stay blur-free: many stacked blur layers are slow on weak devices. */
 .meeting-card {
   background: var(--color-surface-elevated);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-surface);
 }
 
 /* City of the open meetings feed: a label, or a picker when several cities are open. */
 .city-chip {
   align-items: center;
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
   background: var(--color-surface);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-full);
@@ -686,8 +563,6 @@ h1 {
 }
 .feed-search {
   align-items: center;
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
   background: var(--color-surface);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-full);
@@ -1135,8 +1010,6 @@ h1 {
   z-index: 2;
 }
 .map-selection .meeting-card {
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
   background: color-mix(in srgb, var(--color-surface) 94%, transparent);
   box-shadow: 0 10px 30px rgb(0 0 0 / 0.18);
   padding-right: 48px;
