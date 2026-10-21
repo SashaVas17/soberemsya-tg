@@ -40,6 +40,17 @@ Telegram Mini App для организации встреч **Flockly** (бот
   ревью UI; `better-icons` (github.com/better-auth/better-icons, `033316e`) — поиск иконок Iconify. В проекте
   иконки — `lucide-react`: искать с `--prefix lucide`, SVG не вставлять, если иконка есть в `lucide-react`.
   CLI: `npx -y better-icons ...`; в облаке нужен доступ к `api.iconify.design` в сетевой политике окружения.
+- Анти-слоп скиллы (2026-10-21, MIT, скопированы без изменений, лицензии внутри папок):
+  `taste-skill` (github.com/Leonxlnx/taste-skill, `6010f91`; имя скилла `design-taste-frontend`) — для экранов
+  приложения читать `references/app-screens.md` (свои правила: без стекла, градиентов, эмодзи, надписей капсом,
+  иконок в цветных кружках); `node .claude/skills/taste-skill/scripts/lint.mjs src` и `inspect.mjs <url> --app`
+  (нужен Chrome: `/opt/pw-browsers`); `assets.mjs` ходит в открытые музейные архивы — не нужен.
+  `design-motion-principles` (github.com/kylezantos/design-motion-principles, `4a9ca87`) — аудит и создание анимаций.
+  `ui-ux-pro-max` (github.com/nextlevelbuilder/ui-ux-pro-max-skill, `3eccfd8`) — справочник с поиском:
+  `python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<запрос>" --domain ux` (в SKILL.md путь через
+  `${CLAUDE_PLUGIN_ROOT}` — у нас это корень репозитория).
+  Справочник `.claude/references/awesome-claude-design/` (github.com/rohitg00/awesome-claude-design, `7f60ee5`, без
+  картинок) — примеры DESIGN.md чужих дизайн-систем, только как референсы.
 
 ## Неизменные правила
 
