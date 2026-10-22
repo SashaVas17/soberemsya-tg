@@ -9,8 +9,14 @@ export function mergeMeetingItems(
   return [...byId.values()];
 }
 
-/** The time a meeting is expected at: the chosen one, else the most popular. */
-export function meetingTime(item: Pick<MeetingListItem, "bestTime" | "finalTime">) {
+/**
+ * The time a meeting is expected at. A decided meeting has only its chosen
+ * time (none when only a place was chosen); while answers are collected, the
+ * most popular option stands in. A server before finalTime (2026-10-22) sends
+ * no field: then the popular option is the best guess for a decided meeting too.
+ */
+export function meetingTime(item: Pick<MeetingListItem, "status" | "bestTime" | "finalTime">) {
+  if (item.status === "decided" && item.finalTime !== undefined) return item.finalTime;
   return item.finalTime ?? item.bestTime;
 }
 

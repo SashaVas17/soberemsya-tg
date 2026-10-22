@@ -9,7 +9,7 @@ export type TicketDate = {
   month: string;
   weekday: string;
   time: string;
-  /** «Сегодня», «Завтра», «Через 3 дня»; null for a past date. */
+  /** «Сегодня», «Завтра», «Через 3 дня»; null once the time has passed. */
   soon: string | null;
 };
 
@@ -18,20 +18,36 @@ const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(),
 /** "окт." → "окт": short month and weekday names lose the trailing dot. */
 const short = (value: string) => value.replace(/\.$/, "");
 
+// One set of formatters per locale: a list renders many cards.
+const formatters = new Map<string, { month: Intl.DateTimeFormat; weekday: Intl.DateTimeFormat; time: Intl.DateTimeFormat }>();
+function formattersFor(code: string) {
+  let set = formatters.get(code);
+  if (!set) {
+    set = {
+      month: new Intl.DateTimeFormat(code, { month: "short" }),
+      weekday: new Intl.DateTimeFormat(code, { weekday: "short" }),
+      time: new Intl.DateTimeFormat(code, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }),
+    };
+    formatters.set(code, set);
+  }
+  return set;
+}
+
 export function ticketDate(startsAt: string, now: Date = new Date()): TicketDate | null {
   const date = new Date(startsAt);
   if (Number.isNaN(date.getTime())) return null;
   const days = Math.round((startOfDay(date) - startOfDay(now)) / 86_400_000);
+  const format = formattersFor(locale());
   const soon =
-    days < 0 ? null
+    date.getTime() < now.getTime() ? null
       : days === 0 ? t("Сегодня")
         : days === 1 ? t("Завтра")
           : t("Через {days}", { days: plural(days, "день", "дня", "дней") });
   return {
     day: String(date.getDate()),
-    month: short(new Intl.DateTimeFormat(locale(), { month: "short" }).format(date)),
-    weekday: short(new Intl.DateTimeFormat(locale(), { weekday: "short" }).format(date)),
-    time: new Intl.DateTimeFormat(locale(), { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(date),
+    month: short(format.month.format(date)),
+    weekday: short(format.weekday.format(date)),
+    time: format.time.format(date),
     soon,
   };
 }

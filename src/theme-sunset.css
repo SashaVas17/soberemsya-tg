@@ -1377,6 +1377,14 @@ h1.topbar-title {
 .ticket-date-empty {
   color: var(--color-text-muted);
 }
+/* Not decided yet: the leading option's date, muted and with a dashed edge. */
+.ticket-date-tentative {
+  background: transparent;
+}
+.ticket-date-tentative .ticket-day,
+.ticket-date-tentative .ticket-weekday {
+  color: var(--color-text-muted);
+}
 .ticket-month,
 .ticket-weekday {
   color: var(--color-text-secondary);

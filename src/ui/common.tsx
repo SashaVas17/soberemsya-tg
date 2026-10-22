@@ -169,8 +169,9 @@ export function MeetingGroup({
           const card = meetingCardData(item);
           const time = meetingTime(item);
           const date = time ? ticketDate(time.startsAt) : null;
+          // Only a decided meeting has a date; before that the leading option is shown muted.
           const decided = card.status === "decided";
-          const soon = date?.soon ?? null;
+          const soon = decided ? date?.soon ?? null : null;
           const when = [decided ? date?.time : card.timeSummary, card.placeSummary]
             .filter(Boolean)
             .join(" · ");
@@ -182,7 +183,7 @@ export function MeetingGroup({
               type="button"
             >
               {date ? (
-                <span aria-hidden="true" className="ticket-date">
+                <span aria-hidden="true" className={`ticket-date${decided ? "" : " ticket-date-tentative"}`}>
                   <span className="ticket-month">{date.month}</span>
                   <span className="ticket-day">{date.day}</span>
                   <span className="ticket-weekday">{date.weekday}</span>
@@ -194,7 +195,11 @@ export function MeetingGroup({
               )}
               <span className="ticket-body">
                 <strong className="meeting-card-title">{card.title}</strong>
-                {time && <span className="sr-only">{formatSlot(time.startsAt)}</span>}
+                {time && (
+                  <span className="sr-only">
+                    {decided ? formatSlot(time.startsAt) : t("Пока лидирует: {time}", { time: formatSlot(time.startsAt) })}
+                  </span>
+                )}
                 {(soon || when) && (
                   <span className="ticket-when">
                     {soon && <b>{soon}</b>}
