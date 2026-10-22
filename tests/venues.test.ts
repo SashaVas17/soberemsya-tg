@@ -177,7 +177,7 @@ describe("venue curation input", () => {
     expect(parsePoint("53,9037 27,5562")).toEqual({ latitude: 53.9037, longitude: 27.5562 });
     expect(parsePoint("")).toBeNull();
     expect(parsePoint("   ")).toBeNull();
-    for (const text of ["27.5562, 53.9037", "48.85, 2.35", "abc", "53.9", "53.9, 27.5, 1", "53.9037N 27.5562E"])
+    for (const text of ["27.5562, 53.9037", "48.85, 2.35", "abc", "53.9", "53.9, 27.5, 1", "53.9037N 27.5562E", "53,27", "53 27", "53,9037,27"])
       expect(parsePoint(text)).toBe("invalid");
     expect(formatPoint(53.9037, 27.5562)).toBe("53.90370, 27.55620");
     expect(pointMapUrl({ latitude: 53.9037, longitude: 27.5562 })).toBe("https://www.openstreetmap.org/?mlat=53.9037&mlon=27.5562#map=18/53.9037/27.5562");
@@ -436,6 +436,16 @@ describe("venue point migration", () => {
   it("changes the point only of venues added by hand, both coordinates or none", () => {
     expect(sql).toContain("where v.id = p_venue_id and v.source = 'manual'");
     expect(sql.match(/\(p_latitude is null\) <> \(p_longitude is null\)/g)).toHaveLength(2);
+  });
+
+  it("keeps the point inside Belarus in the database too, with the same bounds as the server", () => {
+    const bounds = readdirSync("supabase/migrations").find((file) => file.endsWith("_venue_point_bounds.sql"));
+    const text = bounds ? read(`supabase/migrations/${bounds}`) : "";
+    expect(bounds).toBeTruthy();
+    expect(text.match(/p_latitude not between 51\.0 and 56\.5/g)).toHaveLength(2);
+    expect(text.match(/p_longitude not between 23\.0 and 33\.0/g)).toHaveLength(2);
+    expect(SERVER_POINT_BOUNDS).toEqual({ south: 51.0, north: 56.5, west: 23.0, east: 33.0 });
+    expect(text).not.toMatch(/\bdrop\b|\bdelete from\b/i);
   });
 
   it("is wired to PUT /admin/venues/:id/point, administrators only", () => {

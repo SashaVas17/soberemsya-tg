@@ -2174,7 +2174,7 @@ code {
 .voting-details-panel textarea {
   min-height: 96px;
 }
-.voting-form > .form-submit {
+.voting-form .form-submit {
   min-height: 62px;
 }
 .voting-saved-page {

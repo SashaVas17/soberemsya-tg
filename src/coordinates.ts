@@ -4,7 +4,8 @@ export type Point = { latitude: number; longitude: number };
 // (Belarus with a margin); tests/venues.test.ts keeps them equal.
 export const POINT_BOUNDS = { south: 51.0, north: 56.5, west: 23.0, east: 33.0 } as const;
 
-const pair = /^(-?\d{1,3}(?:[.,]\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:[.,]\d+)?)$/;
+// Both numbers need decimals: a map copies "53.9037, 27.5562", while "53,27" is ambiguous.
+const pair = /^(-?\d{1,3}[.,]\d+)\s*[,;\s]\s*(-?\d{1,3}[.,]\d+)$/;
 
 /**
  * "53.9037, 27.5562" as copied from OpenStreetMap, Google or Yandex Maps
