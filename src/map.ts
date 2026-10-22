@@ -13,7 +13,7 @@ export function mapStyleFor(theme: string | undefined) {
 }
 
 export const MAP_COLORS = {
-  light: { venue: "#18181b", featured: "#a86a12", meeting: "#f04438", stroke: "#ffffff", text: "#ffffff" },
+  light: { venue: "#2e2e33", featured: "#a86a12", meeting: "#f04438", stroke: "#ffffff", text: "#ffffff" },
   dark: { venue: "#f4f4f5", featured: "#f2b84b", meeting: "#ff6b5e", stroke: "#0f0f10", text: "#0f0f10" },
 } as const;
 

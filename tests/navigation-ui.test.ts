@@ -149,8 +149,8 @@ describe("meeting list architecture", () => {
 
   it("uses the graphite and coral palette without replacing dynamic Home data", () => {
     const tokens = readFileSync("src/design-tokens.css", "utf8");
-    expect(tokens).toContain("--color-bg: #f4f4f5");
-    expect(tokens).toContain("--color-primary-strong: #18181b");
+    expect(tokens).toContain("--color-bg: #efefed");
+    expect(tokens).toContain("--color-primary-strong: #2e2e33");
     expect(tokens).toContain("--color-accent: #f04438");
     expect(tokens).toContain("--color-bg: #0f0f10");
     expect(tokens).toContain("--color-primary-strong: #f4f4f5");

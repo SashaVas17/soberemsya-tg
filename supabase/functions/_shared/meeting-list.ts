@@ -114,6 +114,8 @@ export function meetingListItem(event: MeetingEvent, role: MeetingRole, language
     participantCount: event.participants.length,
     responseCount: event.participants.length,
     bestTime,
+    /** The chosen time of a decided meeting (its date on the ticket card). */
+    finalTime: event.status === "decided" ? finalTime : null,
     timeSummary:
       event.status === "decided"
         ? decidedTimeSummary(finalTime, language)

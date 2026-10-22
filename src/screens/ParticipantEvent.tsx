@@ -333,6 +333,10 @@ export function ParticipantEvent({
   }
   const event = state.event;
   const canProposeOptions = !event.canManage && event.status === "collecting";
+  // Saved answers so far: how many can make each time, and the leading one.
+  const answered = event.participants.length;
+  const best = bestSlot(event);
+  const leader = best && best.availableCount > 0 ? best : null;
   if (event.status !== "collecting")
     return <Result eventId={eventId} navigate={navigate} onBack={onBack} initial={event} />;
   if (saved)
@@ -407,6 +411,7 @@ export function ParticipantEvent({
           <div className="availability-grid">
             {event.timeOptions.map((slot) => {
               const can = available.includes(slot.id);
+              const leading = leader !== null && slot.id === leader.id;
               return (
                 <button
                   className={`availability-card ${can ? "available" : ""}`}
@@ -421,7 +426,19 @@ export function ParticipantEvent({
                     {can && <Check size={18} strokeWidth={3} />}
                   </span>
                   <strong>{formatSlot(slot.startsAt)}</strong>
-                  <span className="availability-state">{can ? t("Подходит") : t("Не подходит")}</span>
+                  {answered > 0 ? (
+                    <span className={`slot-votes${leading ? " leading" : ""}`}>
+                      <span className="slot-votes-row">
+                        <span>{leading ? t("Лидирует") : ""}</span>
+                        <span>{t("{count} из {total} подходит", { count: slot.availableCount, total: answered })}</span>
+                      </span>
+                      <span aria-hidden="true" className="slot-votes-bar">
+                        <i style={{ width: `${Math.round((Math.min(slot.availableCount, answered) / answered) * 100)}%` }} />
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="availability-state">{can ? t("Подходит") : t("Не подходит")}</span>
+                  )}
                 </button>
               );
             })}

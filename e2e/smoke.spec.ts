@@ -25,7 +25,7 @@ test("organizer creates a meeting and lands on its management screen", async ({ 
 test("participant answers with an available time", async ({ page }) => {
   await page.goto("./#/event/evt_demo");
   // Mock dates are relative to today, so pick the first time option by position.
-  await page.getByRole("button", { name: /Подходит/ }).first().click();
+  await page.locator(".voting-time-panel .availability-card").first().click();
   await page.getByRole("button", { name: "Отправить ответ" }).click();
 
   await expect(page.getByText("Ваш ответ сохранён", { exact: false })).toBeVisible();

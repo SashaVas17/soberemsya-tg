@@ -9,6 +9,11 @@ export function mergeMeetingItems(
   return [...byId.values()];
 }
 
+/** The time a meeting is expected at: the chosen one, else the most popular. */
+export function meetingTime(item: Pick<MeetingListItem, "bestTime" | "finalTime">) {
+  return item.finalTime ?? item.bestTime;
+}
+
 /**
  * The meeting to show first on the home screen: the soonest one that has a
  * time still ahead; without such, the most recently created active meeting.
@@ -19,7 +24,8 @@ export function nearestMeeting(items: MeetingListItem[], now: Date = new Date())
   const nowMs = now.getTime();
   const upcoming = active
     .flatMap((item) => {
-      const startsAt = item.bestTime ? Date.parse(item.bestTime.startsAt) : NaN;
+      const time = meetingTime(item);
+      const startsAt = time ? Date.parse(time.startsAt) : NaN;
       return Number.isNaN(startsAt) || startsAt < nowMs ? [] : [{ item, startsAt }];
     })
     .sort((left, right) => left.startsAt - right.startsAt);
