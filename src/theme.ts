@@ -64,11 +64,16 @@ export function resolveTheme(
   return telegramColorScheme === "dark" ? "dark" : "light";
 }
 
+/** Page ground per theme (design-tokens.css), for the browser's theme-color. */
+export const THEME_COLORS: Record<ResolvedTheme, string> = { light: "#f4f4f5", dark: "#0f0f10" };
+
 export function applyTheme(
   theme: ResolvedTheme,
   target: ThemeTarget = document.documentElement,
 ) {
   target.dataset.theme = theme;
+  if (typeof document !== "undefined")
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEME_COLORS[theme]);
 }
 
 export function initialResolvedTheme(

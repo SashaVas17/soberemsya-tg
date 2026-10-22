@@ -50,10 +50,12 @@ describe("design rules", () => {
   it("keeps gradients to the background glow and the glass sheen", () => {
     const graded = selectorsWith(/(linear|radial|conic)-gradient/);
     expect(graded.filter((selector) => !gradientAllowed.has(selector))).toEqual([]);
+    // A gradient hidden in a custom property would slip past the selector check.
+    expect(css).not.toMatch(/--[\w-]+:\s*[^;]*(linear|radial|conic)-gradient/);
   });
 
-  it("has no violet left from the old palette", () => {
-    expect(css).not.toMatch(/#(6a3cf0|5428d6|4519c0|b49bff|c8b6ff|140a24|130a1a|221530)/i);
+  it("has no violet, pink or peach left from the old palette", () => {
+    expect(css).not.toMatch(/#(6a3cf0|5428d6|4519c0|b49bff|c8b6ff|140a24|130a1a|221530|e8467c|ff6fa3|ff9a6a)/i);
   });
 
   it("keeps labels in sentence case", () => {

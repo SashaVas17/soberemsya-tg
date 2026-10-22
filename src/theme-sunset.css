@@ -6,7 +6,6 @@
  */
 
 :root {
-  --accent-warm: #ff9a6a;
   font-family: var(--font-text);
 }
 
@@ -56,11 +55,6 @@ h1 {
   font-weight: 700;
 }
 
-.topbar {
-  background: var(--color-bg);
-  border-bottom: 1px solid var(--color-border);
-}
-
 .icon-action {
   background: var(--color-surface);
   border-color: var(--glass-border);
@@ -100,11 +94,9 @@ h1 {
   right: 0;
 }
 .bottom-navigation-inner {
+  align-items: center;
   margin: 0 auto;
   max-width: 520px;
-}
-.bottom-navigation-inner {
-  align-items: center;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 56px minmax(0, 1fr) minmax(0, 1fr);
   gap: 2px;
 }
@@ -355,8 +347,6 @@ h1 {
   background: var(--color-primary-soft);
   border-color: var(--color-primary);
 }
-.voting-form .form-submit {
-}
 
 /* Create wizard: glass step panels, pill progress, rounded fields. */
 .create-wizard .wizard-panel,
@@ -388,8 +378,6 @@ h1 {
   font-size: 16px;
   font-weight: 650;
 }
-.create-wizard .wizard-actions .primary-action {
-}
 
 /* Result and created screens. */
 .result-summary-card,
@@ -417,14 +405,7 @@ h1 {
   border-radius: var(--radius-full);
   color: var(--color-nav-active);
 }
-.result-actions .primary-action,
-.created-actions .primary-action {
-}
 
-/* Manage meeting: glass cards, calmer headings, rounded controls. */
-.manage-card,
-.manage-danger-zone {
-}
 .manage-card {
   background: var(--color-surface);
   border-color: var(--glass-border);
@@ -456,16 +437,12 @@ h1 {
 .manage-card .add-place {
   border-style: dashed;
 }
-.manage-next-action {
-}
 .manage-next-action h2 {
   font-family: var(--font-display);
   font-size: 18px;
 }
 .manage-danger-zone {
   border-radius: var(--radius-xl);
-}
-.manage-card .primary-action {
 }
 .manage-card > h2 > span {
   flex: 1 1 0;
@@ -731,7 +708,7 @@ h1 {
 }
 .venue-featured-badge {
   align-items: center;
-  background: color-mix(in srgb, var(--accent-warm) 22%, var(--color-surface));
+  background: color-mix(in srgb, var(--color-featured) 22%, var(--color-surface));
   border-radius: var(--radius-full);
   color: var(--color-text);
   display: inline-flex;
@@ -742,7 +719,7 @@ h1 {
   padding: 5px 10px;
 }
 .venue-featured-badge svg {
-  color: var(--accent-warm);
+  color: var(--color-featured);
 }
 .venue-meta {
   color: var(--color-text-secondary);
@@ -866,7 +843,7 @@ h1 {
   overflow-wrap: anywhere;
 }
 .venue-pick-star {
-  color: var(--accent-warm);
+  color: var(--color-featured);
   flex: none;
 }
 .venue-pick-icon {
@@ -1051,7 +1028,7 @@ h1 {
 }
 .map-meeting-badge {
   align-items: center;
-  background: color-mix(in srgb, #e8467c 18%, var(--color-surface));
+  background: color-mix(in srgb, var(--color-accent) 16%, var(--color-surface));
   border-radius: var(--radius-full);
   color: var(--color-text);
   display: inline-flex;
@@ -1080,11 +1057,8 @@ h1 {
   background: var(--color-primary);
 }
 .map-legend-meeting {
-  background: #e8467c;
+  background: var(--color-accent);
   margin-left: 8px;
-}
-:root[data-theme="dark"] .map-legend-meeting {
-  background: #ff6fa3;
 }
 .places-intro-compact {
   padding-bottom: 12px;
@@ -1204,10 +1178,6 @@ h1 {
   position: fixed;
   z-index: -1;
 }
-.topbar {
-  background: transparent;
-  border-bottom-color: transparent;
-}
 .home-page,
 .my-meetings-page,
 .public-meetings-page,
@@ -1240,7 +1210,7 @@ h1 {
 }
 .participant-remove-dialog,
 .time-picker-dialog {
-  background: var(--color-surface);
+  background: color-mix(in srgb, var(--color-surface-solid) 96%, transparent);
   border-color: var(--glass-border);
   box-shadow: inset 0 1px 0 var(--glass-highlight), 0 12px 32px rgb(0 0 0 / 12%);
 }
@@ -1270,10 +1240,13 @@ h1 {
 
 /* Primary actions are tinted glass, like iOS: the glow behind shows through,
    a sheen lies on the upper half. Disabled buttons keep their own look. */
-.primary-action:not(:disabled),
-.bottom-navigation-create {
+.primary-action:not(:disabled) {
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
+}
+/* The create button sits inside the blurred bar: tint and sheen, no second blur. */
+.primary-action:not(:disabled),
+.bottom-navigation-create {
   background:
     linear-gradient(180deg, var(--glass-button-sheen), transparent 58%),
     var(--glass-button-tint);
@@ -1322,14 +1295,16 @@ h1 {
 h1.topbar-title {
   margin: 0;
 }
+.settings-choices {
+  grid-template-columns: minmax(max-content, 1.3fr) minmax(0, 1fr) minmax(0, 1fr);
+}
 .settings-choice {
   font-size: 14px;
-  padding-left: 8px;
-  padding-right: 8px;
-  white-space: nowrap;
+  padding-left: 10px;
+  padding-right: 10px;
 }
-.settings-choice span {
-  overflow-wrap: normal;
+.settings-choice:first-child {
+  white-space: nowrap;
 }
 
 /* Fields keep a visible control edge on white cards. */
@@ -1342,4 +1317,28 @@ h1.topbar-title {
 .voting-screen textarea,
 .voting-screen select {
   border-color: var(--color-input-border);
+}
+
+/* Without blur, or with Reduce transparency: glass turns solid and the glow goes. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --color-header-bg: var(--color-bg);
+    --color-nav-bg: var(--color-surface-solid);
+    --color-surface: var(--color-surface-solid);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --color-header-bg: var(--color-bg);
+    --color-nav-bg: var(--color-surface-solid);
+    --color-surface: var(--color-surface-solid);
+    --glass-button-sheen: transparent;
+  }
+  .app-shell::before {
+    display: none;
+  }
+  .primary-action:not(:disabled),
+  .bottom-navigation-create {
+    background: var(--action-primary-bg);
+  }
 }

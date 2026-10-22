@@ -59,13 +59,15 @@
   /* Coral: the brand's signature, on a few marks only (wordmark, checks, "needs an answer"). */
   --color-accent: #f04438;
   --color-on-accent: #ffffff;
+  /* Recommended venues: amber, apart from coral meetings. */
+  --color-featured: #a86a12;
   /* Background glow and liquid glass (see theme-sunset.css). */
   --glow-1: #ffb3ab;
   --glow-2: #d4d4d8;
   --glow-opacity: 0.75;
   --glass-blur: blur(24px) saturate(180%);
   --glass-highlight: rgb(255 255 255 / 55%);
-  --glass-button-tint: rgb(24 24 27 / 86%);
+  --glass-button-tint: color-mix(in srgb, var(--action-primary-bg) 86%, transparent);
   --glass-button-sheen: rgb(255 255 255 / 22%);
 
   --space-xs: 4px;
@@ -151,11 +153,11 @@
   --shadow-surface: none;
   --color-accent: #ff6b5e;
   --color-on-accent: #18181b;
+  --color-featured: #f2b84b;
   --glow-1: #7a2e22;
   --glow-2: #2e2e34;
   --glow-opacity: 0.7;
   --glass-highlight: rgb(255 255 255 / 12%);
-  --glass-button-tint: rgb(244 244 245 / 88%);
   --glass-button-sheen: rgb(255 255 255 / 55%);
 
   color-scheme: dark;
