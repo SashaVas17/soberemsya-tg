@@ -20,6 +20,7 @@ function selectorsWith(pattern: RegExp) {
 const glassAllowed = new Set([
   ".topbar",
   ".bottom-navigation",
+  ".choice-bar",
   ".participant-remove-dialog",
   ".time-picker-dialog",
   ".map-selection .meeting-card",

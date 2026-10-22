@@ -174,6 +174,8 @@ export const en: Record<string, string> = {
   "Завтра": "Tomorrow",
   "Через {days}": "In {days}",
   "Лидирует": "Leading",
+  "Ваш выбор": "Your choice",
+  "пока ничего не выбрано": "nothing chosen yet",
   "Пока лидирует: {time}": "Leading so far: {time}",
   "{count} из {total} смогут": "{count} of {total} can make it",
   "Разделы": "Sections",
@@ -652,4 +654,6 @@ export const enPlurals: Record<string, [string, string]> = {
   "ответ": ["answer", "answers"],
   "ответил": ["answered", "answered"],
   "день": ["day", "days"],
+  "дата": ["date", "dates"],
+  "место": ["place", "places"],
 };

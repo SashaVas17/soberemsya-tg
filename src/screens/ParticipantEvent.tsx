@@ -533,17 +533,30 @@ export function ParticipantEvent({
           </label>
         </section>
         <ErrorNote message={state.error} />
-        <button
-          className="primary-action form-submit"
-          disabled={saving}
-          type="submit"
-        >
-          {saving
-            ? t("Сохраняем…")
-            : event.myResponse
-              ? t("Обновить ответ")
-              : t("Отправить ответ")}
-        </button>
+        <div className="choice-bar">
+          <p aria-live="polite" className="choice-summary">
+            <span>{t("Ваш выбор")}</span>
+            <strong>
+              {available.length + selectedPlaces.length === 0
+                ? t("пока ничего не выбрано")
+                : [
+                    plural(available.length, "дата", "даты", "дат"),
+                    plural(selectedPlaces.length, "место", "места", "мест"),
+                  ].join(" · ")}
+            </strong>
+          </p>
+          <button
+            className="primary-action form-submit"
+            disabled={saving}
+            type="submit"
+          >
+            {saving
+              ? t("Сохраняем…")
+              : event.myResponse
+                ? t("Обновить ответ")
+                : t("Отправить ответ")}
+          </button>
+        </div>
         <LeaveMeetingAction event={event} eventId={eventId} navigate={navigate} />
         {!event.canManage && event.visibility === "public" && <SafetyActions eventId={eventId} />}
       </form>
