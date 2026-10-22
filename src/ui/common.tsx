@@ -41,8 +41,9 @@ export function Header({
     // Language, theme and notifications live behind the gear (stage 4).
     return (
       <header className="topbar topbar-home">
-        <button className="wordmark" onClick={() => navigate("/")} type="button">
-          Flockly
+        <button aria-label="Flockly" className="wordmark" onClick={() => navigate("/")} type="button">
+          {/* The logo: "flockly" with a coral circle for the "o" (public/brand/logo.png). */}
+          <span aria-hidden="true">fl<span className="wordmark-o" />ckly</span>
         </button>
         <button
           aria-label={t("Настройки")}
