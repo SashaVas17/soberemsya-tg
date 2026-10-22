@@ -162,6 +162,8 @@ export type MeetingListItem = {
   /** First letters of the first answered people (up to 3); absent from servers before 2026-10-22. */
   initials?: string[];
   bestTime: TimeOption | null;
+  /** The most popular option not yet past; absent from servers before 2026-10-22 (then bestTime stands in). */
+  upcomingTime?: TimeOption | null;
   /** The chosen time of a decided meeting; absent from servers before 2026-10-22. */
   finalTime?: TimeOption | null;
   timeSummary: string | null;

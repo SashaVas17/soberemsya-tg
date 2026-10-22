@@ -46,6 +46,18 @@ describe("nearestMeeting", () => {
     expect(nearestMeeting(items, now)?.id).toBe("collecting");
   });
 
+  it("counts the most popular option still ahead, not a popular one already past", () => {
+    const items = [
+      // The popular option is in the past, but another one is ahead: still a candidate.
+      meeting("stale-lead", { bestTime: at("2026-10-10T18:00:00Z"), upcomingTime: at("2026-10-18T18:00:00Z") }),
+      meeting("later", { bestTime: at("2026-10-20T18:00:00Z"), upcomingTime: at("2026-10-20T18:00:00Z") }),
+      // Every option is past: not a candidate, even though bestTime has a value.
+      meeting("over", { bestTime: at("2026-10-12T18:00:00Z"), upcomingTime: null }),
+    ];
+    expect(nearestMeeting(items, now)?.id).toBe("stale-lead");
+    expect(nearestMeeting([items[2]], now)?.id).toBe("over"); // falls back to the latest created
+  });
+
   it("falls back to the latest created active meeting when no time is ahead", () => {
     const items = [
       meeting("old", { createdAt: "2026-09-01T10:00:00Z" }),

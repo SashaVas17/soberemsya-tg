@@ -131,7 +131,18 @@ function bestTimeOption(options: TimeOption[]) {
     )[0] ?? null;
 }
 
-export function meetingListItem(event: MeetingEvent, role: MeetingRole, language: Language = "ru") {
+/** The most popular of the options that are still ahead; null when none is. */
+export function upcomingTimeOption(options: TimeOption[], now: Date) {
+  const nowMs = now.getTime();
+  return bestTimeOption(options.filter((option) => Date.parse(option.startsAt) >= nowMs));
+}
+
+export function meetingListItem(
+  event: MeetingEvent,
+  role: MeetingRole,
+  language: Language = "ru",
+  now: Date = new Date(),
+) {
   const bestTime = bestTimeOption(event.timeOptions);
   const finalTime =
     event.timeOptions.find((option) => option.id === event.finalTimeOptionId) ??
@@ -148,12 +159,21 @@ export function meetingListItem(event: MeetingEvent, role: MeetingRole, language
     responseCount: event.participants.length,
     initials: participantInitials(event.participants),
     bestTime,
+    /** Like bestTime, but only among options not yet past: the "nearest meeting" and the ticket use it. */
+    upcomingTime: upcomingTimeOption(event.timeOptions, now),
     /** The chosen time of a decided meeting (its date on the ticket card). */
     finalTime: event.status === "decided" ? finalTime : null,
     timeSummary:
       event.status === "decided"
         ? decidedTimeSummary(finalTime, language)
-        : timeRangeSummary(event.timeOptions, language),
+        // The range of the options still ahead (all of them once every one is past),
+        // so the text agrees with the date on the ticket.
+        : timeRangeSummary(
+            event.timeOptions.some((option) => Date.parse(option.startsAt) >= now.getTime())
+              ? event.timeOptions.filter((option) => Date.parse(option.startsAt) >= now.getTime())
+              : event.timeOptions,
+            language,
+          ),
     placeSummary:
       event.status === "decided" && finalPlace?.title.trim()
         ? finalPlace.title.trim()

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { meetingListItem, nameInitial, participantInitials } from "../supabase/functions/_shared/meeting-list";
+import { meetingListItem, nameInitial, participantInitials, upcomingTimeOption } from "../supabase/functions/_shared/meeting-list";
 import { nameInitial as appNameInitial } from "../src/initials";
 
 const timeOptions = [
@@ -33,6 +33,29 @@ describe("meeting list summaries", () => {
       bestTime: timeOptions[1],
       finalTime: null,
     });
+  });
+
+  it("offers the most popular option still ahead, and none when all are past", () => {
+    const event = (now: string) => meetingListItem(
+      { id: "e", title: "T", status: "collecting", finalPlaceId: null, finalTimeOptionId: null, timeOptions, placeOptions: [], participants: [], createdAt: "2026-08-01T12:00:00.000Z" },
+      "owner",
+      "ru",
+      new Date(now),
+    );
+    // Both options ahead: the more popular one (time_10, 3 votes).
+    expect(event("2026-08-01T00:00:00Z").upcomingTime).toBe(timeOptions[1]);
+    // time_9 (16:00 on the 9th) is ahead, time_10 is past: the other one stands in.
+    expect(upcomingTimeOption([timeOptions[0], { ...timeOptions[1], startsAt: "2026-08-05T16:00:00.000Z" }], new Date("2026-08-08T00:00:00Z"))).toBe(timeOptions[0]);
+    // Everything is past.
+    expect(event("2026-09-01T00:00:00Z").upcomingTime).toBeNull();
+    // An option starting exactly now is still ahead.
+    expect(event("2026-08-10T16:00:00Z").upcomingTime).toBe(timeOptions[1]);
+    // The text agrees: only the options still ahead are in the range, all of them once all are past.
+    expect(event("2026-08-10T00:00:00Z").timeSummary).toBe("10 августа");
+    expect(event("2026-08-01T00:00:00Z").timeSummary).toBe("9–10 августа");
+    expect(event("2026-09-01T00:00:00Z").timeSummary).toBe("9–10 августа");
+    // The popular option is still reported as bestTime for older callers.
+    expect(event("2026-09-01T00:00:00Z").bestTime).toBe(timeOptions[1]);
   });
 
   it("returns decided meeting summaries from the chosen existing options", () => {
