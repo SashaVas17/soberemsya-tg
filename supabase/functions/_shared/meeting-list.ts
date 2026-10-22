@@ -22,6 +22,22 @@ type MeetingEvent = {
   createdAt: string;
 };
 
+/**
+ * First letters of the first answered people, for the avatar stack on a
+ * meeting card. Only the letters leave the server; the people are those the
+ * viewer already sees on the meeting's own screen.
+ */
+export function participantInitials(participants: unknown[], limit = 3): string[] {
+  const initials: string[] = [];
+  for (const person of participants) {
+    if (initials.length >= limit) break;
+    const name = typeof person === "object" && person !== null ? (person as { name?: unknown }).name : null;
+    const first = typeof name === "string" ? Array.from(name.trim())[0] : undefined;
+    if (first) initials.push(first.toLocaleUpperCase());
+  }
+  return initials;
+}
+
 // All active cities share Minsk time for now; per-city zones here come with
 // the first city outside it (Stage 4).
 const timeZone = DEFAULT_TIME_ZONE;
@@ -113,6 +129,7 @@ export function meetingListItem(event: MeetingEvent, role: MeetingRole, language
     role,
     participantCount: event.participants.length,
     responseCount: event.participants.length,
+    initials: participantInitials(event.participants),
     bestTime,
     /** The chosen time of a decided meeting (its date on the ticket card). */
     finalTime: event.status === "decided" ? finalTime : null,

@@ -159,6 +159,8 @@ export type MeetingListItem = {
   role: "owner" | "participant";
   participantCount: number;
   responseCount: number;
+  /** First letters of the first answered people (up to 3); absent from servers before 2026-10-22. */
+  initials?: string[];
   bestTime: TimeOption | null;
   /** The chosen time of a decided meeting; absent from servers before 2026-10-22. */
   finalTime?: TimeOption | null;

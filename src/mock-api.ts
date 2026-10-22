@@ -177,6 +177,7 @@ const listItem = (role: "owner" | "participant"): MeetingListItem => ({
   role,
   participantCount: event.participants.length,
   responseCount: event.participants.length,
+  initials: event.participants.slice(0, 3).map((person) => Array.from(person.name.trim())[0]?.toLocaleUpperCase() ?? "").filter(Boolean),
   bestTime: event.timeOptions[0],
   finalTime:
     event.status === "decided"

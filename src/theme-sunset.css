@@ -1560,3 +1560,25 @@ h1.topbar-title {
     animation: none;
   }
 }
+
+/* People who answered: up to three first letters, overlapping. */
+.ticket-people {
+  display: inline-flex;
+}
+.ticket-people > span {
+  align-items: center;
+  background: var(--color-surface-elevated);
+  border: 2px solid var(--color-surface-solid);
+  border-radius: var(--radius-full);
+  box-shadow: inset 0 0 0 1px var(--color-border);
+  color: var(--color-text);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 600;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+.ticket-people > span + span {
+  margin-left: -7px;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { meetingListItem } from "../supabase/functions/_shared/meeting-list";
+import { meetingListItem, participantInitials } from "../supabase/functions/_shared/meeting-list";
 
 const timeOptions = [
   { id: "time_9", startsAt: "2026-08-09T16:00:00.000Z", availableCount: 2 },
@@ -80,5 +80,11 @@ describe("meeting list summaries", () => {
 
     expect(item.timeSummary).toBeNull();
     expect(item.placeSummary).toBeNull();
+  });
+
+  it("gives the first letters of the first answered people only", () => {
+    expect(participantInitials([{ name: "ирина" }, { name: " Максим" }, { name: "" }, { name: "Анна" }, { name: "Олег" }])).toEqual(["И", "М", "А"]);
+    expect(participantInitials([{ id: "no-name" }, "id-only", null])).toEqual([]);
+    expect(participantInitials([{ name: "😀 Смайл" }])).toEqual(["😀"]);
   });
 });
