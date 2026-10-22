@@ -36,6 +36,10 @@ describe("ticket date", () => {
     expect(meetingTime({ status: "decided", bestTime: best, finalTime: null })).toBeNull();
     expect(meetingTime({ status: "decided", bestTime: best })).toBe(best);
     expect(meetingTime({ status: "collecting", bestTime: best, finalTime: null })).toBe(best);
+    // While collecting: the popular option still ahead; none when all are past.
+    const ahead = { id: "a", startsAt: at(26), availableCount: 1 };
+    expect(meetingTime({ status: "collecting", bestTime: best, finalTime: null, upcomingTime: ahead })).toBe(ahead);
+    expect(meetingTime({ status: "collecting", bestTime: best, finalTime: null, upcomingTime: null })).toBeNull();
   });
 
   it("speaks English too", () => {

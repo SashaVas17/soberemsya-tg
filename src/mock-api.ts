@@ -181,6 +181,7 @@ const listItem = (role: "owner" | "participant"): MeetingListItem => ({
   responseCount: event.participants.length,
   initials: event.participants.slice(0, 3).map((person) => nameInitial(person.name)),
   bestTime: event.timeOptions[0],
+  upcomingTime: event.timeOptions.find((option) => Date.parse(option.startsAt) >= Date.now()) ?? null,
   finalTime:
     event.status === "decided"
       ? event.timeOptions.find((option) => option.id === event.finalTimeOptionId) ?? null

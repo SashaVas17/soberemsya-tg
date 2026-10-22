@@ -30,7 +30,7 @@ tags: [flockly, бэкенд, api]
 | GET | `/calendar/:token` | Файл календаря (без `initData`) |
 | POST | `/events/:id/share-message` | Подготовить карточку для `shareMessage` (`invite` / `result`) |
 | GET | `/group-links/:token` | Ссылка `/new` из группы |
-| GET | `/me/meetings`, `/me/meetings/page` | Мои встречи; у карточки `bestTime` (популярное время) и с 2026-10-22 `finalTime` (выбранное время решённой встречи, иначе `null`), `initials` — первые буквы имён до трёх ответивших (только буквы, а не имена; пустая строка — у имени без букв) |
+| GET | `/me/meetings`, `/me/meetings/page` | Мои встречи; у карточки `bestTime` (популярное время) и с 2026-10-22 `finalTime` (выбранное время решённой встречи, иначе `null`), `upcomingTime` (самый популярный из ещё не прошедших вариантов времени, иначе `null`; по нему выбирается «ближайшая встреча» и дата на билете, пока время не выбрано), `initials` — первые буквы имён до трёх ответивших (только буквы, а не имена; пустая строка — у имени без букв) |
 | GET, PUT | `/me/notification-settings` | Настройки уведомлений |
 | GET, PUT | `/me/city` | Город пользователя и список доступных (`{ city, cities }`); PUT `{ cityId }` — только активный город |
 | PUT | `/me/language` | `{ language: "ru" \| "en" \| null }` — язык бота и уведомлений (`null` — как в Telegram); `/telegram/auth` возвращает сохранённый `language` |
