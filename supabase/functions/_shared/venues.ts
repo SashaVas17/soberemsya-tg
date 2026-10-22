@@ -147,12 +147,40 @@ export function parseVenueUpdate(body: Record<string, unknown>): VenueUpdate {
   };
 }
 
+/** Belarus with a margin: a point outside it is a typo (swapped or cut numbers). */
+export const POINT_BOUNDS = { south: 51.0, north: 56.5, west: 23.0, east: 33.0 } as const;
+
+export type VenuePoint = { latitude: number; longitude: number };
+
+function coordinateNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * The point of a venue from a request: both coordinates, or both missing/null
+ * (no point). One alone, a non-number, or a point outside Belarus is refused.
+ */
+export function parseVenuePoint(body: Record<string, unknown>): VenuePoint | null {
+  const noLatitude = body.latitude === undefined || body.latitude === null || body.latitude === "";
+  const noLongitude = body.longitude === undefined || body.longitude === null || body.longitude === "";
+  if (noLatitude && noLongitude) return null;
+  const latitude = coordinateNumber(body.latitude);
+  const longitude = coordinateNumber(body.longitude);
+  if (
+    latitude === null || longitude === null ||
+    latitude < POINT_BOUNDS.south || latitude > POINT_BOUNDS.north ||
+    longitude < POINT_BOUNDS.west || longitude > POINT_BOUNDS.east
+  ) badRequest("Укажите точку на карте внутри Беларуси: широту и долготу.");
+  return { latitude, longitude };
+}
+
 export type VenueCreate = {
   categoryId: string;
   name: string;
   address: string;
   priceLevel: number | null;
   website: string | null;
+  point: VenuePoint | null;
 };
 
 export function parseVenueCreate(body: Record<string, unknown>): VenueCreate {
@@ -170,6 +198,7 @@ export function parseVenueCreate(body: Record<string, unknown>): VenueCreate {
     address,
     priceLevel: parsePriceLevel(body.priceLevel),
     website,
+    point: parseVenuePoint(body),
   };
 }
 
@@ -227,6 +256,8 @@ export function venueHttpError(error: unknown) {
       return Object.assign(new Error("Эта категория недоступна."), { status: 400 });
     case "VENUE_CITY_INVALID":
       return Object.assign(new Error("Этот город пока недоступен."), { status: 400 });
+    case "VENUE_POINT_INVALID":
+      return Object.assign(new Error("Укажите точку на карте внутри Беларуси: широту и долготу."), { status: 400 });
     case "VENUE_IMPORT_INVALID":
       return Object.assign(new Error("Проверьте данные и попробуйте ещё раз."), { status: 400 });
     default:

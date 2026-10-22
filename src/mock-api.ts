@@ -1,4 +1,5 @@
 import { nameInitial } from "./initials";
+import type { Point } from "./coordinates";
 import type {
   AdminReport,
   AuthResult,
@@ -694,12 +695,19 @@ export const mockApi = {
     categories: mockCategories,
     importCategories: mockCategories.filter((category) => category.id !== "other").map((category) => category.id),
   }),
-  adminCreateVenue: async (draft: VenueDraft) => {
+  adminCreateVenue: async (draft: VenueDraft, point: Point | null = null) => {
     const venueId = `venue_${mockVenues.length + 1}`;
     mockVenues = [...mockVenues, mockVenue(venueId, draft.categoryId, draft.name, draft.address, draft.priceLevel, "published", {
       source: "manual", osmUrl: null, website: draft.website || null,
+      latitude: point?.latitude ?? null, longitude: point?.longitude ?? null,
     })];
     return { venueId };
+  },
+  adminSetVenuePoint: async (venueId: string, point: Point | null) => {
+    mockVenues = mockVenues.map((venue) => venue.id === venueId && venue.source === "manual"
+      ? { ...venue, latitude: point?.latitude ?? null, longitude: point?.longitude ?? null }
+      : venue);
+    return { updated: true as const };
   },
   adminUpdateVenue: async (
     venueId: string,
