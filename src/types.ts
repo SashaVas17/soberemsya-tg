@@ -299,6 +299,8 @@ export type VenueDraft = {
   address: string;
   priceLevel: VenuePriceLevel | null;
   website: string;
+  /** "53.9037, 27.5562" as copied from a map; empty — no point on the map. */
+  coordinates: string;
 };
 
 /** A venue on the map: [id, latitude, longitude, categoryId, featured]. */

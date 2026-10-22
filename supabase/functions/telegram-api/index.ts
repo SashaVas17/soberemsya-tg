@@ -109,6 +109,7 @@ import {
   readBoundedJson,
   VENUE_COLUMNS,
   VENUE_PAGE_SIZE,
+  parseVenuePoint,
   venueHttpError,
   venueResponse,
   venuesFromOverpass,
@@ -1539,6 +1540,8 @@ async function adminCreateVenue(request: Request, auth: AuthContext) {
     p_address: input.address,
     p_price_level: input.priceLevel,
     p_website: input.website,
+    p_latitude: input.point?.latitude ?? null,
+    p_longitude: input.point?.longitude ?? null,
   }).single<{ venue_id: string }>();
   if (error) {
     logModerationRpcError("admin_create_venue_rpc_failed", error);
@@ -1561,6 +1564,24 @@ async function adminUpdateVenue(request: Request, venueId: string, auth: AuthCon
   }).single<{ venue_id: string }>();
   if (error) {
     logModerationRpcError("admin_update_venue_rpc_failed", error);
+    throw venueHttpError(error);
+  }
+  return json({ updated: true });
+}
+
+/** Sets or clears (no coordinates) the point of a venue added by hand. */
+async function adminSetVenuePoint(request: Request, venueId: string, auth: AuthContext) {
+  if (!isAdmin(auth)) return adminNotFound();
+  const id = parseVenueId(venueId);
+  const point = parseVenuePoint(await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES));
+  const { error } = await db.rpc("admin_set_venue_point", {
+    p_admin_user_id: auth.user.id,
+    p_venue_id: id,
+    p_latitude: point?.latitude ?? null,
+    p_longitude: point?.longitude ?? null,
+  }).single<{ venue_id: string }>();
+  if (error) {
+    logModerationRpcError("admin_set_venue_point_rpc_failed", error);
     throw venueHttpError(error);
   }
   return json({ updated: true });
@@ -1682,6 +1703,7 @@ function allowedMethods(path: string) {
   if (path === "/admin/venues/import" || path === "/admin/venues/publish") return ["POST"];
   if (path === "/admin/cities/active") return ["POST"];
   if (/^\/admin\/venues\/[^/]+$/.test(path)) return ["PATCH"];
+  if (/^\/admin\/venues\/[^/]+\/point$/.test(path)) return ["PUT"];
   if (path === "/me/blocks") return ["GET"];
   if (/^\/me\/blocks\/[^/]+$/.test(path)) return ["DELETE"];
   if (path === "/me/community-rules") return ["POST"];
@@ -1768,6 +1790,8 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
   if (path === "/admin/venues/import") return await adminImportVenues(request, auth);
   if (path === "/admin/venues/publish") return await adminPublishVenues(request, auth);
   if (path === "/admin/cities/active") return await adminSetCityActive(request, auth);
+  const adminVenuePointMatch = path.match(/^\/admin\/venues\/([^/]+)\/point$/);
+  if (adminVenuePointMatch) return await adminSetVenuePoint(request, decodeURIComponent(adminVenuePointMatch[1]), auth);
   const adminVenueMatch = path.match(/^\/admin\/venues\/([^/]+)$/);
   if (adminVenueMatch) return await adminUpdateVenue(request, decodeURIComponent(adminVenueMatch[1]), auth);
   if (path === "/me/blocks") return await blockedUsers(auth);

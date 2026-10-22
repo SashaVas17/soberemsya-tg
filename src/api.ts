@@ -2,6 +2,7 @@ import { apiErrorFromBody } from "./api-error";
 import type { CreateEventRequest } from "./create-wizard";
 import { isSessionExpiredError, notifySessionExpired } from "./session";
 import type { AdminCity, AdminReport, AdminStats, AuthResult, BlockedUser, ReportStatus, EventData, NotificationSettings, JoinRequestActionResponse, JoinRequestDecisionResponse, MeetingListItem, OrganizerJoinRequestsResponse, PlaceOption, MeetingCategory, PublicEventPreview, PublicMeetingFeedPage, UserCity, AdminVenuePage, VenueDraft, VenueImportResult, VenuePage, VenuePriceLevel, VenueStatus, MapPoints, Venue } from "./types";
+import type { Point } from "./coordinates";
 import { publicFeedPath, type PublicFeedFilters } from "./public-feed";
 import { mockApi } from "./mock-api";
 import { adminVenuesPath, venuesPath, type VenueFilters } from "./venues";
@@ -284,12 +285,26 @@ export const api = {
     useMock
       ? mockApi.adminVenues(status, filters, offset, cityId)
       : request<AdminVenuePage>(adminVenuesPath(status, filters, offset, cityId)),
-  adminCreateVenue: (draft: VenueDraft, cityId?: string | null) =>
+  adminCreateVenue: (draft: VenueDraft, cityId?: string | null, point: Point | null = null) =>
     useMock
-      ? mockApi.adminCreateVenue(draft)
+      ? mockApi.adminCreateVenue(draft, point)
       : request<{ venueId: string }>("/admin/venues", {
           method: "POST",
-          body: JSON.stringify({ ...draft, cityId: cityId ?? undefined }),
+          body: JSON.stringify({
+            ...draft,
+            coordinates: undefined,
+            latitude: point?.latitude ?? null,
+            longitude: point?.longitude ?? null,
+            cityId: cityId ?? undefined,
+          }),
+        }),
+  /** Sets or clears (null) the point of a venue added by hand. */
+  adminSetVenuePoint: (venueId: string, point: Point | null) =>
+    useMock
+      ? mockApi.adminSetVenuePoint(venueId, point)
+      : request<{ updated: true }>(`/admin/venues/${encodeURIComponent(venueId)}/point`, {
+          method: "PUT",
+          body: JSON.stringify({ latitude: point?.latitude ?? null, longitude: point?.longitude ?? null }),
         }),
   adminSetCityActive: (cityId: string, isActive: boolean) =>
     useMock

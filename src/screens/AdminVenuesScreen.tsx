@@ -6,6 +6,7 @@ import { haptic, openExternalUrl } from "../telegram";
 import type { AdminCity, AdminVenue, MeetingCategory, VenueDraft, VenuePriceLevel, VenueStatus } from "../types";
 import type { Navigate } from "../app-types";
 import { mergeVenues, PRICE_LEVELS } from "../venues";
+import { formatPoint, parsePoint, pointMapUrl, type Point } from "../coordinates";
 import { CategoryChip, EmptyState, ErrorNote, Header, Loading, RetryState } from "../ui/common";
 import { FeaturedBadge, OsmAttribution, VenueMeta } from "../ui/Venues";
 import { t } from "../i18n";
@@ -47,14 +48,73 @@ function PriceSelect({
   );
 }
 
+/** The point of a venue added by hand: edited as pasted "lat, lon" text, checked on a map. */
+function VenuePointEditor({
+  busy,
+  onSave,
+  venue,
+}: {
+  busy: boolean;
+  onSave: (point: Point | null) => void;
+  venue: AdminVenue;
+}) {
+  const saved = venue.latitude !== null && venue.longitude !== null ? formatPoint(venue.latitude, venue.longitude) : "";
+  const [text, setText] = useState(saved);
+  const [invalid, setInvalid] = useState(false);
+  const parsed = parsePoint(text);
+  const point = parsed === "invalid" ? null : parsed;
+  const changed = text.trim() !== saved;
+  return (
+    <div className="admin-venue-point">
+      <label className="field">
+        <span>{t("Точка на карте")}</span>
+        <input
+          aria-invalid={invalid || undefined}
+          disabled={busy}
+          inputMode="decimal"
+          onChange={(event) => {
+            setText(event.target.value);
+            setInvalid(false);
+          }}
+          placeholder="53.9037, 27.5562"
+          value={text}
+        />
+      </label>
+      {!saved && !changed && <p className="admin-venue-hint">{t("Без точки место не видно на карте.")}</p>}
+      {invalid && <p className="form-error" role="alert">{t("Введите широту и долготу точки в Беларуси, например 53.9037, 27.5562.")}</p>}
+      <div className="admin-venue-links">
+        {point && (
+          <button className="text-link-button" onClick={() => openExternalUrl(pointMapUrl(point))} type="button">
+            <ExternalLink aria-hidden="true" size={14} />
+            {t("Проверить на карте")}</button>
+        )}
+        {changed && (
+          <button
+            className="secondary-action compact-action"
+            disabled={busy}
+            onClick={() => {
+              if (parsed === "invalid") setInvalid(true);
+              else onSave(parsed);
+            }}
+            type="button"
+          >
+            {t("Сохранить точку")}</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AdminVenueCard({
   busy,
   categories,
+  onSetPoint,
   onUpdate,
   venue,
 }: {
   busy: boolean;
   categories: MeetingCategory[];
+  onSetPoint: (point: Point | null) => void;
   onUpdate: (update: VenueUpdate) => void;
   venue: AdminVenue;
 }) {
@@ -103,6 +163,7 @@ function AdminVenueCard({
         </select>
         <PriceSelect disabled={busy} onChange={(priceLevel) => update({ priceLevel })} value={venue.priceLevel} />
       </div>
+      {venue.source === "manual" && <VenuePointEditor busy={busy} key={`${venue.latitude}/${venue.longitude}`} onSave={onSetPoint} venue={venue} />}
       <label className="admin-venue-featured">
         <input
           checked={venue.featured}
@@ -150,6 +211,7 @@ const emptyDraft = (categoryId: string): VenueDraft => ({
   address: "",
   priceLevel: null,
   website: "",
+  coordinates: "",
 });
 
 function AddVenueForm({
@@ -172,11 +234,16 @@ function AddVenueForm({
       setError(t("Укажите название места."));
       return;
     }
+    const point = parsePoint(draft.coordinates);
+    if (point === "invalid") {
+      setError(t("Введите широту и долготу точки в Беларуси, например 53.9037, 27.5562."));
+      return;
+    }
     setSaving(true);
     setError("");
     setDone("");
     try {
-      await api.adminCreateVenue({ ...draft, categoryId }, cityId);
+      await api.adminCreateVenue({ ...draft, categoryId }, cityId, point);
       haptic();
       setDone(t("«{name}» опубликовано.", { name: draft.name.trim() }));
       setDraft(emptyDraft(categoryId));
@@ -212,6 +279,10 @@ function AddVenueForm({
         </select>
         <PriceSelect onChange={(priceLevel) => setDraft({ ...draft, priceLevel })} value={draft.priceLevel} />
       </div>
+      <label className="field">
+        <span>{t("Точка на карте")} <small>{t("необязательно")}</small></span>
+        <input inputMode="decimal" onChange={(event) => setDraft({ ...draft, coordinates: event.target.value })} placeholder="53.9037, 27.5562" value={draft.coordinates} />
+      </label>
       <label className="field">
         <span>{t("Сайт или страница")}</span>
         <input inputMode="url" maxLength={300} onChange={(event) => setDraft({ ...draft, website: event.target.value })} placeholder="https://" value={draft.website} />
@@ -450,6 +521,26 @@ export function AdminVenuesScreen({ navigate, onBack }: { navigate: Navigate; on
     }
   };
 
+  const setVenuePoint = async (venue: AdminVenue, point: Point | null) => {
+    if (busyId) return;
+    setBusyId(venue.id);
+    setActionError("");
+    try {
+      await api.adminSetVenuePoint(venue.id, point);
+      haptic();
+      setItems((current) =>
+        (current ?? []).map((item) =>
+          item.id === venue.id
+            ? { ...item, latitude: point?.latitude ?? null, longitude: point?.longitude ?? null }
+            : item));
+    } catch (reason) {
+      haptic("error");
+      setActionError(reason instanceof Error ? reason.message : t("Не удалось сохранить точку."));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const setCityActive = async (target: AdminCity, isActive: boolean) => {
     if (cityBusy) return;
     const question = isActive
@@ -614,6 +705,7 @@ export function AdminVenuesScreen({ navigate, onBack }: { navigate: Navigate; on
             busy={busyId === venue.id || publishing}
             categories={categories}
             key={venue.id}
+            onSetPoint={(point) => void setVenuePoint(venue, point)}
             onUpdate={(update) => void updateVenue(venue, update)}
             venue={venue}
           />

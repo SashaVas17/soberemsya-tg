@@ -15,7 +15,9 @@ import {
   parseVenueId,
   parseVenueIds,
   parseVenueListFilters,
+  parseVenuePoint,
   parseVenueUpdate,
+  POINT_BOUNDS as SERVER_POINT_BOUNDS,
   PRICE_LEVELS as SERVER_PRICE_LEVELS,
   readBoundedJson,
   VENUE_PAGE_SIZE,
@@ -25,6 +27,7 @@ import {
   type VenueRow,
 } from "../supabase/functions/_shared/venues";
 import { mockApi } from "../src/mock-api";
+import { formatPoint, parsePoint, POINT_BOUNDS, pointMapUrl } from "../src/coordinates";
 import {
   adminVenuesPath,
   clearVenueForNextMeeting,
@@ -137,11 +140,57 @@ describe("venue curation input", () => {
       address: "ул. Y, 1",
       priceLevel: 3,
       website: "https://example.by/",
+      point: null,
     });
     expect(parseVenueCreate({ categoryId: "food", name: "X", website: "" }).website).toBeNull();
     expect(status(() => parseVenueCreate({ categoryId: "food", name: "  " }))).toBe(400);
     expect(status(() => parseVenueCreate({ categoryId: "food", name: "x".repeat(121) }))).toBe(400);
     expect(status(() => parseVenueCreate({ categoryId: "food", name: "X", website: "javascript:alert(1)" }))).toBe(400);
+  });
+
+  it("takes the point of a venue: both coordinates inside Belarus, or none", () => {
+    expect(parseVenuePoint({})).toBeNull();
+    expect(parseVenuePoint({ latitude: null, longitude: null })).toBeNull();
+    expect(parseVenuePoint({ latitude: "", longitude: "" })).toBeNull();
+    expect(parseVenuePoint({ latitude: 53.9037, longitude: 27.5562 })).toEqual({ latitude: 53.9037, longitude: 27.5562 });
+    expect(parseVenueCreate({ categoryId: "food", name: "X", latitude: 53.9, longitude: 27.5 }).point).toEqual({ latitude: 53.9, longitude: 27.5 });
+    for (const body of [
+      { latitude: 53.9 },
+      { longitude: 27.5 },
+      { latitude: "53.9", longitude: 27.5 },
+      { latitude: 27.5, longitude: 53.9 },
+      { latitude: 48.85, longitude: 2.35 },
+      { latitude: Number.NaN, longitude: 27.5 },
+      { latitude: 91, longitude: 27.5 },
+    ]) expect(status(() => parseVenuePoint(body))).toBe(400);
+    expect(venueHttpError({ code: "P0001", message: "VENUE_POINT_INVALID" })).toMatchObject({ status: 400, message: expect.stringMatching(/Беларуси/) });
+  });
+
+  it("keeps the app's point bounds equal to the server's", () => {
+    expect(POINT_BOUNDS).toEqual(SERVER_POINT_BOUNDS);
+  });
+
+  it("accepts a point as pasted from a map, in the app", () => {
+    expect(parsePoint("53.9037, 27.5562")).toEqual({ latitude: 53.9037, longitude: 27.5562 });
+    expect(parsePoint(" 53.9037 27.5562 ")).toEqual({ latitude: 53.9037, longitude: 27.5562 });
+    expect(parsePoint("53,9037; 27,5562")).toEqual({ latitude: 53.9037, longitude: 27.5562 });
+    expect(parsePoint("53,9037 27,5562")).toEqual({ latitude: 53.9037, longitude: 27.5562 });
+    expect(parsePoint("")).toBeNull();
+    expect(parsePoint("   ")).toBeNull();
+    for (const text of ["27.5562, 53.9037", "48.85, 2.35", "abc", "53.9", "53.9, 27.5, 1", "53.9037N 27.5562E", "53,27", "53 27", "53,9037,27"])
+      expect(parsePoint(text)).toBe("invalid");
+    expect(formatPoint(53.9037, 27.5562)).toBe("53.90370, 27.55620");
+    expect(pointMapUrl({ latitude: 53.9037, longitude: 27.5562 })).toBe("https://www.openstreetmap.org/?mlat=53.9037&mlon=27.5562#map=18/53.9037/27.5562");
+  });
+
+  it("sets and clears the point of a hand-added venue in the mock", async () => {
+    const page = await mockApi.adminVenues("published");
+    const manual = page.items.find((item) => item.source === "manual" && item.latitude === null);
+    expect(manual).toBeTruthy();
+    await mockApi.adminSetVenuePoint(manual!.id, { latitude: 53.9, longitude: 27.5 });
+    expect((await mockApi.adminVenues("published")).items.find((item) => item.id === manual!.id)).toMatchObject({ latitude: 53.9, longitude: 27.5 });
+    await mockApi.adminSetVenuePoint(manual!.id, null);
+    expect((await mockApi.adminVenues("published")).items.find((item) => item.id === manual!.id)).toMatchObject({ latitude: null, longitude: null });
   });
 
   it("accepts only uuids as venue ids", () => {
@@ -367,5 +416,43 @@ describe("venues in the app", () => {
     const wizard = read("src/screens/CreateEvent.tsx");
     expect(wizard).toContain("<VenuePicker");
     expect(wizard).toContain("useEffect(() => clearVenueForNextMeeting(), [])");
+  });
+});
+
+describe("venue point migration", () => {
+  const name = readdirSync("supabase/migrations").find((file) => file.endsWith("_venue_coordinates.sql"));
+  const sql = name ? read(`supabase/migrations/${name}`) : "";
+
+  it("adds the functions for service_role only, without destructive commands", () => {
+    expect(name).toBeTruthy();
+    for (const fn of ["admin_create_venue(uuid, text, text, text, text, smallint, text, double precision, double precision)", "admin_set_venue_point(uuid, uuid, double precision, double precision)"]) {
+      expect(sql).toContain(`revoke all on function public.${fn} from public, anon, authenticated;`);
+      expect(sql).toContain(`grant execute on function public.${fn} to service_role;`);
+    }
+    expect(sql).not.toMatch(/\bdrop\b|\bdelete from\b/i);
+    expect(sql).toContain("security definer set search_path = pg_catalog, public");
+  });
+
+  it("changes the point only of venues added by hand, both coordinates or none", () => {
+    expect(sql).toContain("where v.id = p_venue_id and v.source = 'manual'");
+    expect(sql.match(/\(p_latitude is null\) <> \(p_longitude is null\)/g)).toHaveLength(2);
+  });
+
+  it("keeps the point inside Belarus in the database too, with the same bounds as the server", () => {
+    const bounds = readdirSync("supabase/migrations").find((file) => file.endsWith("_venue_point_bounds.sql"));
+    const text = bounds ? read(`supabase/migrations/${bounds}`) : "";
+    expect(bounds).toBeTruthy();
+    expect(text.match(/p_latitude not between 51\.0 and 56\.5/g)).toHaveLength(2);
+    expect(text.match(/p_longitude not between 23\.0 and 33\.0/g)).toHaveLength(2);
+    expect(SERVER_POINT_BOUNDS).toEqual({ south: 51.0, north: 56.5, west: 23.0, east: 33.0 });
+    expect(text).not.toMatch(/\bdrop\b|\bdelete from\b/i);
+  });
+
+  it("is wired to PUT /admin/venues/:id/point, administrators only", () => {
+    const api = read("supabase/functions/telegram-api/index.ts");
+    expect(api).toContain('if (/^\\/admin\\/venues\\/[^/]+\\/point$/.test(path)) return ["PUT"];');
+    expect(api).toMatch(/async function adminSetVenuePoint[\s\S]*?if \(!isAdmin\(auth\)\) return adminNotFound\(\);/);
+    expect(api).toContain('db.rpc("admin_set_venue_point"');
+    expect(api).toContain("p_latitude: input.point?.latitude ?? null");
   });
 });
