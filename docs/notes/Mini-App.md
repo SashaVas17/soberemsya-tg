@@ -17,7 +17,7 @@ React + Vite + TypeScript. Открывается как `https://t.me/flocklyap
 - Нижнее меню — `src/BottomNavigation.tsx`, пункты — `bottomNavigationItems` в `src/navigation.ts`.
 - `src/ui/` — общие компоненты; `src/app-hooks.ts` — хуки; `src/share.ts` — отправка карточки в чат;
   `src/api.ts` — клиент [API](API.md); `src/meeting-links.ts` — ссылки на встречу.
-- Стили — `design-tokens.css` и `theme-sunset.css`, см. [Дизайн «Закат»](Дизайн-Закат.md).
+- Стили — `design-tokens.css` и `theme-sunset.css`, см. [Дизайн](Дизайн.md).
 
 ## Язык и настройки
 - Шестерёнка в правом верхнем углу главной (вместо переключателя темы) открывает «Настройки» (`/settings`,

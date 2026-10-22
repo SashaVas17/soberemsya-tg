@@ -318,7 +318,7 @@ button:disabled {
   gap: 16px;
   margin: 0 auto;
   max-width: 860px;
-  padding: 20px 14px 44px;
+  padding: 20px var(--page-gutter) 44px;
 }
 .participant-form {
   max-width: 680px;
@@ -554,8 +554,8 @@ button:disabled {
 @media (max-width: 430px) {
   .my-meetings-page,
   .public-meetings-page {
-    padding-left: 14px;
-    padding-right: 14px;
+    padding-left: var(--page-gutter);
+    padding-right: var(--page-gutter);
   }
 
   .my-meetings-page .meeting-card-heading,
@@ -2002,7 +2002,7 @@ code {
 
 @media (max-width: 430px) {
   .create-intro {
-    padding: 24px 14px 12px;
+    padding: 24px var(--page-gutter) 12px;
   }
   .create-step-label {
     font-size: 12px;
@@ -2353,7 +2353,7 @@ code {
     padding: 18px;
   }
   .voting-intro {
-    padding: 28px 14px 12px;
+    padding: 28px var(--page-gutter) 12px;
   }
   .voting-intro h1 {
     font-size: 32px;
@@ -2872,7 +2872,7 @@ code {
 
 @media (max-width: 430px) {
   .manage-intro {
-    padding: 28px 14px 12px;
+    padding: 28px var(--page-gutter) 12px;
   }
   .manage-intro h1 {
     font-size: 32px;

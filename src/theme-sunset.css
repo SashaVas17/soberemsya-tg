@@ -1,6 +1,7 @@
 /*
- * Flockly «Закат», cleaned (2026-10-21): flat ground, opaque surfaces with 1px borders,
- * no glass, glows or gradients; shadows only on what floats (dialogs, map cards).
+ * Flockly, graphite and coral (2026-10-22): a neutral ground with one coral glow,
+ * near-opaque cards, liquid glass only on chrome (top bar, bottom bar, dialogs)
+ * and on the primary buttons, coral only as the brand's mark.
  * Loaded after styles.css; colours live in design-tokens.css.
  */
 
@@ -1183,4 +1184,162 @@ h1 {
 }
 .city-choice-later {
   justify-self: center;
+}
+
+/* ——— Graphite and coral ——— */
+
+/* One soft coral glow over the neutral ground; content scrolls over it. */
+.app-shell {
+  isolation: isolate;
+  position: relative;
+}
+.app-shell::before {
+  background:
+    radial-gradient(80vmax 60vmax at -10% -12%, var(--glow-1) 0, transparent 60%),
+    radial-gradient(70vmax 60vmax at 110% 105%, var(--glow-2) 0, transparent 62%);
+  content: "";
+  inset: 0;
+  opacity: var(--glow-opacity);
+  pointer-events: none;
+  position: fixed;
+  z-index: -1;
+}
+.topbar {
+  background: transparent;
+  border-bottom-color: transparent;
+}
+.home-page,
+.my-meetings-page,
+.public-meetings-page,
+.create-screen,
+.created-screen,
+.voting-screen,
+.manage-screen,
+.result-screen,
+.settings-screen {
+  background: transparent;
+}
+
+/* Liquid glass on chrome only: the bars and what floats over content. */
+.topbar,
+.bottom-navigation,
+.participant-remove-dialog,
+.time-picker-dialog,
+.map-selection .meeting-card {
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+.topbar {
+  background: var(--color-header-bg);
+  border-bottom: 1px solid var(--glass-border);
+}
+.bottom-navigation {
+  background: var(--color-nav-bg);
+  border-top-color: var(--glass-border);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+.participant-remove-dialog,
+.time-picker-dialog {
+  background: var(--color-surface);
+  border-color: var(--glass-border);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 12px 32px rgb(0 0 0 / 12%);
+}
+.map-selection .meeting-card {
+  background: var(--color-surface);
+}
+
+/* Cards: near-opaque, a hairline edge and a light catch on the top edge. */
+.home-links,
+.meeting-card,
+.panel,
+.manage-card,
+.manage-next-action,
+.participant-next-action,
+.create-wizard .wizard-panel,
+.create-wizard .wizard-time-panel,
+.settings-permission,
+.settings-toggle,
+.state-card,
+.empty-state {
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+.home-links,
+.meeting-card {
+  border-radius: var(--radius-xl);
+}
+
+/* Primary actions are tinted glass, like iOS: the glow behind shows through,
+   a sheen lies on the upper half. Disabled buttons keep their own look. */
+.primary-action:not(:disabled),
+.bottom-navigation-create {
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  background:
+    linear-gradient(180deg, var(--glass-button-sheen), transparent 58%),
+    var(--glass-button-tint);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), inset 0 0 0 1px rgb(255 255 255 / 10%);
+  color: var(--action-primary-fg);
+}
+
+/* Selected options: an ink outline (two pixels without moving the layout);
+   the coral check says "chosen". */
+.availability-card.available,
+.voting-form .availability-card.available,
+.visibility-option.selected {
+  background: var(--color-surface-elevated);
+  border-color: var(--color-primary);
+  box-shadow: inset 0 0 0 1px var(--color-primary);
+}
+.visibility-option.selected .visibility-option-mark {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+/* Coral marks: the wordmark and a dot before the call to answer. Text stays ink. */
+.wordmark {
+  color: var(--color-accent);
+}
+.participant-next-action strong {
+  align-items: center;
+  color: var(--color-text);
+  display: inline-flex;
+  gap: 8px;
+}
+.participant-next-action strong::before {
+  background: var(--color-accent);
+  border-radius: var(--radius-full);
+  content: "";
+  flex: none;
+  height: 8px;
+  width: 8px;
+}
+.home-section-heading button {
+  color: var(--color-text);
+}
+
+/* Settings: the bar's title is the screen's h1; choices fit on one line. */
+h1.topbar-title {
+  margin: 0;
+}
+.settings-choice {
+  font-size: 14px;
+  padding-left: 8px;
+  padding-right: 8px;
+  white-space: nowrap;
+}
+.settings-choice span {
+  overflow-wrap: normal;
+}
+
+/* Fields keep a visible control edge on white cards. */
+.manage-card input,
+.manage-card textarea,
+.manage-card select,
+.create-wizard input,
+.create-wizard textarea,
+.voting-screen input,
+.voting-screen textarea,
+.voting-screen select {
+  border-color: var(--color-input-border);
 }

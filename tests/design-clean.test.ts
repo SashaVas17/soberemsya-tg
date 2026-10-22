@@ -2,11 +2,35 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// The cleaned «Закат» (2026-10-21): opaque surfaces, no glass, glows,
-// gradients or emoji in the interface. See docs/notes/Дизайн.md.
-const css = ["src/design-tokens.css", "src/styles.css", "src/theme-sunset.css"]
-  .map((file) => readFileSync(file, "utf8"))
-  .join("\n");
+// Graphite and coral (2026-10-22, docs/notes/Дизайн.md): liquid glass only on
+// chrome and primary buttons, a gradient only in the background glow and the
+// glass sheen, no uppercase labels and no emoji.
+const files = ["src/design-tokens.css", "src/styles.css", "src/theme-sunset.css"];
+const css = files.map((file) => readFileSync(file, "utf8")).join("\n");
+
+/** Selectors of every top-level or nested rule whose body contains `pattern`. */
+function selectorsWith(pattern: RegExp) {
+  const found: string[] = [];
+  for (const match of css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (pattern.test(match[2])) found.push(...match[1].split(",").map((part) => part.trim()));
+  }
+  return found;
+}
+
+const glassAllowed = new Set([
+  ".topbar",
+  ".bottom-navigation",
+  ".participant-remove-dialog",
+  ".time-picker-dialog",
+  ".map-selection .meeting-card",
+  ".primary-action:not(:disabled)",
+  ".bottom-navigation-create",
+]);
+const gradientAllowed = new Set([
+  ".app-shell::before",
+  ".primary-action:not(:disabled)",
+  ".bottom-navigation-create",
+]);
 
 function sources(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -16,10 +40,20 @@ function sources(dir: string): string[] {
   });
 }
 
-describe("clean design", () => {
-  it("has no backdrop blur or gradients", () => {
-    expect(css).not.toMatch(/backdrop-filter/);
-    expect(css).not.toMatch(/(linear|radial|conic)-gradient/);
+describe("design rules", () => {
+  it("keeps backdrop blur on chrome and primary buttons only", () => {
+    const blurred = selectorsWith(/backdrop-filter/);
+    expect(blurred.length).toBeGreaterThan(0);
+    expect(blurred.filter((selector) => !glassAllowed.has(selector))).toEqual([]);
+  });
+
+  it("keeps gradients to the background glow and the glass sheen", () => {
+    const graded = selectorsWith(/(linear|radial|conic)-gradient/);
+    expect(graded.filter((selector) => !gradientAllowed.has(selector))).toEqual([]);
+  });
+
+  it("has no violet left from the old palette", () => {
+    expect(css).not.toMatch(/#(6a3cf0|5428d6|4519c0|b49bff|c8b6ff|140a24|130a1a|221530)/i);
   });
 
   it("keeps labels in sentence case", () => {
