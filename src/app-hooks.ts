@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { api } from "./api";
 import { hasApiErrorCode } from "./api-error";
 import { telegram } from "./telegram";
@@ -15,6 +16,21 @@ import {
 import type { EventData, PublicEventPreview } from "./types";
 import type { Navigate } from "./app-types";
 import { t } from "./i18n";
+
+/**
+ * Changes the screen inside a View Transition (theme-sunset.css: the old screen
+ * fades out, the new one fades in 6 px up). Without the API (older WebViews) or
+ * with reduced motion the screen changes at once, as before.
+ */
+function screenTransitions() {
+  return typeof document.startViewTransition === "function" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches !== true;
+}
+
+function changeScreen(update: () => void) {
+  if (screenTransitions()) document.startViewTransition(() => flushSync(update));
+  else update();
+}
 
 export function usePath() {
   const readPath = () => {
@@ -33,7 +49,7 @@ export function usePath() {
       if (previousIndex >= 0) historyStack.current.splice(previousIndex + 1);
       else historyStack.current.push(next);
       currentPath.current = next;
-      setPath(next);
+      changeScreen(() => setPath(next));
     };
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
@@ -47,8 +63,16 @@ export function usePath() {
     if (replace)
       window.history.replaceState({}, "", `${window.location.pathname}${window.location.search}${target}`);
     else window.location.hash = next;
-    setPath(next);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (screenTransitions()) {
+      // Inside a transition the new screen is shown from the top at once.
+      changeScreen(() => {
+        setPath(next);
+        window.scrollTo(0, 0);
+      });
+    } else {
+      setPath(next);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   }, []);
   const goBack = useCallback(() => {
     if (historyStack.current.length <= 1) {

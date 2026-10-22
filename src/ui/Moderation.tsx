@@ -11,6 +11,7 @@ import {
   type ReportReason,
 } from "../moderation";
 import { haptic } from "../telegram";
+import { Presence, useLeaving } from "./Presence";
 import { t } from "../i18n";
 
 function errorText(reason: unknown, fallback: string) {
@@ -26,8 +27,13 @@ function Dialog({
   children: ReactNode;
   labelledBy: string;
 }) {
+  const leaving = useLeaving();
   return createPortal(
-    <div className="participant-remove-backdrop moderation-backdrop" role="presentation">
+    <div
+      className={`participant-remove-backdrop moderation-backdrop${leaving ? " is-leaving" : ""}`}
+      inert={leaving || undefined}
+      role="presentation"
+    >
       <section
         aria-labelledby={labelledBy}
         aria-modal="true"
@@ -215,10 +221,10 @@ export function SafetyActions({
       <button className="safety-action" onClick={() => setOpen("block")} type="button">
         <Ban aria-hidden="true" size={15} />
         {t("Заблокировать")}</button>
-      {open === "report" && (
+      <Presence show={open === "report"}>
         <ReportDialog eventId={eventId} onClose={() => setOpen(null)} subject={reportSubject} target={target} />
-      )}
-      {open === "block" && (
+      </Presence>
+      <Presence show={open === "block"}>
         <BlockDialog
           eventId={eventId}
           onBlocked={onBlocked}
@@ -226,7 +232,7 @@ export function SafetyActions({
           personLabel={personLabel}
           target={target}
         />
-      )}
+      </Presence>
     </div>
   );
 }

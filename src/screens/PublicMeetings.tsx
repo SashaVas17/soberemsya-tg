@@ -13,6 +13,7 @@ import type { City, MeetingCategory, PublicMeetingFeedItem } from "../types";
 import type { Navigate } from "../app-types";
 import { CategoryBadge, CategoryChip, Header, Loading, RetryState, EmptyState } from "../ui/common";
 import { CommunityRulesDialog } from "../ui/Moderation";
+import { Presence } from "../ui/Presence";
 import { t } from "../i18n";
 
 export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBack: () => void }) {
@@ -298,7 +299,9 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
         </nav>
       </section>
       <BottomNavigation currentPath="/open" navigate={navigate} />
-      {rulesPending && <CommunityRulesDialog onAccepted={() => setRulesPending(false)} />}
+      <Presence show={rulesPending}>
+        <CommunityRulesDialog onAccepted={() => setRulesPending(false)} />
+      </Presence>
     </main>
   );
 }
