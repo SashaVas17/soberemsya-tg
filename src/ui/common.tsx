@@ -28,11 +28,14 @@ export function Header({
   onBack,
   title = "Flockly",
   variant,
+  heading = false,
 }: {
   navigate: Navigate;
   onBack?: () => void;
   title?: string;
   variant?: "home" | "root" | "nested";
+  /** The bar's title is the screen's only heading (Settings): render it as h1. */
+  heading?: boolean;
 }) {
   if (variant === "home") {
     // Language, theme and notifications live behind the gear (stage 4).
@@ -64,7 +67,7 @@ export function Header({
       >
         <ArrowLeft aria-hidden="true" size={20} />
       </button>
-      <span className="topbar-title">{title}</span>
+      {heading ? <h1 className="topbar-title">{title}</h1> : <span className="topbar-title">{title}</span>}
       <button
         aria-label={t("На главную")}
         className="topbar-action"

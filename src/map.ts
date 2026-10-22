@@ -13,8 +13,8 @@ export function mapStyleFor(theme: string | undefined) {
 }
 
 export const MAP_COLORS = {
-  light: { venue: "#6a3cf0", featured: "#ff9a6a", meeting: "#e8467c", stroke: "#ffffff", text: "#ffffff" },
-  dark: { venue: "#b49bff", featured: "#ffb98e", meeting: "#ff6fa3", stroke: "#130a1a", text: "#130a1a" },
+  light: { venue: "#18181b", featured: "#a86a12", meeting: "#f04438", stroke: "#ffffff", text: "#ffffff" },
+  dark: { venue: "#f4f4f5", featured: "#f2b84b", meeting: "#ff6b5e", stroke: "#0f0f10", text: "#0f0f10" },
 } as const;
 
 type Point = { type: "Feature"; geometry: { type: "Point"; coordinates: [number, number] }; properties: Record<string, string | boolean> };

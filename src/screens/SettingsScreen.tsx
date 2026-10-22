@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { Check } from "lucide-react";
 import type { Navigate } from "../app-types";
 import { language, t, type LanguagePreference } from "../i18n";
 import type { ThemePreference } from "../theme";
@@ -42,7 +41,6 @@ function ChoiceGroup<T extends string>({
           type="button"
         >
           <span>{choice.native ? choice.label : t(choice.label)}</span>
-          {value === choice.value && <Check aria-hidden="true" size={16} />}
         </button>
       ))}
     </div>
@@ -73,7 +71,7 @@ export function SettingsScreen({
   }, [section]);
   return (
     <main className="settings-screen">
-      <Header navigate={navigate} onBack={onBack} title={t("Настройки")} variant="nested" />
+      <Header heading navigate={navigate} onBack={onBack} title={t("Настройки")} variant="nested" />
       <section className="settings-page">
         <section aria-labelledby="settings-language" className="settings-section">
           <h2 id="settings-language">{t("Язык")}</h2>

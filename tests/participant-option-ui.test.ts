@@ -24,7 +24,7 @@ describe("participant option UX", () => {
   });
 
   it("uses one semantic selected indicator treatment for time and place", () => {
-    expect(tokens).toContain("--selection-indicator-selected-fg: var(--color-on-primary-soft)");
+    expect(tokens).toContain("--selection-indicator-selected-fg: var(--color-on-accent)");
     expect(styles).toContain(".availability-card > span:not(.availability-check)");
     expect(styles).toContain(".availability-card.available .availability-check {");
     expect(styles).toContain("color: var(--selection-indicator-selected-fg);");
