@@ -1269,9 +1269,22 @@ h1 {
   color: var(--color-on-accent);
 }
 
-/* Coral marks: the wordmark and a dot before the call to answer. Text stays ink. */
+/* Coral marks: the logo's "o" and a dot before the call to answer. Text stays ink. */
 .wordmark {
-  color: var(--color-accent);
+  color: var(--color-text);
+  letter-spacing: -0.03em;
+}
+.wordmark > span {
+  align-items: baseline;
+  display: inline-flex;
+}
+.wordmark-o {
+  background: var(--color-accent);
+  border-radius: var(--radius-full);
+  display: inline-block;
+  height: 0.58em;
+  margin: 0 0.02em;
+  width: 0.58em;
 }
 .participant-next-action strong {
   align-items: center;
