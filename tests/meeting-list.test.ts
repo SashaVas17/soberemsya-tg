@@ -48,6 +48,12 @@ describe("meeting list summaries", () => {
     expect(upcomingTimeOption([timeOptions[0], { ...timeOptions[1], startsAt: "2026-08-05T16:00:00.000Z" }], new Date("2026-08-08T00:00:00Z"))).toBe(timeOptions[0]);
     // Everything is past.
     expect(event("2026-09-01T00:00:00Z").upcomingTime).toBeNull();
+    // An option starting exactly now is still ahead.
+    expect(event("2026-08-10T16:00:00Z").upcomingTime).toBe(timeOptions[1]);
+    // The text agrees: only the options still ahead are in the range, all of them once all are past.
+    expect(event("2026-08-10T00:00:00Z").timeSummary).toBe("10 августа");
+    expect(event("2026-08-01T00:00:00Z").timeSummary).toBe("9–10 августа");
+    expect(event("2026-09-01T00:00:00Z").timeSummary).toBe("9–10 августа");
     // The popular option is still reported as bestTime for older callers.
     expect(event("2026-09-01T00:00:00Z").bestTime).toBe(timeOptions[1]);
   });

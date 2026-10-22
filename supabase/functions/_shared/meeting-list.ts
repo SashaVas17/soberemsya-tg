@@ -166,7 +166,14 @@ export function meetingListItem(
     timeSummary:
       event.status === "decided"
         ? decidedTimeSummary(finalTime, language)
-        : timeRangeSummary(event.timeOptions, language),
+        // The range of the options still ahead (all of them once every one is past),
+        // so the text agrees with the date on the ticket.
+        : timeRangeSummary(
+            event.timeOptions.some((option) => Date.parse(option.startsAt) >= now.getTime())
+              ? event.timeOptions.filter((option) => Date.parse(option.startsAt) >= now.getTime())
+              : event.timeOptions,
+            language,
+          ),
     placeSummary:
       event.status === "decided" && finalPlace?.title.trim()
         ? finalPlace.title.trim()
