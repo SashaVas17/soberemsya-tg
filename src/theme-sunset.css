@@ -1709,7 +1709,39 @@ h1.topbar-title {
   animation: flockly-ring-out 500ms var(--ease-out) 200ms backwards;
 }
 
+/* Form errors ease in instead of popping. */
+@keyframes flockly-error-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+.form-error,
+.participant-remove-error {
+  animation: flockly-error-in 200ms var(--ease-out) backwards;
+}
+/* The map's place card rises from the bottom edge of the map. */
+@keyframes flockly-sheet-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+.map-selection {
+  animation: flockly-sheet-in 220ms var(--ease-out) backwards;
+}
+/* The logo's "o" lights up once a day, when the app opens. */
+@keyframes flockly-logo-glow {
+  0%, 100% { box-shadow: 0 0 0 rgb(240 68 56 / 0); }
+  40% { box-shadow: 0 0 10px 3px rgb(240 68 56 / 0.55); }
+}
+.wordmark-o-glow {
+  animation: flockly-logo-glow 300ms var(--ease-out) 400ms 2 backwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .form-error,
+  .participant-remove-error,
+  .map-selection,
+  .wordmark-o-glow {
+    animation: none;
+  }
   .presence-leaving .participant-remove-backdrop,
   .presence-leaving .time-picker-backdrop,
   .presence-leaving .participant-remove-dialog,

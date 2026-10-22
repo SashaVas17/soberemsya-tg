@@ -11,6 +11,7 @@ import { categoryIcon } from "../categories";
 import { formatSlot, plural } from "../domain";
 import { meetingCardData, meetingDestination } from "../navigation";
 import { meetingTime } from "../my-meetings";
+import { logoGlowsToday } from "../motion";
 import { ticketDate } from "../ticket";
 import type { EventStatus, MeetingCategory, MeetingListItem } from "../types";
 import type { Navigate } from "../app-types";
@@ -43,7 +44,7 @@ export function Header({
       <header className="topbar topbar-home">
         <button aria-label="Flockly" className="wordmark" onClick={() => navigate("/")} type="button">
           {/* The logo: "flockly" with a coral circle for the "o" (public/brand/logo.png). */}
-          <span aria-hidden="true">fl<span className="wordmark-o" />ckly</span>
+          <span aria-hidden="true">fl<span className={logoGlowsToday() ? "wordmark-o wordmark-o-glow" : "wordmark-o"} />ckly</span>
         </button>
         <button
           aria-label={t("Настройки")}
