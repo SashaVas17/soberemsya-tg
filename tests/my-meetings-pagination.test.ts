@@ -96,7 +96,7 @@ describe("My Meetings pagination contract", () => {
     );
     expect(page).toContain('db.from("time_options").select("id,event_id,starts_at").in("event_id", eventIds)');
     expect(page).toContain('db.from("place_options").select("id,event_id,title").in("event_id", eventIds)');
-    expect(page).toContain('db.from("participants").select("id,event_id").in("event_id", eventIds)');
+    expect(page).toContain('db.from("participants").select("id,event_id,name").in("event_id", eventIds).order("created_at")');
     expect(page).toContain('db.from("availability_votes").select("time_option_id,is_available").in("time_option_id", timeIds)');
   });
 

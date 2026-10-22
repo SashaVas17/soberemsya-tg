@@ -931,7 +931,7 @@ async function meetingListPage(
     await Promise.all([
       db.from("time_options").select("id,event_id,starts_at").in("event_id", eventIds),
       db.from("place_options").select("id,event_id,title").in("event_id", eventIds),
-      db.from("participants").select("id,event_id").in("event_id", eventIds),
+      db.from("participants").select("id,event_id,name").in("event_id", eventIds).order("created_at"),
     ]);
   if (timeError || placeError || peopleError) throw timeError ?? placeError ?? peopleError;
 
@@ -972,7 +972,7 @@ async function meetingListPage(
   for (const person of people ?? []) {
     participantsByEvent.set(person.event_id, [
       ...(participantsByEvent.get(person.event_id) ?? []),
-      person.id,
+      { id: person.id, name: person.name },
     ]);
   }
   const lastEvent = page.at(-1);

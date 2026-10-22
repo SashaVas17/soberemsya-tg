@@ -209,7 +209,15 @@ export function MeetingGroup({
                 )}
                 <span className="ticket-foot">
                   <span className="ticket-count">
-                    <Users aria-hidden="true" size={15} />
+                    {item.initials?.length ? (
+                      <span aria-hidden="true" className="ticket-people">
+                        {item.initials.map((letter, index) => (
+                          <span key={index}>{letter}</span>
+                        ))}
+                      </span>
+                    ) : (
+                      <Users aria-hidden="true" size={15} />
+                    )}
                     {plural(card.responseCount, "ответил", "ответили", "ответили")}
                   </span>
                   <StatusBadge status={card.status} />

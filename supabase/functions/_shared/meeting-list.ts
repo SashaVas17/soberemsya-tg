@@ -22,6 +22,39 @@ type MeetingEvent = {
   createdAt: string;
 };
 
+let segmenter: Intl.Segmenter | null | undefined;
+
+/** Graphemes of a text; code points where Intl.Segmenter is missing (iOS < 14.5). */
+function graphemesOf(text: string): string[] {
+  if (segmenter === undefined)
+    segmenter = typeof Intl.Segmenter === "function" ? new Intl.Segmenter(undefined, { granularity: "grapheme" }) : null;
+  return segmenter ? Array.from(segmenter.segment(text), (part) => part.segment) : Array.from(text);
+}
+
+/**
+ * The letter on a person's avatar circle: the first grapheme that is a letter,
+ * in upper case; "" when the name has none. Same as src/initials.ts.
+ */
+export function nameInitial(name: string): string {
+  for (const segment of graphemesOf(name.normalize("NFC"))) {
+    if (/\p{L}/u.test(segment)) return segment.toUpperCase();
+  }
+  return "";
+}
+
+/**
+ * Avatar letters of the first answered people (up to three) for the meeting
+ * card, one per person, "" for a name without a letter so the circles match
+ * the count. Only letters leave the server; the people are those the viewer
+ * already sees on the meeting's own screen.
+ */
+export function participantInitials(participants: unknown[], limit = 3): string[] {
+  return participants.slice(0, limit).map((person) => {
+    const name = typeof person === "object" && person !== null ? (person as { name?: unknown }).name : null;
+    return typeof name === "string" ? nameInitial(name) : "";
+  });
+}
+
 // All active cities share Minsk time for now; per-city zones here come with
 // the first city outside it (Stage 4).
 const timeZone = DEFAULT_TIME_ZONE;
@@ -113,6 +146,7 @@ export function meetingListItem(event: MeetingEvent, role: MeetingRole, language
     role,
     participantCount: event.participants.length,
     responseCount: event.participants.length,
+    initials: participantInitials(event.participants),
     bestTime,
     /** The chosen time of a decided meeting (its date on the ticket card). */
     finalTime: event.status === "decided" ? finalTime : null,

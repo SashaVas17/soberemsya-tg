@@ -1,3 +1,4 @@
+import { nameInitial } from "./initials";
 import type {
   AdminReport,
   AuthResult,
@@ -177,6 +178,7 @@ const listItem = (role: "owner" | "participant"): MeetingListItem => ({
   role,
   participantCount: event.participants.length,
   responseCount: event.participants.length,
+  initials: event.participants.slice(0, 3).map((person) => nameInitial(person.name)),
   bestTime: event.timeOptions[0],
   finalTime:
     event.status === "decided"
