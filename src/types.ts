@@ -179,6 +179,8 @@ export type AuthResult = {
   language?: "ru" | "en" | null;
   /** Open cities to choose from: the person has not chosen a city yet. */
   cityChoice?: City[];
+  /** Goes into the meeting links this person shares (event_<id>__r<code>). */
+  referralCode?: string | null;
 };
 
 export type AdminStats = {
@@ -199,6 +201,12 @@ export type AdminStats = {
   meetings30d: number;
   meetingsWithResponses30d: number;
   daily: { day: string; active: number; meetings: number; responses: number }[];
+  /** People who came by someone's link; absent on old servers. */
+  referrals?: {
+    invited7d: number;
+    invited30d: number;
+    topInviters: { name: string; username: string | null; invited: number }[];
+  };
 };
 
 export type NotificationResponseMode = "summary" | "each" | "off";

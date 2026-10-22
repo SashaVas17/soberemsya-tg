@@ -116,9 +116,12 @@ Deno.serve(async (request) => {
     // Only administrators get /stats; for others it is an unknown command.
     if (command === "/stats" && isAdminTelegramId(message.senderId, adminIds) && supabaseUrl && serviceKey) {
       // A failed read is answered, not redelivered by Telegram.
-      const { data, error } = await db.rpc("admin_stats");
+      const [{ data, error }, referrals] = await Promise.all([db.rpc("admin_stats"), db.rpc("admin_referral_stats")]);
       if (error) console.error("admin_stats_failed", error.code);
-      const text = error ? "Не удалось получить статистику. Попробуйте позже." : formatStatsText(data as AdminStats);
+      if (referrals.error) console.error("admin_referral_stats_failed", referrals.error.code);
+      const text = error
+        ? "Не удалось получить статистику. Попробуйте позже."
+        : formatStatsText({ ...(data as AdminStats), referrals: referrals.error ? undefined : referrals.data });
       await telegram("sendMessage", { chat_id: message.chatId, text });
       return json({ ok: true });
     }

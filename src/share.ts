@@ -13,9 +13,18 @@ function telegramAppConfig() {
   return { bot, app };
 }
 
+// The signed-in person's referral code (from /telegram/auth): the links they
+// share carry it. Null until sign-in or on an old server. The format is
+// checked like on the server (REFERRAL_CODE in _shared/domain.ts).
+let referralCode: string | null = null;
+
+export function setReferralCode(code: string | null | undefined) {
+  referralCode = code && /^[0-9a-f]{12}$/.test(code) ? code : null;
+}
+
 export function miniAppLink(eventId: string) {
   const { bot, app } = telegramAppConfig();
-  return buildMiniAppLink(eventId, bot, app);
+  return buildMiniAppLink(eventId, bot, app, referralCode);
 }
 
 // Prepares the card (WebApp.shareMessage) when the screen opens, so a tap
@@ -58,10 +67,10 @@ function shareCard(eventId: string, preparedMessageId: string | null, fallbackUr
 
 export function shareEvent(eventId: string, preparedMessageId: string | null) {
   const { bot, app } = telegramAppConfig();
-  shareCard(eventId, preparedMessageId, buildEventShareUrl(eventId, bot, app));
+  shareCard(eventId, preparedMessageId, buildEventShareUrl(eventId, bot, app, referralCode));
 }
 
 export function shareResult(eventId: string, preparedMessageId: string | null) {
   const { bot, app } = telegramAppConfig();
-  shareCard(eventId, preparedMessageId, buildResultShareUrl(eventId, bot, app));
+  shareCard(eventId, preparedMessageId, buildResultShareUrl(eventId, bot, app, referralCode));
 }

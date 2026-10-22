@@ -52,6 +52,27 @@ export function AdminStatsScreen({ navigate, onBack }: { navigate: Navigate; onB
                 <StatCard label={t("новых пользователей")} value={stats.usersNew7d} />
               </div>
             </section>
+            {stats.referrals && (
+              <section>
+                <h2>{t("Приглашения")}</h2>
+                <div className="stat-grid">
+                  <StatCard label={t("пришли за 7 дней")} value={stats.referrals.invited7d} />
+                  <StatCard label={t("пришли за 30 дней")} value={stats.referrals.invited30d} />
+                </div>
+                {stats.referrals.topInviters.length > 0 && (
+                  <div className="stat-lines">
+                    {stats.referrals.topInviters.map((inviter, index) => (
+                      <p key={index}>
+                        <span>{inviter.username ? `@${inviter.username}` : inviter.name}</span>
+                        <strong>{inviter.invited}</strong>
+                      </p>
+                    ))}
+                  </div>
+                )}
+                <p className="stat-note">
+                  {t("Новые пользователи, открывшие встречу по ссылке другого человека. Внизу — кто привёл больше всех за 30 дней.")}</p>
+              </section>
+            )}
             <section className="stat-lines">
               <p><span>{t("Вернулись за 7 дней")}</span><strong>{shareText(stats.returningUsers7d, stats.previousWeekUsers)}</strong></p>
               <p><span>{t("Встречи с ответами, 30 дней")}</span><strong>{shareText(stats.meetingsWithResponses30d, stats.meetings30d)}</strong></p>

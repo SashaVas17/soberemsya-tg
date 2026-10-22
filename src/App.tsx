@@ -2,6 +2,8 @@ import { Fragment, useCallback, useEffect, useState, type ReactElement } from "r
 import { api } from "./api";
 import { onSessionExpired } from "./session";
 import { initializeTelegram } from "./telegram";
+import { setReferralCode } from "./share";
+import { startParamEventId } from "./meeting-links";
 import type { AuthResult, EventData } from "./types";
 import { usePath, useTelegramBack, useAppTheme } from "./app-hooks";
 import { Loading, RetryState } from "./ui/common";
@@ -84,8 +86,10 @@ export default function App() {
         else if (result.language !== undefined) writeLanguageSynced(true);
         setAuth(result);
         if (result.cityChoice) setCityChoice(result.cityChoice);
-        if (result.startParam?.startsWith("event_"))
-          navigate(`/event/${result.startParam.slice(6)}`, true);
+        setReferralCode(result.referralCode);
+        const startEventId = result.startParam ? startParamEventId(result.startParam) : null;
+        if (startEventId)
+          navigate(`/event/${startEventId}`, true);
         // A report notification for the administrator.
         else if (result.startParam === "reports" && result.isAdmin)
           navigate("/admin/reports", true);
