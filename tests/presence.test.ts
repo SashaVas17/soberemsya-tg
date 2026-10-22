@@ -7,9 +7,9 @@ const css = readFileSync("src/theme-sunset.css", "utf8") + readFileSync("src/sty
 describe("motion", () => {
   it("keeps every closing dialog on screen for its exit", () => {
     for (const file of ["src/screens/Manage.tsx", "src/screens/ParticipantEvent.tsx", "src/screens/CreateEvent.tsx", "src/ui/Moderation.tsx", "src/screens/PublicMeetings.tsx"])
-      expect(readFileSync(file, "utf8")).toContain("<Presence show=");
+      expect(readFileSync(file, "utf8")).toMatch(/<Presence (portal )?show=/);
     expect(css).toContain(".presence-leaving .participant-remove-dialog");
-    expect(readFileSync("src/ui/Moderation.tsx", "utf8")).toContain("useLeaving()");
+    expect(readFileSync("src/ui/Moderation.tsx", "utf8")).toContain("<PresenceFrame leaving={leaving}>");
   });
 
   it("never animates layout: bars grow by clip-path, not width", () => {
@@ -23,8 +23,8 @@ describe("motion", () => {
 
   it("changes screens in a View Transition only when it is supported and motion is welcome", () => {
     const hooks = readFileSync("src/app-hooks.ts", "utf8");
-    expect(hooks).toContain('typeof document.startViewTransition === "function"');
-    expect(hooks).toContain("prefers-reduced-motion: reduce");
+    expect(hooks).toContain('typeof document.startViewTransition === "function" && !prefersReducedMotion()');
+    expect(hooks).toContain("transition.ready.catch(");
     expect(hooks).toContain("document.startViewTransition(() => flushSync(update))");
   });
 });

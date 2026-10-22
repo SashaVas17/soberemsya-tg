@@ -307,7 +307,7 @@ describe("moderation API", () => {
 describe("moderation screens", () => {
   it("shows the rules before the first look at open meetings", () => {
     expect(ui).toContain("if (result.communityRulesAccepted === false) setRulesPending(true);");
-    expect(ui).toContain("<Presence show={rulesPending}>");
+    expect(ui).toContain("<Presence portal show={rulesPending}>");
     expect(ui).toContain("<CommunityRulesDialog onAccepted={() => setRulesPending(false)} />");
   });
 

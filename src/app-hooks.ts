@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { prefersReducedMotion } from "./motion";
 import { api } from "./api";
 import { hasApiErrorCode } from "./api-error";
 import { telegram } from "./telegram";
@@ -23,13 +24,18 @@ import { t } from "./i18n";
  * with reduced motion the screen changes at once, as before.
  */
 function screenTransitions() {
-  return typeof document.startViewTransition === "function" &&
-    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches !== true;
+  return typeof document.startViewTransition === "function" && !prefersReducedMotion();
 }
 
-function changeScreen(update: () => void) {
-  if (screenTransitions()) document.startViewTransition(() => flushSync(update));
-  else update();
+function changeScreen(update: () => void, animate = screenTransitions()) {
+  if (!animate) {
+    update();
+    return;
+  }
+  const transition = document.startViewTransition(() => flushSync(update));
+  // A newer navigation skips this one: the screen still changes, only the animation is dropped.
+  transition.ready.catch(() => undefined);
+  transition.finished.catch(() => undefined);
 }
 
 export function usePath() {
@@ -63,12 +69,13 @@ export function usePath() {
     if (replace)
       window.history.replaceState({}, "", `${window.location.pathname}${window.location.search}${target}`);
     else window.location.hash = next;
-    if (screenTransitions()) {
+    const animate = screenTransitions();
+    if (animate) {
       // Inside a transition the new screen is shown from the top at once.
       changeScreen(() => {
         setPath(next);
         window.scrollTo(0, 0);
-      });
+      }, true);
     } else {
       setPath(next);
       window.scrollTo({ top: 0, behavior: "smooth" });

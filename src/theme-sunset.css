@@ -1612,13 +1612,11 @@ h1.topbar-title {
   to { opacity: 0; transform: translateY(4px) scale(0.99); }
 }
 .presence-leaving .participant-remove-backdrop,
-.presence-leaving .time-picker-backdrop,
-.participant-remove-backdrop.is-leaving {
+.presence-leaving .time-picker-backdrop {
   animation: flockly-fade-out 150ms var(--ease-out) forwards;
 }
 .presence-leaving .participant-remove-dialog,
-.presence-leaving .time-picker-dialog,
-.is-leaving .participant-remove-dialog {
+.presence-leaving .time-picker-dialog {
   animation: flockly-sink-out 150ms var(--ease-out) forwards;
 }
 
@@ -1686,10 +1684,8 @@ h1.topbar-title {
 @media (prefers-reduced-motion: reduce) {
   .presence-leaving .participant-remove-backdrop,
   .presence-leaving .time-picker-backdrop,
-  .participant-remove-backdrop.is-leaving,
   .presence-leaving .participant-remove-dialog,
   .presence-leaving .time-picker-dialog,
-  .is-leaving .participant-remove-dialog,
   .loading,
   .meeting-group,
   .voting-saved-icon,

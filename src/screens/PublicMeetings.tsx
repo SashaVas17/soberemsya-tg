@@ -299,7 +299,7 @@ export function PublicMeetings({ navigate, onBack }: { navigate: Navigate; onBac
         </nav>
       </section>
       <BottomNavigation currentPath="/open" navigate={navigate} />
-      <Presence show={rulesPending}>
+      <Presence portal show={rulesPending}>
         <CommunityRulesDialog onAccepted={() => setRulesPending(false)} />
       </Presence>
     </main>
