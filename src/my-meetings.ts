@@ -10,6 +10,17 @@ export function mergeMeetingItems(
 }
 
 /**
+ * The time a meeting is expected at. A decided meeting has only its chosen
+ * time (none when only a place was chosen); while answers are collected, the
+ * most popular option stands in. A server before finalTime (2026-10-22) sends
+ * no field: then the popular option is the best guess for a decided meeting too.
+ */
+export function meetingTime(item: Pick<MeetingListItem, "status" | "bestTime" | "finalTime">) {
+  if (item.status === "decided" && item.finalTime !== undefined) return item.finalTime;
+  return item.finalTime ?? item.bestTime;
+}
+
+/**
  * The meeting to show first on the home screen: the soonest one that has a
  * time still ahead; without such, the most recently created active meeting.
  * Cancelled meetings are never picked.
@@ -19,7 +30,8 @@ export function nearestMeeting(items: MeetingListItem[], now: Date = new Date())
   const nowMs = now.getTime();
   const upcoming = active
     .flatMap((item) => {
-      const startsAt = item.bestTime ? Date.parse(item.bestTime.startsAt) : NaN;
+      const time = meetingTime(item);
+      const startsAt = time ? Date.parse(time.startsAt) : NaN;
       return Number.isNaN(startsAt) || startsAt < nowMs ? [] : [{ item, startsAt }];
     })
     .sort((left, right) => left.startsAt - right.startsAt);

@@ -30,6 +30,7 @@ describe("meeting list summaries", () => {
       timeSummary: "9–10 августа",
       placeSummary: null,
       bestTime: timeOptions[1],
+      finalTime: null,
     });
   });
 
@@ -57,6 +58,7 @@ describe("meeting list summaries", () => {
       responseCount: 1,
       timeSummary: "10 августа · 19:00",
       placeSummary: "Публика",
+      finalTime: timeOptions.find((option) => option.id === "time_10"),
     });
   });
 

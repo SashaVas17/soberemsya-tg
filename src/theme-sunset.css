@@ -1342,3 +1342,221 @@ h1.topbar-title {
     background: var(--action-primary-bg);
   }
 }
+
+/* ——— Meeting ticket: the date large on the left, the rest on the right ——— */
+.sr-only {
+  border: 0;
+  clip: rect(0 0 0 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+.meeting-card.meeting-ticket {
+  align-items: stretch;
+  display: grid;
+  gap: 0;
+  grid-template-columns: 72px minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
+.ticket-date {
+  align-content: center;
+  background: var(--color-surface-variant);
+  border-right: 1px dashed var(--color-border);
+  color: var(--color-text);
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  padding: 14px 0;
+}
+.ticket-date-empty {
+  color: var(--color-text-muted);
+}
+/* Not decided yet: the leading option's date, muted and with a dashed edge. */
+.ticket-date-tentative {
+  background: transparent;
+}
+.ticket-date-tentative .ticket-day,
+.ticket-date-tentative .ticket-weekday {
+  color: var(--color-text-muted);
+}
+.ticket-month,
+.ticket-weekday {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.2;
+}
+.ticket-weekday {
+  color: var(--color-text);
+  font-weight: 600;
+}
+.ticket-day {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 1;
+}
+.ticket-body {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px 16px;
+}
+.meeting-ticket .meeting-card-title {
+  font-size: 15px;
+  line-height: 1.25;
+}
+.ticket-when {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.ticket-foot {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-top: 2px;
+}
+.ticket-count {
+  align-items: center;
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  font-size: 12px;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.meeting-ticket .meeting-card-action {
+  justify-self: start;
+}
+.ticket-when b {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+/* Votes under a time option: saved answers so far, the leader in coral. */
+.availability-card > span.slot-votes {
+  align-items: stretch;
+  color: var(--color-text-secondary);
+  display: grid;
+  font-weight: 400;
+  gap: 6px;
+  grid-column: 1 / -1;
+  width: 100%;
+}
+.slot-votes-row {
+  color: var(--color-text-secondary);
+  display: flex;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  justify-content: space-between;
+}
+.slot-votes.leading .slot-votes-row > span:first-child {
+  color: var(--color-text);
+  font-weight: 600;
+}
+.slot-votes-bar {
+  background: var(--color-surface-variant);
+  border-radius: var(--radius-full);
+  display: block;
+  height: 6px;
+  overflow: hidden;
+}
+.slot-votes-bar i {
+  background: var(--color-text-secondary);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+}
+.slot-votes.leading .slot-votes-bar i {
+  background: var(--color-accent);
+}
+
+/* ——— Motion (design-motion-principles: Jakub Krehel first, Emil Kowalski second) ———
+   Feedback only: a short press, dialogs that rise in, a check that lands, bars
+   that grow. Ease-out, 150-220 ms, no bounce; all off with reduced motion. */
+:root {
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+}
+.meeting-card,
+.home-link,
+.availability-card,
+.visibility-option,
+.primary-action,
+.secondary-action,
+.category-chip {
+  transition:
+    transform 150ms var(--ease-out),
+    background-color 150ms var(--ease-out),
+    border-color 150ms var(--ease-out),
+    box-shadow 150ms var(--ease-out),
+    color 150ms var(--ease-out);
+}
+.meeting-card:active,
+.home-link:active,
+.availability-card:active,
+.visibility-option:active,
+.primary-action:not(:disabled):active,
+.secondary-action:not(:disabled):active,
+.category-chip:active {
+  transform: scale(0.98);
+}
+@keyframes flockly-fade-in {
+  from { opacity: 0; }
+}
+@keyframes flockly-rise-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+}
+@keyframes flockly-check-in {
+  from { opacity: 0; transform: scale(0.5); }
+}
+.participant-remove-backdrop,
+.time-picker-backdrop {
+  animation: flockly-fade-in 180ms var(--ease-out);
+}
+.participant-remove-dialog,
+.time-picker-dialog {
+  animation: flockly-rise-in 220ms var(--ease-out);
+}
+.availability-card.available .availability-check svg,
+.visibility-option.selected .visibility-option-mark svg {
+  animation: flockly-check-in 160ms var(--ease-out);
+}
+.slot-votes-bar i {
+  transition: width 300ms var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .meeting-card,
+  .home-link,
+  .availability-card,
+  .visibility-option,
+  .primary-action,
+  .secondary-action,
+  .category-chip,
+  .slot-votes-bar i {
+    transition: none;
+  }
+  .meeting-card:active,
+  .home-link:active,
+  .availability-card:active,
+  .visibility-option:active,
+  .primary-action:not(:disabled):active,
+  .secondary-action:not(:disabled):active,
+  .category-chip:active {
+    transform: none;
+  }
+  .participant-remove-backdrop,
+  .time-picker-backdrop,
+  .participant-remove-dialog,
+  .time-picker-dialog,
+  .availability-card.available .availability-check svg,
+  .visibility-option.selected .visibility-option-mark svg {
+    animation: none;
+  }
+}

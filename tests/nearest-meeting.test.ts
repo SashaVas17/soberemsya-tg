@@ -34,6 +34,18 @@ describe("nearestMeeting", () => {
     expect(nearestMeeting(items, now)?.id).toBe("soon");
   });
 
+  it("dates a decided meeting by its chosen time, not the most popular one", () => {
+    const items = [
+      meeting("decided", {
+        status: "decided",
+        bestTime: at("2026-10-16T18:00:00Z"),
+        finalTime: at("2026-10-25T18:00:00Z"),
+      }),
+      meeting("collecting", { bestTime: at("2026-10-20T18:00:00Z") }),
+    ];
+    expect(nearestMeeting(items, now)?.id).toBe("collecting");
+  });
+
   it("falls back to the latest created active meeting when no time is ahead", () => {
     const items = [
       meeting("old", { createdAt: "2026-09-01T10:00:00Z" }),

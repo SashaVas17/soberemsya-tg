@@ -65,7 +65,7 @@ export function resolveTheme(
 }
 
 /** Page ground per theme (design-tokens.css), for the browser's theme-color. */
-export const THEME_COLORS: Record<ResolvedTheme, string> = { light: "#f4f4f5", dark: "#0f0f10" };
+export const THEME_COLORS: Record<ResolvedTheme, string> = { light: "#efefed", dark: "#0f0f10" };
 
 export function applyTheme(
   theme: ResolvedTheme,

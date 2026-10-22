@@ -160,6 +160,8 @@ export type MeetingListItem = {
   participantCount: number;
   responseCount: number;
   bestTime: TimeOption | null;
+  /** The chosen time of a decided meeting; absent from servers before 2026-10-22. */
+  finalTime?: TimeOption | null;
   timeSummary: string | null;
   placeSummary: string | null;
   createdAt: string;

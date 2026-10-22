@@ -1,10 +1,8 @@
 import {
   CalendarDays,
   CircleAlert,
-  Clock3,
   ArrowLeft,
   House,
-  MapPin,
   RefreshCw,
   Settings,
   Users,
@@ -12,6 +10,8 @@ import {
 import { categoryIcon } from "../categories";
 import { formatSlot, plural } from "../domain";
 import { meetingCardData, meetingDestination } from "../navigation";
+import { meetingTime } from "../my-meetings";
+import { ticketDate } from "../ticket";
 import type { EventStatus, MeetingCategory, MeetingListItem } from "../types";
 import type { Navigate } from "../app-types";
 import { locale, t } from "../i18n";
@@ -167,40 +167,59 @@ export function MeetingGroup({
       {items.length ? (
         items.map((item) => {
           const card = meetingCardData(item);
+          const time = meetingTime(item);
+          const date = time ? ticketDate(time.startsAt) : null;
+          // Only a decided meeting has a date; before that the leading option is shown muted.
+          const decided = card.status === "decided";
+          const soon = decided ? date?.soon ?? null : null;
+          const when = [decided ? date?.time : card.timeSummary, card.placeSummary]
+            .filter(Boolean)
+            .join(" · ");
           return (
             <button
-              className="meeting-card"
+              className="meeting-card meeting-ticket"
               key={item.id}
               onClick={() => navigate(meetingDestination(item))}
               type="button"
             >
-              <div className="meeting-card-heading">
-                <strong className="meeting-card-title">{card.title}</strong>
-                <StatusBadge status={card.status} />
-              </div>
-              <div className="meeting-card-meta">
-                {(card.timeSummary || item.bestTime) && (
-                  <span>
-                    <Clock3 size={15} />
-                    {card.timeSummary ?? formatSlot(item.bestTime!.startsAt)}
-                  </span>
-                )}
-                {card.placeSummary && (
-                  <span>
-                    <MapPin size={15} />
-                    {card.placeSummary}
-                  </span>
-                )}
-                <span>
-                  <Users size={15} />
-                  {plural(card.responseCount, "ответил", "ответили", "ответили")}
+              {date ? (
+                <span aria-hidden="true" className={`ticket-date${decided ? "" : " ticket-date-tentative"}`}>
+                  <span className="ticket-month">{date.month}</span>
+                  <span className="ticket-day">{date.day}</span>
+                  <span className="ticket-weekday">{date.weekday}</span>
                 </span>
-              </div>
-              {showAction && (
-                <span className="meeting-card-action">
-                  {item.role === "owner" ? t("Управлять") : t("Открыть")}
+              ) : (
+                <span aria-hidden="true" className="ticket-date ticket-date-empty">
+                  <CalendarDays size={22} />
                 </span>
               )}
+              <span className="ticket-body">
+                <strong className="meeting-card-title">{card.title}</strong>
+                {time && (
+                  <span className="sr-only">
+                    {decided ? formatSlot(time.startsAt) : t("Пока лидирует: {time}", { time: formatSlot(time.startsAt) })}
+                  </span>
+                )}
+                {(soon || when) && (
+                  <span className="ticket-when">
+                    {soon && <b>{soon}</b>}
+                    {soon && when && " · "}
+                    {when}
+                  </span>
+                )}
+                <span className="ticket-foot">
+                  <span className="ticket-count">
+                    <Users aria-hidden="true" size={15} />
+                    {plural(card.responseCount, "ответил", "ответили", "ответили")}
+                  </span>
+                  <StatusBadge status={card.status} />
+                </span>
+                {showAction && (
+                  <span className="meeting-card-action">
+                    {item.role === "owner" ? t("Управлять") : t("Открыть")}
+                  </span>
+                )}
+              </span>
             </button>
           );
         })

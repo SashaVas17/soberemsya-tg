@@ -178,6 +178,10 @@ const listItem = (role: "owner" | "participant"): MeetingListItem => ({
   participantCount: event.participants.length,
   responseCount: event.participants.length,
   bestTime: event.timeOptions[0],
+  finalTime:
+    event.status === "decided"
+      ? event.timeOptions.find((option) => option.id === event.finalTimeOptionId) ?? null
+      : null,
   timeSummary:
     event.status === "decided" && event.finalTimeOptionId
       ? (() => {
