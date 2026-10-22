@@ -854,6 +854,16 @@ code {
     transform: rotate(360deg);
   }
 }
+/* No spinning with reduced motion: the arc stays, the label says it loads. */
+@media (prefers-reduced-motion: reduce) {
+  .spinner,
+  .spin {
+    animation: none;
+  }
+  .create-intro .step-progress span {
+    transition: none;
+  }
+}
 @media (max-width: 700px) {
   .dashboard-band,
   .result-grid {
@@ -1430,9 +1440,12 @@ code {
 }
 .create-intro .step-progress span {
   background: var(--color-primary);
+  /* Revealed by clip-path, not width: no layout work while it grows. */
+  clip-path: inset(0 calc((1 - var(--share, 0)) * 100%) 0 0 round 999px);
   display: block;
   height: 100%;
-  transition: width 180ms ease;
+  transition: clip-path 180ms cubic-bezier(0.2, 0, 0, 1);
+  width: 100%;
 }
 .create-wizard {
   gap: 20px;

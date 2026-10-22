@@ -21,6 +21,7 @@ import {
 } from "../ui/common";
 import { useEvent } from "../app-hooks";
 import { SafetyActions } from "../ui/Moderation";
+import { Presence } from "../ui/Presence";
 import { usePreparedShare, shareEvent } from "../share";
 import { t } from "../i18n";
 
@@ -464,7 +465,7 @@ export function Manage({
             />
           )}
         </section>
-        {participantToRemove && (
+        <Presence show={Boolean(participantToRemove)}>
           <div className="participant-remove-backdrop" role="presentation">
             <section
               aria-labelledby="participant-remove-title"
@@ -501,7 +502,7 @@ export function Manage({
               </div>
             </section>
           </div>
-        )}
+        </Presence>
         <section className="panel manage-card decision-panel">
           <h2><Check size={24} /> <span>{t("Окончательное решение")}<small>{event.status === "decided" ? t("Итог встречи") : t("Выберите финальные варианты")}</small></span></h2>
           <p className="decision-hint">{decisionHint}</p>

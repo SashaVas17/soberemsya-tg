@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { Check, Clock3, MapPin, Plus, Trash2 } from "lucide-react";
 import { api } from "../api";
 import { askWriteAccessOnce } from "../write-access";
@@ -24,6 +24,7 @@ import { haptic } from "../telegram";
 import type { EventData, MeetingCategory } from "../types";
 import type { Navigate, EditablePlaceDraft, CreatedGroup } from "../app-types";
 import { CategoryChip, Header, ErrorNote } from "../ui/common";
+import { Presence } from "../ui/Presence";
 import { VenuePicker } from "../ui/Venues";
 import { clearVenueForNextMeeting, venueForNextMeeting, venuePlaceDraft } from "../venues";
 import { t } from "../i18n";
@@ -120,7 +121,7 @@ function SlotBuilder({
       >
         <Plus size={18} />
         {t("Добавить время")}</button>
-      {pickerOpen && (
+      <Presence show={pickerOpen}>
         <div className="time-picker-backdrop" role="presentation">
           <section
             aria-labelledby="time-picker-title"
@@ -173,7 +174,7 @@ function SlotBuilder({
             </div>
           </section>
         </div>
-      )}
+      </Presence>
     </div>
   );
 }
@@ -319,7 +320,7 @@ export function CreateEvent({
             {t("Добавьте несколько вариантов дат, чтобы участники могли выбрать удобное время.")}</p>
         )}
         <div className="step-progress" aria-label={t("Шаг {step} из 3", { step })}>
-          <span style={{ width: `${(step / 3) * 100}%` }} />
+          <span style={{ "--share": step / 3 } as CSSProperties} />
         </div>
       </section>
       <form

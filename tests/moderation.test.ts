@@ -307,7 +307,8 @@ describe("moderation API", () => {
 describe("moderation screens", () => {
   it("shows the rules before the first look at open meetings", () => {
     expect(ui).toContain("if (result.communityRulesAccepted === false) setRulesPending(true);");
-    expect(ui).toContain("{rulesPending && <CommunityRulesDialog onAccepted={() => setRulesPending(false)} />}");
+    expect(ui).toContain("<Presence portal show={rulesPending}>");
+    expect(ui).toContain("<CommunityRulesDialog onAccepted={() => setRulesPending(false)} />");
   });
 
   it("offers report and block on open meetings, requests and participants", () => {

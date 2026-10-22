@@ -1484,8 +1484,11 @@ h1.topbar-title {
 .slot-votes-bar i {
   background: var(--color-text-secondary);
   border-radius: inherit;
+  /* Revealed by clip-path, not width: no layout work while it grows. */
+  clip-path: inset(0 calc((1 - var(--share, 0)) * 100%) 0 0 round 999px);
   display: block;
   height: 100%;
+  width: 100%;
 }
 .slot-votes.leading .slot-votes-bar i {
   background: var(--color-accent);
@@ -1527,7 +1530,7 @@ h1.topbar-title {
   from { opacity: 0; transform: translateY(8px) scale(0.98); }
 }
 @keyframes flockly-check-in {
-  from { opacity: 0; transform: scale(0.5); }
+  from { opacity: 0; transform: scale(0.85); }
 }
 .participant-remove-backdrop,
 .time-picker-backdrop {
@@ -1542,7 +1545,7 @@ h1.topbar-title {
   animation: flockly-check-in 160ms var(--ease-out);
 }
 .slot-votes-bar i {
-  transition: width 300ms var(--ease-out);
+  transition: clip-path 300ms var(--ease-out);
 }
 @media (prefers-reduced-motion: reduce) {
   .meeting-card,
@@ -1594,4 +1597,106 @@ h1.topbar-title {
 }
 .ticket-people > span + span {
   margin-left: -7px;
+}
+
+/* ——— Motion, round two (audit motion-audits/…-2026-10-22.html) ——— */
+
+/* Dialogs leave quieter than they come: 150 ms, 4 px down (src/ui/Presence.tsx). */
+.presence {
+  display: contents;
+}
+@keyframes flockly-fade-out {
+  to { opacity: 0; }
+}
+@keyframes flockly-sink-out {
+  to { opacity: 0; transform: translateY(4px) scale(0.99); }
+}
+.presence-leaving .participant-remove-backdrop,
+.presence-leaving .time-picker-backdrop {
+  animation: flockly-fade-out 150ms var(--ease-out) forwards;
+}
+.presence-leaving .participant-remove-dialog,
+.presence-leaving .time-picker-dialog {
+  animation: flockly-sink-out 150ms var(--ease-out) forwards;
+}
+
+/* Loading: the spinner shows only after 300 ms; lists fade in when data comes. */
+.loading {
+  animation: flockly-fade-in 200ms var(--ease-out) 300ms backwards;
+}
+.meeting-group {
+  animation: flockly-fade-in 200ms var(--ease-out);
+}
+
+/* Screen changes (src/app-hooks.ts, View Transitions): the old screen fades
+   out, the new one fades in 6 px up; bars stay put. */
+@keyframes flockly-screen-in {
+  from { opacity: 0; transform: translateY(6px); }
+}
+::view-transition-old(root) {
+  animation: flockly-fade-out 120ms var(--ease-out) both;
+}
+::view-transition-new(root) {
+  animation: flockly-screen-in 180ms var(--ease-out) both;
+}
+.topbar {
+  view-transition-name: topbar;
+}
+.bottom-navigation {
+  view-transition-name: bottom-navigation;
+}
+
+/* Answer saved, meeting created: the circle settles, the check draws itself. */
+@keyframes flockly-settle-in {
+  from { opacity: 0; transform: scale(0.9); }
+}
+@keyframes flockly-draw {
+  from { stroke-dashoffset: 24; }
+}
+.voting-saved-icon,
+.created-success-icon {
+  animation: flockly-settle-in 200ms var(--ease-out) backwards;
+}
+.voting-saved-icon svg path,
+.created-success-icon svg path {
+  animation: flockly-draw 320ms cubic-bezier(0.65, 0, 0.35, 1) 120ms backwards;
+  stroke-dasharray: 24;
+}
+/* Meeting created (rare): one soft coral ring spreads once from the circle. */
+@keyframes flockly-ring-out {
+  from { opacity: 0.55; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.6); }
+}
+.created-success-icon {
+  position: relative;
+}
+.created-success-icon::after {
+  border: 2px solid var(--color-accent);
+  border-radius: inherit;
+  content: "";
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  animation: flockly-ring-out 500ms var(--ease-out) 200ms backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .presence-leaving .participant-remove-backdrop,
+  .presence-leaving .time-picker-backdrop,
+  .presence-leaving .participant-remove-dialog,
+  .presence-leaving .time-picker-dialog,
+  .loading,
+  .meeting-group,
+  .voting-saved-icon,
+  .created-success-icon,
+  .voting-saved-icon svg path,
+  .created-success-icon svg path,
+  .created-success-icon::after {
+    animation: none;
+  }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
 }

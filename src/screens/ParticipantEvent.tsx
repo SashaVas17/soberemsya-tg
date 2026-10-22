@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { Check, Plus } from "lucide-react";
 import { api } from "../api";
 import { askWriteAccessOnce } from "../write-access";
@@ -23,6 +23,7 @@ import { CategoryBadge, Header, Loading, ErrorNote, RetryState, StatusBadge } fr
 import { PublicPreviewScreen } from "./PublicPreviewScreen";
 import { LeaveMeetingAction } from "../ui/LeaveMeetingAction";
 import { SafetyActions } from "../ui/Moderation";
+import { Presence } from "../ui/Presence";
 import { Result } from "./Result";
 import { t } from "../i18n";
 
@@ -80,7 +81,7 @@ function ParticipantTimeProposal({
       <button className="secondary-action" onClick={openProposal} type="button">
         <Plus size={18} />
         {t("Предложить время")}</button>
-      {open && (
+      <Presence show={open}>
         <div className="time-picker-backdrop" role="presentation">
           <section aria-labelledby="participant-time-proposal-title" aria-modal="true" className="time-picker-dialog" role="dialog">
             <div className="section-row">
@@ -102,7 +103,7 @@ function ParticipantTimeProposal({
             </div>
           </section>
         </div>
-      )}
+      </Presence>
     </div>
   );
 }
@@ -434,7 +435,7 @@ export function ParticipantEvent({
                         <span>{t("{count} из {total} смогут", { count, total: votes.total })}</span>
                       </span>
                       <span aria-hidden="true" className="slot-votes-bar">
-                        <i style={{ width: `${Math.round((count / votes.total) * 100)}%` }} />
+                        <i style={{ "--share": count / votes.total } as CSSProperties} />
                       </span>
                     </span>
                   )}
