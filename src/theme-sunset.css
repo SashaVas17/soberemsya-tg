@@ -1567,10 +1567,10 @@ h1.topbar-title {
 }
 .ticket-people > span {
   align-items: center;
-  background: var(--color-surface-elevated);
-  border: 2px solid var(--color-surface-solid);
+  /* The ring is the card's own colour, so overlapping circles look cut out. */
+  background: color-mix(in srgb, var(--color-text) 10%, var(--color-surface-elevated));
+  border: 2px solid var(--color-surface-elevated);
   border-radius: var(--radius-full);
-  box-shadow: inset 0 0 0 1px var(--color-border);
   color: var(--color-text);
   display: inline-flex;
   font-size: 11px;

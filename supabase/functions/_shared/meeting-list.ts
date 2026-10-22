@@ -22,20 +22,37 @@ type MeetingEvent = {
   createdAt: string;
 };
 
+let segmenter: Intl.Segmenter | null | undefined;
+
+/** Graphemes of a text; code points where Intl.Segmenter is missing (iOS < 14.5). */
+function graphemesOf(text: string): string[] {
+  if (segmenter === undefined)
+    segmenter = typeof Intl.Segmenter === "function" ? new Intl.Segmenter(undefined, { granularity: "grapheme" }) : null;
+  return segmenter ? Array.from(segmenter.segment(text), (part) => part.segment) : Array.from(text);
+}
+
 /**
- * First letters of the first answered people, for the avatar stack on a
- * meeting card. Only the letters leave the server; the people are those the
- * viewer already sees on the meeting's own screen.
+ * The letter on a person's avatar circle: the first grapheme that is a letter,
+ * in upper case; "" when the name has none. Same as src/initials.ts.
+ */
+export function nameInitial(name: string): string {
+  for (const segment of graphemesOf(name.normalize("NFC"))) {
+    if (/\p{L}/u.test(segment)) return segment.toUpperCase();
+  }
+  return "";
+}
+
+/**
+ * Avatar letters of the first answered people (up to three) for the meeting
+ * card, one per person, "" for a name without a letter so the circles match
+ * the count. Only letters leave the server; the people are those the viewer
+ * already sees on the meeting's own screen.
  */
 export function participantInitials(participants: unknown[], limit = 3): string[] {
-  const initials: string[] = [];
-  for (const person of participants) {
-    if (initials.length >= limit) break;
+  return participants.slice(0, limit).map((person) => {
     const name = typeof person === "object" && person !== null ? (person as { name?: unknown }).name : null;
-    const first = typeof name === "string" ? Array.from(name.trim())[0] : undefined;
-    if (first) initials.push(first.toLocaleUpperCase());
-  }
-  return initials;
+    return typeof name === "string" ? nameInitial(name) : "";
+  });
 }
 
 // All active cities share Minsk time for now; per-city zones here come with

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { meetingListItem, participantInitials } from "../supabase/functions/_shared/meeting-list";
+import { meetingListItem, nameInitial, participantInitials } from "../supabase/functions/_shared/meeting-list";
+import { nameInitial as appNameInitial } from "../src/initials";
 
 const timeOptions = [
   { id: "time_9", startsAt: "2026-08-09T16:00:00.000Z", availableCount: 2 },
@@ -82,9 +83,23 @@ describe("meeting list summaries", () => {
     expect(item.placeSummary).toBeNull();
   });
 
-  it("gives the first letters of the first answered people only", () => {
-    expect(participantInitials([{ name: "ирина" }, { name: " Максим" }, { name: "" }, { name: "Анна" }, { name: "Олег" }])).toEqual(["И", "М", "А"]);
-    expect(participantInitials([{ id: "no-name" }, "id-only", null])).toEqual([]);
-    expect(participantInitials([{ name: "😀 Смайл" }])).toEqual(["😀"]);
+  it("gives one avatar letter per first answered person, letters only", () => {
+    expect(participantInitials([{ name: "ирина" }, { name: " Максим" }, { name: "" }, { name: "Анна" }])).toEqual(["И", "М", ""]);
+    expect(participantInitials([{ id: "no-name" }, "id-only"])).toEqual(["", ""]);
+  });
+
+  it("takes the first letter as a whole grapheme, skipping emoji and punctuation", () => {
+    expect(nameInitial("🇧🇾 Саша")).toBe("С");
+    expect(nameInitial("«Аня»")).toBe("А");
+    expect(nameInitial("1олег")).toBe("О");
+    expect(nameInitial("И\u0306ван")).toBe("Й");
+    expect(nameInitial("😀")).toBe("");
+    expect(nameInitial("istanbul")).toBe("I");
+  });
+
+  it("keeps the app's copy of the letter rule equal to the server's", () => {
+    for (const name of ["Ирина", "  max", "🇧🇾 Саша", "«Аня»", "И\u0306ван", "😀", "", "ß"]) {
+      expect(appNameInitial(name)).toBe(nameInitial(name));
+    }
   });
 });
