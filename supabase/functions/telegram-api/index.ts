@@ -818,8 +818,8 @@ async function userLanguagePreference(request: Request, auth: AuthContext) {
 // keeps its own language and does not ask for a city.
 async function signInProfile(userId: string) {
   const [{ data, error }, cities] = await Promise.all([
-    db.from("users").select("language,city_id").eq("id", userId)
-      .maybeSingle<{ language: string | null; city_id: string | null }>(),
+    db.from("users").select("language,city_id,referral_code").eq("id", userId)
+      .maybeSingle<{ language: string | null; city_id: string | null; referral_code: string | null }>(),
     loadCities().catch((reason) => {
       console.error("sign_in_cities_read_failed", reason instanceof Error ? reason.message : "unknown");
       return null;
@@ -827,11 +827,12 @@ async function signInProfile(userId: string) {
   ]);
   if (error) {
     console.error("sign_in_profile_read_failed", error.code);
-    return { language: undefined, cityChoice: undefined };
+    return { language: undefined, cityChoice: undefined, referralCode: null };
   }
   return {
     language: parseLanguage(data?.language),
     cityChoice: (cities && firstCityChoice(cities, data?.city_id)) ?? undefined,
+    referralCode: data?.referral_code ?? null,
   };
 }
 
@@ -1209,6 +1210,8 @@ async function finalDetails(event: FullEventRow) {
 
 // Prepares a card that the Mini App sends with WebApp.shareMessage.
 async function shareMessage(request: Request, eventId: string, auth: AuthContext) {
+  // Never rejects: started now, it runs alongside the checks below.
+  const referralCode = ensureReferralCode(auth.user.id);
   const payload = await readJsonObject(request, API_JSON_BODY_LIMIT_BYTES);
   const kind = parseShareCardKind(payload.kind);
   const event = await loadFullEventRow(eventId);
@@ -1224,7 +1227,7 @@ async function shareMessage(request: Request, eventId: string, auth: AuthContext
   if (event.status === "cancelled")
     throw Object.assign(new Error("Встреча отменена."), { status: 409 });
   const details = kind === "result" ? await finalDetails(event) : {};
-  const url = eventDeepLink(botUsername, appShortName, event.id);
+  const url = eventDeepLink(botUsername, appShortName, event.id, await referralCode);
   const card = buildShareCard(
     kind,
     { title: event.title, description: event.description, ...details },
@@ -1281,9 +1284,27 @@ async function clientAnalytics(request: Request, auth: AuthContext) {
 // Hidden from everyone except administrators: others get a plain 404.
 async function adminStats(auth: AuthContext) {
   if (!isAdmin(auth)) return adminNotFound();
-  const { data, error } = await db.rpc("admin_stats");
+  const [{ data, error }, referrals] = await Promise.all([db.rpc("admin_stats"), db.rpc("admin_referral_stats")]);
   if (error) throw error;
-  return json({ stats: data });
+  if (referrals.error) console.error("admin_referral_stats_failed", referrals.error.code);
+  return json({ stats: referrals.error ? data : { ...data, referrals: referrals.data } });
+}
+
+// Referral links (plan «Привлечение аудитории»). Neither call fails the
+// request: without a code a link is shared plain, and a missed attribution
+// only leaves the statistics short.
+async function ensureReferralCode(userId: string) {
+  const { data, error } = await db.rpc("ensure_referral_code", { p_user_id: userId });
+  if (error || typeof data !== "string") {
+    console.error("ensure_referral_code_failed", error?.code ?? "empty");
+    return null;
+  }
+  return data;
+}
+
+async function recordReferral(userId: string, code: string) {
+  const { error } = await db.rpc("record_referral", { p_user_id: userId, p_code: code });
+  if (error) console.error("record_referral_failed", error.code);
 }
 
 // Stage 2.4 ---------------------------------------------------------------
@@ -1751,7 +1772,10 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
     const [, profile] = await Promise.all([
       track("app_open", auth.user.id, start?.type === "event" ? start.eventId : null, startParamSource(auth.startParam)),
       signInProfile(auth.user.id),
+      start?.type === "event" && start.referralCode ? recordReferral(auth.user.id, start.referralCode) : null,
     ]);
+    // The code is made once, on the first sign-in; later it comes with the profile.
+    const referralCode = profile.referralCode ?? await ensureReferralCode(auth.user.id);
     return json({
       isAdmin: isAdminTelegramId(auth.user.telegram_user_id, adminIds),
       user: {
@@ -1767,6 +1791,8 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
       language: profile.language,
       // Open cities when the person has not chosen one yet; left out otherwise.
       cityChoice: profile.cityChoice,
+      // Goes into the meeting links this person shares; null if not available.
+      referralCode,
     });
   }
 

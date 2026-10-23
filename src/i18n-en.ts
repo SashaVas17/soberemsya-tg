@@ -123,6 +123,11 @@ export const en: Record<string, string> = {
   "переходов из уведомлений": "opens from notifications",
   "новых пользователей": "new users",
   "Вернулись за 7 дней": "Returned within 7 days",
+  "Приглашения": "Invitations",
+  "пришли за 7 дней": "joined in 7 days",
+  "пришли за 30 дней": "joined in 30 days",
+  "Новые пользователи, открывшие встречу по ссылке другого человека. Внизу — кто привёл больше всех за 30 дней.":
+    "New people who opened a meeting by someone else's link. Below: who brought the most in 30 days.",
   "Встречи с ответами, 30 дней": "Meetings with answers, 30 days",
   "Всего пользователей": "Total users",
   "Всего встреч": "Total meetings",

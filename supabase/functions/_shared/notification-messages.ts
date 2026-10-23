@@ -82,9 +82,11 @@ function finalDetails(payload: Payload, language: Language) {
   return formatFinalDetails(text(payload, "startsAt"), text(payload, "place"), text(payload, "area"), language);
 }
 
-export function eventDeepLink(bot: string, app: string, eventId: string | null) {
+/** A link to the meeting; a person's share carries their referral code. */
+export function eventDeepLink(bot: string, app: string, eventId: string | null, referralCode: string | null = null) {
   const base = `https://t.me/${bot}/${app}`;
-  return eventId ? `${base}?startapp=event_${eventId}` : base;
+  if (!eventId) return base;
+  return `${base}?startapp=event_${eventId}${referralCode ? `__r${referralCode}` : ""}`;
 }
 
 /**

@@ -79,14 +79,30 @@ export function parseEventStartParam(startParam: string | null) {
   return match[1];
 }
 
+/**
+ * A shared meeting link carries the sharer's code: event_<id>__r<code>.
+ * The format is also in src/meeting-links.ts, notification-messages.ts
+ * (eventDeepLink) and the referrals migration. A damaged code still opens
+ * the meeting; it is only not counted.
+ */
+const REFERRAL_EVENT_START = /^event_([A-Za-z0-9_-]{3,80}?)__r([A-Za-z0-9_-]*)$/;
+export const REFERRAL_CODE = /^[0-9a-f]{12}$/;
+
+export function referralStartParam(startParam: string | null) {
+  const match = startParam?.match(REFERRAL_EVENT_START);
+  if (!match) return null;
+  return { eventId: match[1], referralCode: REFERRAL_CODE.test(match[2]) ? match[2] : undefined };
+}
+
 export type StartParam =
-  | { type: "event"; eventId: string }
+  | { type: "event"; eventId: string; referralCode?: string }
   | { type: "group"; token: string }
   | { type: "home" };
 
 /**
- * Accepts event_<id>, group_<token> (issued by /new in a group chat) and
- * ntf / ntf_<id> (notification buttons).
+ * Accepts event_<id>, event_<id>__r<code> (a link shared by a person),
+ * group_<token> (issued by /new in a group chat) and ntf / ntf_<id>
+ * (notification buttons).
  */
 export function parseStartParam(startParam: string | null): StartParam | null {
   if (!startParam) return null;
@@ -97,6 +113,11 @@ export function parseStartParam(startParam: string | null): StartParam | null {
   if (notification) return { type: "event", eventId: notification[1] };
   const group = startParam.match(/^group_([A-Za-z0-9_-]{24})$/);
   if (group) return { type: "group", token: group[1] };
+  const referral = referralStartParam(startParam);
+  if (referral)
+    return referral.referralCode
+      ? { type: "event", eventId: referral.eventId, referralCode: referral.referralCode }
+      : { type: "event", eventId: referral.eventId };
   const eventId = parseEventStartParam(startParam);
   return eventId ? { type: "event", eventId } : null;
 }

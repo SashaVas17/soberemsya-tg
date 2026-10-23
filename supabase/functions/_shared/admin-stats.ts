@@ -16,6 +16,14 @@ export type AdminStats = {
   meetings30d: number;
   meetingsWithResponses30d: number;
   daily: { day: string; active: number; meetings: number; responses: number }[];
+  /** People who came by someone's link (admin_referral_stats); absent on old servers. */
+  referrals?: ReferralStats;
+};
+
+export type ReferralStats = {
+  invited7d: number;
+  invited30d: number;
+  topInviters: { name: string; username: string | null; invited: number }[];
 };
 
 export type ClientAnalyticsEvent = "share_sent" | "share_fallback";
@@ -73,5 +81,17 @@ export function formatStatsText(stats: AdminStats) {
     `переходов из уведомлений ${stats.notificationOpens7d}`,
     `Вернулись за 7 дней: ${share(stats.returningUsers7d, stats.previousWeekUsers)}`,
     `Встречи с ответами (30 дней): ${share(stats.meetingsWithResponses30d, stats.meetings30d)}`,
+    ...referralLines(stats.referrals),
   ].join("\n");
+}
+
+function referralLines(referrals: ReferralStats | undefined) {
+  if (!referrals) return [];
+  const top = referrals.topInviters
+    .map((inviter) => `${inviter.username ? `@${inviter.username}` : inviter.name} — ${inviter.invited}`)
+    .join(", ");
+  return [
+    `По приглашениям: за 7 дней ${referrals.invited7d}, за 30 дней ${referrals.invited30d}`,
+    ...(top ? [`Больше всех пригласили (30 дней): ${top}`] : []),
+  ];
 }

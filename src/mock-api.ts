@@ -329,6 +329,7 @@ export const mockApi = {
     ...clone(auth),
     language: readMockLanguage(),
     ...(mockCityChosen ? {} : { cityChoice: openMockCities() }),
+    referralCode: "0a1b2c3d4e5f",
   }),
   saveLanguage: async (value: "ru" | "en" | null) => {
     writeMockLanguage(value);
@@ -657,6 +658,14 @@ export const mockApi = {
         meetings: index % 3,
         responses: (index * 2) % 5,
       })),
+      referrals: {
+        invited7d: 2,
+        invited30d: 5,
+        topInviters: [
+          { name: "Анна", username: "anna", invited: 3 },
+          { name: "Илья", username: null, invited: 2 },
+        ],
+      },
     },
   }),
   venues: async (filters?: VenueFilters, offset = 0) => ({
