@@ -64,11 +64,13 @@ describe("analytics events", () => {
     expect(startParamSource("ntf_evt_1")).toBe("notification");
     expect(startParamSource("event_evt_1")).toBe("event");
     expect(startParamSource("group_AbCdEfGhIjKlMnOpQrStUv_-")).toBe("group");
+    expect(startParamSource("create")).toBe("card");
   });
 
   it("opens the meeting from a notification button", () => {
     expect(parseStartParam("ntf_evt_1")).toEqual({ type: "event", eventId: "evt_1" });
     expect(parseStartParam("ntf")).toEqual({ type: "home" });
+    expect(parseStartParam("create")).toEqual({ type: "create" });
     expect(() => parseStartParam("ntf_")).toThrow("Некорректная");
   });
 

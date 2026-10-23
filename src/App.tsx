@@ -3,7 +3,7 @@ import { api } from "./api";
 import { onSessionExpired } from "./session";
 import { initializeTelegram } from "./telegram";
 import { setReferralCode } from "./share";
-import { startParamEventId } from "./meeting-links";
+import { isCreateStartParam, startParamEventId } from "./meeting-links";
 import type { AuthResult, EventData } from "./types";
 import { usePath, useTelegramBack, useAppTheme } from "./app-hooks";
 import { Loading, RetryState } from "./ui/common";
@@ -93,6 +93,8 @@ export default function App() {
         // A report notification for the administrator.
         else if (result.startParam === "reports" && result.isAdmin)
           navigate("/admin/reports", true);
+        // The button under a shared card: «Организовать свою встречу».
+        else if (result.startParam && isCreateStartParam(result.startParam)) navigate("/create", true);
         else if (result.startParam?.startsWith("ntf_"))
           navigate(`/event/${result.startParam.slice(4)}`, true);
         else if (result.startParam?.startsWith("group_")) {

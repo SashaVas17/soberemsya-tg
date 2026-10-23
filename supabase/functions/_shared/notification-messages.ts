@@ -90,6 +90,14 @@ export function eventDeepLink(bot: string, app: string, eventId: string | null, 
 }
 
 /**
+ * Opens the app on the screen for a new meeting (the button under shared
+ * cards); carries the sharer's referral code like their meeting link does.
+ */
+export function createMeetingLink(bot: string, app: string, referralCode: string | null = null) {
+  return `${eventDeepLink(bot, app, null)}?startapp=create${referralCode ? `__r${referralCode}` : ""}`;
+}
+
+/**
  * Where a notification button leads: the meeting, or the app for a
  * rejection. The ntf prefix lets analytics count opens from notifications.
  */

@@ -47,6 +47,7 @@ export function startParamSource(startParam: string | null) {
   if (!startParam) return "direct";
   if (startParam === "ntf" || startParam === "reports" || startParam.startsWith("ntf_")) return "notification";
   if (startParam.startsWith("group_")) return "group";
+  if (startParam.startsWith("create")) return "card";
   if (startParam.startsWith("event_")) return "event";
   return "other";
 }

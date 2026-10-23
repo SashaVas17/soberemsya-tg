@@ -2,8 +2,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { type AdminStats, formatStatsText, startParamSource } from "../supabase/functions/_shared/admin-stats";
 import { parseStartParam, referralStartParam } from "../supabase/functions/_shared/domain";
-import { eventDeepLink } from "../supabase/functions/_shared/notification-messages";
-import { eventShareUrl, miniAppLink, startParamEventId } from "../src/meeting-links";
+import { createMeetingLink, eventDeepLink } from "../supabase/functions/_shared/notification-messages";
+import { eventShareUrl, isCreateStartParam, miniAppLink, startParamEventId } from "../src/meeting-links";
 
 const read = (path: string) => readFileSync(path, "utf8").replace(/\r\n/g, "\n");
 const migrationName = readdirSync("supabase/migrations").find((name) => name.endsWith("_referrals.sql"));
@@ -46,7 +46,8 @@ describe("referral links", () => {
 
   it("attributes at sign-in without failing it and puts the code into prepared cards", () => {
     expect(api).toContain("profile.referralCode ?? await ensureReferralCode(auth.user.id)");
-    expect(api).toContain("start.referralCode ? recordReferral(auth.user.id, start.referralCode) : null");
+    expect(api).toContain("recordReferral(auth.user.id, start.referralCode)");
+    expect(api).toContain('(start?.type === "event" || start?.type === "create") && start.referralCode');
     expect(api).toContain("eventDeepLink(botUsername, appShortName, event.id, await referralCode)");
     expect(api).toMatch(/async function ensureReferralCode[\s\S]*?return null;/);
     expect(api).toContain('db.rpc("admin_referral_stats")');
@@ -64,6 +65,20 @@ describe("referral links", () => {
     }
     expect(migration).not.toMatch(/\bdrop\b/i);
     expect(migration).not.toMatch(/\bdelete\s+from\b/i);
+  });
+
+  it("puts a «plan your own meeting» button under shared cards and opens the new-meeting screen from it", () => {
+    expect(createMeetingLink("bot", "app")).toBe("https://t.me/bot/app?startapp=create");
+    expect(createMeetingLink("bot", "app", code)).toBe(`https://t.me/bot/app?startapp=create__r${code}`);
+    expect(parseStartParam("create")).toEqual({ type: "create" });
+    expect(parseStartParam(`create__r${code}`)).toEqual({ type: "create", referralCode: code });
+    expect(parseStartParam("create__r0a1b")).toEqual({ type: "create" });
+    expect(startParamSource(`create__r${code}`)).toBe("card");
+    expect(isCreateStartParam("create")).toBe(true);
+    expect(isCreateStartParam(`create__r${code}`)).toBe(true);
+    expect(isCreateStartParam("created")).toBe(false);
+    expect(api).toContain("createMeetingLink(botUsername, appShortName, await referralCode)");
+    expect(app).toContain("isCreateStartParam(result.startParam)");
   });
 
   it("adds invitations to /stats", () => {
