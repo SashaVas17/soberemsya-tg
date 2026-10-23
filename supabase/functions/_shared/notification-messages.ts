@@ -14,7 +14,8 @@ export type NotificationKind =
   | "event_reopened"
   | "reminder_24h"
   | "reminder_2h"
-  | "report_new";
+  | "report_new"
+  | "event_repeated";
 
 export type NotificationMessage = {
   text: string;
@@ -208,6 +209,14 @@ export function renderNotification(
         `The meeting ${title} starts in 2 hours${details ? ` — ${details}` : ""}.`,
       ));
     }
+    case "event_repeated":
+      return open(
+        t(
+          `Организатор снова собирает встречу ${title}. Отметьте удобное время и место.`,
+          `The organizer is gathering ${title} again. Mark the time and place that suit you.`,
+        ),
+        t("Выбрать время", "Choose a time"),
+      );
     case "report_new": {
       const reason = reportReasonLabel(payload.reason, language);
       const name = text(payload, "targetName") || "Telegram";

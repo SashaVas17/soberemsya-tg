@@ -117,10 +117,10 @@ export const api = {
           `/events/${encodeURIComponent(eventId)}/join-requests/${encodeURIComponent(requestId)}/reject`,
           { method: "POST" },
         ),
-  createEvent: (payload: CreateEventRequest & { groupToken?: string }) =>
+  createEvent: (payload: CreateEventRequest & { groupToken?: string; repeatOf?: string }) =>
     useMock
       ? mockApi.createEvent(payload)
-      : request<{ event: EventData; groupAttached?: boolean }>("/events", {
+      : request<{ event: EventData; groupAttached?: boolean; repeatInvited?: number | null }>("/events", {
           method: "POST",
           body: JSON.stringify(payload),
           signal: timeoutSignal(CREATE_EVENT_TIMEOUT_MS),

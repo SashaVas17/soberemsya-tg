@@ -237,8 +237,8 @@ describe("create screen boundaries", () => {
   });
 
   it("keeps optional places behind an explicit add action", () => {
-    // Empty unless the wizard was opened from a venue card.
-    expect(createSource).toContain("startVenue ? [venuePlaceDraft(startVenue, budgetLimitInput)] : []");
+    // Empty unless the wizard was opened from a venue card or «Собрать ещё раз».
+    expect(createSource).toContain("startVenue ? [venuePlaceDraft(startVenue, budgetLimitInput)] : repeat?.places ?? []");
     expect(createSource).toContain('className="add-place-action"');
     expect(createSource).toContain("Места необязательны.");
     expect(createSource).toContain("Бюджет этого места, BYN");

@@ -124,6 +124,13 @@ export const en: Record<string, string> = {
   "новых пользователей": "new users",
   "Вернулись за 7 дней": "Returned within 7 days",
   "Приглашения": "Invitations",
+  "Собрать ещё раз": "Gather again",
+  "Некорректная встреча для повтора.": "Invalid meeting to repeat.",
+  "Собираем снова. Выберите новые даты — участники прошлой встречи получат приглашение от бота.":
+    "Gathering again. Choose new dates: the people of the previous meeting will get an invitation from the bot.",
+  "Бот пригласит участников прошлой встречи: {people}.": "The bot will invite the people of the previous meeting: {people}.",
+  "Приглашения участникам прошлой встречи не отправлены. Поделитесь встречей вручную.":
+    "The people of the previous meeting were not invited. Share the meeting yourself.",
   "пришли за 7 дней": "joined in 7 days",
   "пришли за 30 дней": "joined in 30 days",
   "Новые пользователи, открывшие встречу по ссылке другого человека. Внизу — кто привёл больше всех за 30 дней.":
@@ -668,4 +675,5 @@ export const enPlurals: Record<string, [string, string]> = {
   "день": ["day", "days"],
   "дата": ["date", "dates"],
   "место": ["place", "places"],
+  "человек": ["person", "people"],
 };

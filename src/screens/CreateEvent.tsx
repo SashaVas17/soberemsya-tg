@@ -27,6 +27,7 @@ import { CategoryChip, Header, ErrorNote } from "../ui/common";
 import { Presence } from "../ui/Presence";
 import { VenuePicker } from "../ui/Venues";
 import { clearVenueForNextMeeting, venueForNextMeeting, venuePlaceDraft } from "../venues";
+import { clearRepeatForNextMeeting, repeatForNextMeeting } from "../repeat-meeting";
 import { t } from "../i18n";
 
 function SlotBuilder({
@@ -189,7 +190,7 @@ export function CreateEvent({
   navigate: Navigate;
   onBack: () => void;
   setBackOverride: (value: (() => void) | null) => void;
-  onCreated: (event: EventData, group?: CreatedGroup) => void;
+  onCreated: (event: EventData, group?: CreatedGroup, repeatInvited?: number | null) => void;
   groupToken: string | null;
 }) {
   const [step, setStep] = useState(1);
@@ -208,15 +209,18 @@ export function CreateEvent({
       });
     return () => { active = false; };
   }, [groupToken]);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [budgetLimitInput, setBudgetLimitInput] = useState("30");
-  const [visibility, setVisibility] = useState<MeetingVisibility>("private");
+  // «Собрать ещё раз» on a result starts the wizard filled from that meeting.
+  const [repeat] = useState(repeatForNextMeeting);
+  useEffect(() => clearRepeatForNextMeeting(), []);
+  const [title, setTitle] = useState(repeat?.title ?? "");
+  const [description, setDescription] = useState(repeat?.description ?? "");
+  const [budgetLimitInput, setBudgetLimitInput] = useState(repeat ? String(repeat.budgetLimit) : "30");
+  const [visibility, setVisibility] = useState<MeetingVisibility>(repeat?.visibility ?? "private");
   // «Создать встречу» on a venue card starts the wizard with that venue as
   // the first place option and its category chosen.
   const [startVenue] = useState(venueForNextMeeting);
   useEffect(() => clearVenueForNextMeeting(), []);
-  const [category, setCategory] = useState<string | null>(startVenue?.categoryId ?? null);
+  const [category, setCategory] = useState<string | null>(startVenue?.categoryId ?? repeat?.categoryId ?? null);
   const [categoryChoices, setCategoryChoices] = useState<MeetingCategory[]>([]);
   useEffect(() => {
     // Optional: without the list the meeting is simply created without a category.
@@ -227,13 +231,13 @@ export function CreateEvent({
     );
     return () => { active = false; };
   }, []);
-  const [hasParticipantLimit, setHasParticipantLimit] = useState(false);
-  const [maxParticipantsInput, setMaxParticipantsInput] = useState("6");
+  const [hasParticipantLimit, setHasParticipantLimit] = useState(repeat?.maxParticipants != null);
+  const [maxParticipantsInput, setMaxParticipantsInput] = useState(String(repeat?.maxParticipants ?? 6));
   const [timeOptions, setTimeOptions] = useState<string[]>([]);
   // An edited name or address is no longer the catalogue venue: its link
   // (which puts an open meeting on the map) is dropped.
   const [places, setPlaces] = useState<EditablePlaceDraft[]>(() =>
-    startVenue ? [venuePlaceDraft(startVenue, budgetLimitInput)] : [],
+    startVenue ? [venuePlaceDraft(startVenue, budgetLimitInput)] : repeat?.places ?? [],
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -287,7 +291,11 @@ export function CreateEvent({
     let result: Awaited<ReturnType<typeof api.createEvent>> | null;
     try {
       result = await submitCreateEventOnce(draft, submitLock, (payload) =>
-        api.createEvent(groupToken ? { ...payload, groupToken } : payload));
+        api.createEvent({
+          ...payload,
+          ...(groupToken ? { groupToken } : {}),
+          ...(repeat ? { repeatOf: repeat.sourceEventId } : {}),
+        }));
     } catch (reason) {
       haptic("error");
       setError(createEventErrorMessage(reason));
@@ -300,10 +308,11 @@ export function CreateEvent({
     onCreated(
       result.event,
       groupToken ? { chatTitle: groupTitle ?? "", attached: result.groupAttached === true } : undefined,
+      result.repeatInvited,
     );
     void askWriteAccessOnce(() => api.notificationSettings({ writeAccessGranted: true }));
     navigate(createdEventPath(result.event.id), true);
-  }, [budgetLimit, category, description, groupTitle, groupToken, hasParticipantLimit, maxParticipants, maxParticipantsInput, navigate, onCreated, places, saving, timeOptions, title, visibility]);
+  }, [budgetLimit, category, description, groupTitle, groupToken, hasParticipantLimit, maxParticipants, maxParticipantsInput, navigate, onCreated, places, repeat, saving, timeOptions, title, visibility]);
   return (
     <main className="create-screen">
       <Header navigate={navigate} onBack={onBack} title={t("Создание встречи")} variant="nested" />
@@ -313,6 +322,10 @@ export function CreateEvent({
             {t("Встреча для чата «")}{groupTitle}{t("». После создания карточка для голосования появится в чате.")}</p>
         )}
         {groupError && <p className="group-create-note group-create-note-error">{groupError}</p>}
+        {repeat && (
+          <p className="group-create-note">
+            {t("Собираем снова. Выберите новые даты — участники прошлой встречи получат приглашение от бота.")}</p>
+        )}
         <p className="create-step-label">{t("Шаг")} {step}  {t("из 3")}</p>
         <h1>{step === 1 ? t("Что планируем?") : step === 2 ? t("Когда встречаемся?") : t("Где и сколько?")}</h1>
         {step === 2 && (

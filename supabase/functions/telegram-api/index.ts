@@ -47,6 +47,7 @@ import { groupLinkExpiredError, groupLinkNotIssuerError, parseGroupToken } from 
 import { createMeetingLink, eventDeepLink } from "../_shared/notification-messages.ts";
 import { isAdminTelegramId, parseAdminIds, parseClientAnalyticsEvent, startParamSource } from "../_shared/admin-stats.ts";
 import { buildShareCard, parseShareCardKind } from "../_shared/share-card.ts";
+import { parseRepeatOf, repeatErrorToken } from "../_shared/repeat-meeting.ts";
 import { type Language, LANGUAGE_HEADER, languageFromTelegram, parseLanguage } from "../_shared/i18n.ts";
 import {
   adminCity,
@@ -470,6 +471,8 @@ async function createEvent(request: Request, auth: AuthContext) {
   // Checked only after the meeting exists: rejecting a replayed create with
   // a 4xx would make the client forget its idempotency key.
   const groupToken = parseGroupToken(payload.groupToken);
+  // «Собрать ещё раз»: the old meeting whose people are invited once this one exists.
+  const repeatOf = parseRepeatOf(payload.repeatOf);
   const budgetLimit = budgetField(payload.budgetLimit);
   const rpcArgs = {
     p_event_id: id("evt"),
@@ -523,8 +526,13 @@ async function createEvent(request: Request, auth: AuthContext) {
   if (!eventId || (!replayed && eventId !== rpcArgs.p_event_id))
     throw new Error("Create event RPC returned no event.");
   const groupAttached = groupToken ? await attachEventToGroup(eventId, auth.user.id, groupToken) : undefined;
-  if (!replayed) await track("meeting_created", auth.user.id, eventId, groupToken ? "group" : null);
-  const body = { event: await eventPayload(eventId, auth.user.id), ...(groupToken ? { groupAttached } : {}) };
+  const repeatInvited = repeatOf ? await invitePreviousParticipants(auth.user.id, repeatOf, eventId) : undefined;
+  if (!replayed) await track("meeting_created", auth.user.id, eventId, groupToken ? "group" : repeatOf ? "repeat" : null);
+  const body = {
+    event: await eventPayload(eventId, auth.user.id),
+    ...(groupToken ? { groupAttached } : {}),
+    ...(repeatOf ? { repeatInvited } : {}),
+  };
   return json(body, replayed ? 200 : 201);
 }
 
@@ -1181,6 +1189,21 @@ async function groupLink(token: string, auth: AuthContext) {
 }
 
 // The meeting already exists here; a failed attachment is reported, not thrown.
+// Never fails the create: the meeting exists either way. null — not sent
+// (over the limit or not the organizer's meeting); a retried create gets 0.
+async function invitePreviousParticipants(userId: string, sourceEventId: string, eventId: string) {
+  const { data, error } = await db.rpc("invite_previous_participants", {
+    p_actor_user_id: userId,
+    p_source_event_id: sourceEventId,
+    p_event_id: eventId,
+  });
+  if (error) {
+    console.error("invite_previous_participants_rpc_failed", error.code, repeatErrorToken(error));
+    return null;
+  }
+  return typeof data === "number" ? data : null;
+}
+
 async function attachEventToGroup(eventId: string, userId: string, token: string) {
   const { data, error } = await db.rpc("attach_event_to_group", {
     p_event_id: eventId,

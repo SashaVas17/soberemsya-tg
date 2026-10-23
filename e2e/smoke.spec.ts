@@ -47,6 +47,32 @@ test("organizer picks the final time and place and opens the result", async ({ p
   await expect(page.getByText("Кафе у Ратуши").first()).toBeVisible();
 });
 
+test("organizer gathers a decided meeting again with the same places", async ({ page }) => {
+  await page.goto("./#/manage/evt_demo");
+  const finalSelect = (placeholder: string) =>
+    page.locator("select", { has: page.locator("option", { hasText: placeholder }) });
+  await finalSelect("Выберите время").selectOption({ index: 1 });
+  await finalSelect("Выберите место").selectOption({ label: "Кафе у Ратуши · Немига" });
+  await page.getByRole("button", { name: "Принять решение" }).click();
+  await page.getByRole("button", { name: "Открыть результат" }).click();
+  await page.getByRole("button", { name: "Собрать ещё раз" }).click();
+
+  await expect(page).toHaveURL(/#\/create$/);
+  await expect(page.getByText("Собираем снова", { exact: false })).toBeVisible();
+  const title = await page.getByLabel("Название встречи").inputValue();
+  expect(title.length).toBeGreaterThan(0);
+  await page.getByRole("button", { name: "Продолжить" }).click();
+  await page.getByRole("button", { name: "Добавить время" }).click();
+  await page.getByRole("button", { name: "Добавить", exact: true }).click();
+  await page.getByRole("button", { name: "Продолжить" }).click();
+  // The chosen place comes first.
+  await expect(page.locator(".place-draft input").first()).toHaveValue("Кафе у Ратуши");
+  await page.getByRole("button", { name: "Создать встречу" }).click();
+
+  await expect(page.getByRole("heading", { name: "Встреча создана" })).toBeVisible();
+  await expect(page.getByText("Бот пригласит участников прошлой встречи: 2 человека.")).toBeVisible();
+});
+
 test("user changes notification settings", async ({ page }) => {
   await page.goto("./");
   await page.getByRole("button", { name: "Уведомления от бота" }).click();
