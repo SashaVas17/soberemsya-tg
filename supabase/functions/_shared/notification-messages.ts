@@ -15,7 +15,8 @@ export type NotificationKind =
   | "reminder_24h"
   | "reminder_2h"
   | "report_new"
-  | "event_repeated";
+  | "event_repeated"
+  | "decide_reminder";
 
 export type NotificationMessage = {
   text: string;
@@ -120,6 +121,8 @@ export function isNotificationStale(
   eventDeleted: boolean,
 ) {
   if (kind === "event_cancelled") return eventDeleted;
+  // Picking the result is no longer needed once it is picked.
+  if (kind === "decide_reminder") return eventDeleted || eventStatus !== "collecting";
   // The administrator needs a report even about a cancelled meeting.
   if (kind === "report_new") return false;
   return eventDeleted || eventStatus === "cancelled";
@@ -223,6 +226,17 @@ export function renderNotification(
           ),
           t("Выбрать время", "Choose a time"),
         );
+    case "decide_reminder": {
+      const answered = count(payload, "answered");
+      const when = formatMeetingTime(text(payload, "startsAt"), language);
+      return open(
+        t(
+          `Встреча ${title}: итог ещё не выбран, а ближайший вариант — ${when}. Ответили: ${answered}. Выберите время и место.`,
+          `Meeting ${title}: the result is not picked yet, and the nearest option is ${when}. Answered: ${answered}. Pick the time and place.`,
+        ),
+        t("Выбрать итог", "Pick the result"),
+      );
+    }
     case "report_new": {
       const reason = reportReasonLabel(payload.reason, language);
       const name = text(payload, "targetName") || "Telegram";

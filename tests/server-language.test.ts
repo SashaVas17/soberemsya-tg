@@ -52,7 +52,7 @@ describe("notifications", () => {
   const kinds: NotificationKind[] = [
     "response_each", "response_summary", "join_request_new", "join_request_approved", "join_request_rejected",
     "event_decided", "event_cancelled", "event_updated", "event_reopened", "reminder_24h", "reminder_2h", "report_new",
-    "event_repeated",
+    "event_repeated", "decide_reminder",
   ];
   const payload = { title: "Coffee", answered: 3, available: 2, declined: 1, requester: "Ann", startsAt, place: "Park", area: "Centre", reason: "spam", targetType: "user", targetName: "Bob" };
 
