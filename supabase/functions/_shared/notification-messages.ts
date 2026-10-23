@@ -210,13 +210,19 @@ export function renderNotification(
       ));
     }
     case "event_repeated":
-      return open(
-        t(
-          `Организатор снова собирает встречу ${title}. Отметьте удобное время и место.`,
-          `The organizer is gathering ${title} again. Mark the time and place that suit you.`,
-        ),
-        t("Выбрать время", "Choose a time"),
-      );
+      // An open meeting is joined by request, a private one by link.
+      return text(payload, "visibility") === "public"
+        ? open(t(
+          `Организатор снова собирает открытую встречу ${title}. Отправьте заявку, чтобы присоединиться.`,
+          `The organizer is gathering the open meeting ${title} again. Send a request to join.`,
+        ))
+        : open(
+          t(
+            `Организатор снова собирает встречу ${title}. Отметьте удобное время и место.`,
+            `The organizer is gathering ${title} again. Mark the time and place that suit you.`,
+          ),
+          t("Выбрать время", "Choose a time"),
+        );
     case "report_new": {
       const reason = reportReasonLabel(payload.reason, language);
       const name = text(payload, "targetName") || "Telegram";

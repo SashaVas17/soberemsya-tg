@@ -525,8 +525,10 @@ async function createEvent(request: Request, auth: AuthContext) {
   const replayed = !!data && "replayed" in data && data.replayed === true;
   if (!eventId || (!replayed && eventId !== rpcArgs.p_event_id))
     throw new Error("Create event RPC returned no event.");
-  const groupAttached = groupToken ? await attachEventToGroup(eventId, auth.user.id, groupToken) : undefined;
-  const repeatInvited = repeatOf ? await invitePreviousParticipants(auth.user.id, repeatOf, eventId) : undefined;
+  const [groupAttached, repeatInvited] = await Promise.all([
+    groupToken ? attachEventToGroup(eventId, auth.user.id, groupToken) : undefined,
+    repeatOf ? invitePreviousParticipants(auth.user.id, repeatOf, eventId) : undefined,
+  ]);
   if (!replayed) await track("meeting_created", auth.user.id, eventId, groupToken ? "group" : repeatOf ? "repeat" : null);
   const body = {
     event: await eventPayload(eventId, auth.user.id),
@@ -1190,7 +1192,7 @@ async function groupLink(token: string, auth: AuthContext) {
 
 // The meeting already exists here; a failed attachment is reported, not thrown.
 // Never fails the create: the meeting exists either way. null — not sent
-// (over the limit or not the organizer's meeting); a retried create gets 0.
+// (over the limit or an unsuitable meeting); a retried create gets the first count.
 async function invitePreviousParticipants(userId: string, sourceEventId: string, eventId: string) {
   const { data, error } = await db.rpc("invite_previous_participants", {
     p_actor_user_id: userId,

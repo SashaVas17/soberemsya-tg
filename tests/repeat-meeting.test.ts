@@ -78,6 +78,12 @@ describe("«Собрать ещё раз»", () => {
     });
     expect(renderNotification("event_repeated", { title: "Coffee" }, "u", "en").text)
       .toBe("The organizer is gathering “Coffee” again. Mark the time and place that suit you.");
+    // An open meeting is joined by request.
+    expect(renderNotification("event_repeated", { title: "Кофе", visibility: "public" }, "u")).toEqual({
+      text: "Организатор снова собирает открытую встречу «Кофе». Отправьте заявку, чтобы присоединиться.",
+      buttonText: "Открыть встречу",
+      url: "u",
+    });
   });
 
   it("invites only people who can be written to, respects blocks, bans and the limit, once per meeting", () => {
@@ -89,7 +95,13 @@ describe("«Собрать ещё раз»", () => {
     expect(migration).toContain("organizer.banned_at is not null");
     expect(migration).toContain("meeting.repeat_of_event_id is null");
     expect(migration).toContain("source.owner_user_id = p_actor_user_id");
+    expect(migration).toContain("source.status = 'decided' and source.hidden_at is null");
+    expect(migration).not.toContain("source.deleted_at is null");
     expect(migration).toContain("limit 50");
+    // The count is taken before blocks are left out: blocks stay secret.
+    expect(migration).toContain("return v_people;");
+    expect(migration).not.toContain("return v_count;");
+    expect(migration).toContain("v_marked := found;");
     expect(migration).toContain("perform public.consume_action_rate_limit(p_actor_user_id, 'event_repeat');");
     expect(migration).toContain(
       "revoke all on function public.invite_previous_participants(uuid, text, text) from public, anon, authenticated;",
