@@ -44,7 +44,7 @@ import {
 } from "../_shared/event-creation.ts";
 import { notificationSettingsResponse, parseNotificationSettingsUpdate } from "../_shared/notification-settings.ts";
 import { groupLinkExpiredError, groupLinkNotIssuerError, parseGroupToken } from "../_shared/group-chats.ts";
-import { eventDeepLink } from "../_shared/notification-messages.ts";
+import { createMeetingLink, eventDeepLink } from "../_shared/notification-messages.ts";
 import { isAdminTelegramId, parseAdminIds, parseClientAnalyticsEvent, startParamSource } from "../_shared/admin-stats.ts";
 import { buildShareCard, parseShareCardKind } from "../_shared/share-card.ts";
 import { type Language, LANGUAGE_HEADER, languageFromTelegram, parseLanguage } from "../_shared/i18n.ts";
@@ -1234,6 +1234,7 @@ async function shareMessage(request: Request, eventId: string, auth: AuthContext
     url,
     crypto.randomUUID().replaceAll("-", ""),
     auth.language,
+    createMeetingLink(botUsername, appShortName, await referralCode),
   );
   const response = await fetch(`https://api.telegram.org/bot${botToken}/savePreparedInlineMessage`, {
     method: "POST",
@@ -1772,7 +1773,9 @@ async function handleApiRequest(request: Request, url: URL, path: string) {
     const [, profile] = await Promise.all([
       track("app_open", auth.user.id, start?.type === "event" ? start.eventId : null, startParamSource(auth.startParam)),
       signInProfile(auth.user.id),
-      start?.type === "event" && start.referralCode ? recordReferral(auth.user.id, start.referralCode) : null,
+      (start?.type === "event" || start?.type === "create") && start.referralCode
+        ? recordReferral(auth.user.id, start.referralCode)
+        : null,
     ]);
     // The code is made once, on the first sign-in; later it comes with the profile.
     const referralCode = profile.referralCode ?? await ensureReferralCode(auth.user.id);

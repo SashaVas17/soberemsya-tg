@@ -32,6 +32,7 @@ export function buildShareCard(
   url: string,
   resultId: string,
   language: Language = "ru",
+  createUrl: string | null = null,
 ) {
   const t = (ru: string, en: string) => tr(language, ru, en);
   const title = quotedTitle(shorten(event.title, 120), language);
@@ -57,6 +58,12 @@ export function buildShareCard(
       ? t("Карточка с итогом встречи", "A card with the meeting result")
       : t("Карточка с кнопкой для голосования", "A card with a voting button"),
     input_message_content: { message_text: messageText, link_preview_options: { is_disabled: true } },
-    reply_markup: { inline_keyboard: [[{ text: buttonText, url }]] },
+    // Under the card, a way for a recipient to make their own meeting (growth plan).
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: buttonText, url }],
+        ...(createUrl ? [[{ text: t("Организовать свою встречу", "Plan your own meeting"), url: createUrl }]] : []),
+      ],
+    },
   };
 }

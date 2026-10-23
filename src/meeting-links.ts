@@ -14,6 +14,11 @@ export function miniAppLink(
   return `https://t.me/${bot}/${app}?startapp=event_${eventId}${referralCode ? `__r${referralCode}` : ""}`;
 }
 
+/** The button under a shared card (startapp=create, maybe with the sharer's code). */
+export function isCreateStartParam(startParam: string) {
+  return /^create(?:__r[A-Za-z0-9_-]*)?$/.test(startParam);
+}
+
 /** The meeting an event_ link opens, without the referral code (even a damaged one). */
 export function startParamEventId(startParam: string) {
   const match = startParam.match(/^event_([A-Za-z0-9_-]{3,80}?)(?:__r[A-Za-z0-9_-]*)?$/);

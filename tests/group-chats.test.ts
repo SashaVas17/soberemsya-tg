@@ -148,6 +148,8 @@ describe("share card", () => {
     expect(card.type).toBe("article");
     expect(card.input_message_content.message_text).toBe("Соберёмся? «Шашлыки»\nБерём мангал\nОтметьте удобное время и место.");
     expect(card.reply_markup.inline_keyboard[0][0]).toEqual({ text: "Проголосовать", url });
+    // Without a create link the card keeps its single button.
+    expect(card.reply_markup.inline_keyboard).toHaveLength(1);
   });
 
   it("builds a result card and shortens long descriptions", () => {

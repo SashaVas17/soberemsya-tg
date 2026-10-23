@@ -108,6 +108,11 @@ describe("share cards and date summaries", () => {
     const invite = buildShareCard("invite", { title: "Coffee", description: "" }, "u", "id", "en");
     expect(invite.input_message_content.message_text).toBe("Shall we meet? “Coffee”\nMark the time and place that suit you.");
     expect(JSON.stringify(invite)).not.toMatch(cyrillic);
+    const withCreate = buildShareCard("invite", { title: "Coffee", description: "" }, "u", "id", "en", "https://t.me/b/app?startapp=create");
+    expect(withCreate.reply_markup.inline_keyboard).toEqual([
+      [{ text: "Vote", url: "u" }],
+      [{ text: "Plan your own meeting", url: "https://t.me/b/app?startapp=create" }],
+    ]);
     const result = buildShareCard("result", { title: "Coffee", description: "", startsAt, place: "Park" }, "u", "id", "en");
     expect(JSON.stringify(result)).not.toMatch(cyrillic);
   });

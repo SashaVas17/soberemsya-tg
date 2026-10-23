@@ -97,6 +97,7 @@ export function referralStartParam(startParam: string | null) {
 export type StartParam =
   | { type: "event"; eventId: string; referralCode?: string }
   | { type: "group"; token: string }
+  | { type: "create"; referralCode?: string }
   | { type: "home" };
 
 /**
@@ -107,6 +108,9 @@ export type StartParam =
 export function parseStartParam(startParam: string | null): StartParam | null {
   if (!startParam) return null;
   if (startParam === "ntf") return { type: "home" };
+  // The button under a shared card: the app opens on the new-meeting screen.
+  const create = startParam.match(/^create(?:__r([A-Za-z0-9_-]*))?$/);
+  if (create) return create[1] && REFERRAL_CODE.test(create[1]) ? { type: "create", referralCode: create[1] } : { type: "create" };
   // Report notifications for the administrator open the reports screen.
   if (startParam === "reports") return { type: "home" };
   const notification = startParam.match(/^ntf_([A-Za-z0-9_-]{3,80})$/);
