@@ -52,9 +52,12 @@ export default function App() {
   const [createdEvent, setCreatedEvent] = useState<EventData | null>(null);
   const [createdGroup, setCreatedGroup] = useState<(CreatedGroup & { eventId: string }) | null>(null);
   const [groupToken, setGroupToken] = useState<string | null>(null);
-  const handleCreated = useCallback((event: EventData, group?: CreatedGroup) => {
+  // «Собрать ещё раз»: how many people of the old meeting the bot invites.
+  const [createdRepeat, setCreatedRepeat] = useState<{ eventId: string; invited: number | null } | null>(null);
+  const handleCreated = useCallback((event: EventData, group?: CreatedGroup, repeatInvited?: number | null) => {
     setCreatedEvent(event);
     setCreatedGroup(group ? { ...group, eventId: event.id } : null);
+    setCreatedRepeat(repeatInvited !== undefined ? { eventId: event.id, invited: repeatInvited } : null);
     if (group) setGroupToken(null);
   }, []);
   // A group link applies only to the create screen it opened.
@@ -149,6 +152,7 @@ export default function App() {
         event={createdEvent?.id === created ? createdEvent : null}
         eventId={created}
         group={createdGroup?.eventId === created ? createdGroup : null}
+        repeatInvited={createdRepeat?.eventId === created ? createdRepeat.invited : undefined}
         navigate={navigate}
         onBack={backOverride ?? goBack}
       />

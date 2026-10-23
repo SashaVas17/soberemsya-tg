@@ -516,7 +516,12 @@ export const mockApi = {
     mockEventCategoryId = mockCategories.some((category) => category.id === payload.category)
       ? payload.category
       : null;
-    return { ...cloneEventResponse(), groupAttached: payload.groupToken ? true : undefined };
+    return {
+      ...cloneEventResponse(),
+      groupAttached: payload.groupToken ? true : undefined,
+      // «Собрать ещё раз»: the mock invites everyone of the previous meeting but the organizer.
+      repeatInvited: payload.repeatOf ? 2 : undefined,
+    };
   },
   saveResponse: async (_id: string, payload: any) => {
     event = applyMockResponse(event, auth.user, payload);

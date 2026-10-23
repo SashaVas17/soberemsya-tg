@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CalendarPlus, CalendarDays, Check, Clock3, MapPin, Send, Users } from "lucide-react";
+import { CalendarPlus, CalendarDays, Check, Clock3, MapPin, Repeat, Send, Users } from "lucide-react";
 import { api } from "../api";
 import { googleCalendarUrl } from "../calendar";
 import { areaLeaders, formatSlot, plural } from "../domain";
@@ -11,6 +11,7 @@ import { Header, Loading, RetryState, Refresh } from "../ui/common";
 import { useEvent } from "../app-hooks";
 import { LeaveMeetingAction } from "../ui/LeaveMeetingAction";
 import { usePreparedShare, shareResult } from "../share";
+import { startRepeatMeeting } from "../repeat-meeting";
 import { t } from "../i18n";
 
 export function Result({
@@ -176,6 +177,18 @@ export function Result({
             <CalendarPlus size={18} />
             {t("Календарь iPhone")}</button>
           {calendarError && <p className="form-error">{calendarError}</p>}
+          {event.canManage && event.status === "decided" && (
+            <button
+              className="secondary-action repeat-meeting-action"
+              onClick={() => {
+                startRepeatMeeting(event);
+                navigate("/create");
+              }}
+              type="button"
+            >
+              <Repeat size={18} />
+              {t("Собрать ещё раз")}</button>
+          )}
           <LeaveMeetingAction event={event} eventId={eventId} navigate={navigate} />
           <button
             className="text-action result-home-action"

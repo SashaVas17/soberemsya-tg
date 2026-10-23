@@ -4,19 +4,22 @@ import type { EventData } from "../types";
 import type { Navigate, CreatedGroup } from "../app-types";
 import { Header } from "../ui/common";
 import { miniAppLink, usePreparedShare, shareEvent } from "../share";
-import { t } from "../i18n";
+import { plural, t } from "../i18n";
 
 export function Created({
   eventId,
   navigate,
   event,
   group,
+  repeatInvited,
   onBack,
 }: {
   eventId: string;
   navigate: Navigate;
   event: EventData | null;
   group: CreatedGroup | null;
+  /** «Собрать ещё раз»: invited people of the old meeting; null — not sent. */
+  repeatInvited?: number | null;
   onBack: () => void;
 }) {
   const link = miniAppLink(eventId);
@@ -33,6 +36,16 @@ export function Created({
           <p>{t("Всё готово! Теперь можно приглашать друзей.")}</p>
           {group?.attached && (
             <p className="group-create-note">{t("Карточка встречи появится")} {chat}  {t("в течение минуты.")}</p>
+          )}
+          {typeof repeatInvited === "number" && repeatInvited > 0 && (
+            <p className="group-create-note">
+              {t("Бот пригласит участников прошлой встречи: {people}.", {
+                people: plural(repeatInvited, "человек", "человека", "человек"),
+              })}</p>
+          )}
+          {repeatInvited === null && (
+            <p className="group-create-note group-create-note-error">
+              {t("Приглашения участникам прошлой встречи не отправлены. Поделитесь встречей вручную.")}</p>
           )}
           {group && !group.attached && (
             <p className="group-create-note group-create-note-error">
